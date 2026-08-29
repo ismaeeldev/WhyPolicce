@@ -1,0 +1,28 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+!frontend/.env.example
+npm-debug.log*
+
+# Python / FastAPI
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.env
+!backend/.env.example
+*.pyc
+backend/*.db
+
+# General
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Internal docs (not for client/public repo)
+AgentGuide/
+CLIENT_DEPLOYMENT_GUIDE.md

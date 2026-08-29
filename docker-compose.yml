@@ -1,0 +1,48 @@
+# WhyPolice — local one-command run. AgentGuide/00_SCOPE.md §3 point 11 /
+# AgentGuide/03_MasterPromptGuide.md Step 9.
+#
+# `docker-compose up --build` boots both services. Env vars are passed via
+# each service's own .env file (env_file:), never baked into the images —
+# see frontend/.env.example and backend/.env.example for what to fill in.
+#
+# NEXT_PUBLIC_BACKEND_URL is deliberately set to http://localhost:8000, NOT
+# an internal Docker network hostname like http://backend:8000 — every
+# backend call in this app (lib/api-client.ts, useSearchStream, useBilling,
+# etc.) runs client-side in the user's own browser, which can only reach the
+# backend's published host port, not Docker's internal service-discovery
+# DNS (that only resolves container-to-container, e.g. frontend's own
+# server-side code calling backend — which this app doesn't do). If a
+# server-side call to the backend is ever added, it would need the internal
+# hostname `http://backend:8000` instead, read from a separate env var.
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overrides whatever PORT the .env file has — the container must
+      # always listen on 8000 internally to match the port mapping above.
+      PORT: "8000"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env.local
+    depends_on:
+      backend:
+        condition: service_healthy

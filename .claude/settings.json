@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(taskkill //F //PID 20356 //T)",
+      "Bash(npm uninstall *)",
+      "Bash(npm run *)",
+      "Bash(npx --yes lighthouse http://localhost:3005/ --chrome-flags=\"--headless --no-sandbox --disable-gpu\" --output=json --output-path=./__lh_prod2.json --only-categories=performance,accessibility --quiet)",
+      "Bash(./venv/Scripts/python.exe -c ' *)",
+      "Bash(cat)",
+      "Bash(./venv/Scripts/python.exe /tmp/test_api_me.py)",
+      "Bash(./venv/Scripts/python.exe /tmp/test_race_endpoint.py)",
+      "Bash(grep -i \"test_local\\\\|\\\\.db$\")",
+      "Bash(./venv/Scripts/python.exe -m uvicorn app.main:app --port 8000)",
+      "Bash(./venv/Scripts/python.exe /tmp/test_rate_limit.py)",
+      "Bash(./venv/Scripts/python.exe /tmp/test_search_stream.py)",
+      "Bash(grep -i \"\\\\.db$\")",
+      "Bash(\"venv/Scripts/python.exe\" -m uvicorn app.main:app --reload --port 8000)",
+      "Bash(taskkill //F //PID 25052)",
+      "Bash(npx lighthouse *)",
+      "Bash(node -e ' *)",
+      "Bash(taskkill //F //PID 11604)"
+    ]
+  }
+}

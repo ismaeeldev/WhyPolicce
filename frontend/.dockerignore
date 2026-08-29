@@ -1,0 +1,24 @@
+# Never let real secrets or local dev artifacts into the build context —
+# found missing during the Step 9 audit; without this, `COPY . .` in the
+# Dockerfile would copy .env.local (real Auth0 secrets) straight into a
+# build layer, exactly the "accidentally-baked-in secrets" class of bug
+# the Step 9 Bug Sweep explicitly calls out to check for.
+.env
+.env.local
+.env.*.local
+
+node_modules
+.next
+out
+
+.git
+.gitignore
+
+*.md
+!README.md
+
+.vscode
+.idea
+
+npm-debug.log*
+.DS_Store

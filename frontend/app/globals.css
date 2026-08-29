@@ -1,0 +1,241 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  WhyPolice design tokens — AgentGuide/01_ThemeGuideline.md §1, §2, §3.
+  Every hex value here has been run through an actual WCAG contrast check
+  (§1.4 of that file) — do not hand-edit a color without re-checking contrast.
+*/
+
+@theme inline {
+  /* semantic color tokens */
+  --color-bg: var(--wp-bg);
+  --color-bg-elevated: var(--wp-bg-elevated);
+  --color-bg-subtle: var(--wp-bg-subtle);
+  --color-border-default: var(--wp-border);
+  --color-border-strong: var(--wp-border-strong);
+  --color-text-primary: var(--wp-text-primary);
+  --color-text-secondary: var(--wp-text-secondary);
+  --color-text-muted: var(--wp-text-muted);
+  --color-accent: var(--wp-accent);
+  --color-accent-hover: var(--wp-accent-hover);
+  --color-accent-bright: var(--wp-accent-bright);
+  --color-accent-subtle: var(--wp-accent-subtle);
+  --color-accent-foreground: var(--wp-accent-foreground);
+  --color-success: var(--wp-success);
+  --color-warning: var(--wp-warning);
+  --color-warning-subtle: var(--wp-warning-subtle);
+  --color-danger: var(--wp-danger);
+  --color-danger-subtle: var(--wp-danger-subtle);
+  --color-danger-foreground: var(--wp-danger-foreground);
+
+  /* shadcn component tokens — remapped onto WhyPolice tokens so generated
+     components (Button, etc.) use the real theme without per-component edits */
+  --color-background: var(--wp-bg);
+  --color-foreground: var(--wp-text-primary);
+  --color-card: var(--wp-bg-elevated);
+  --color-card-foreground: var(--wp-text-primary);
+  --color-popover: var(--wp-bg-elevated);
+  --color-popover-foreground: var(--wp-text-primary);
+  --color-primary: var(--wp-accent);
+  --color-primary-foreground: var(--wp-accent-foreground);
+  --color-secondary: var(--wp-bg-subtle);
+  --color-secondary-foreground: var(--wp-text-primary);
+  --color-muted: var(--wp-bg-subtle);
+  --color-muted-foreground: var(--wp-text-muted);
+  --color-destructive: var(--wp-danger);
+  --color-border: var(--wp-border);
+  --color-input: var(--wp-border);
+  --color-ring: var(--wp-accent);
+
+  --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-fraunces);
+
+  /* radius scale — AgentGuide/01_ThemeGuideline.md §3 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  /* shadow scale — §3 */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+
+  /* type scale — §2.1 — full named set so future components reference
+     text-display-xl / text-h1 / text-body-lg etc. instead of guessing raw
+     Tailwind sizes per-component (the gap a first pass here left open) */
+  --text-display-xl: 4.5rem;
+  --text-display-xl--line-height: 1.05;
+  --text-display-lg: 3rem;
+  --text-display-lg--line-height: 1.1;
+  --text-h1: 2.25rem;
+  --text-h1--line-height: 1.2;
+  --text-h2: 1.5rem;
+  --text-h2--line-height: 1.3;
+  --text-h3: 1.125rem;
+  --text-h3--line-height: 1.4;
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.6;
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.5;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
+}
+
+:root {
+  --wp-bg: #f9f8f4;
+  --wp-bg-elevated: #ffffff;
+  --wp-bg-subtle: #f1efe9;
+  --wp-border: #e4e1d8;
+  --wp-border-strong: #d3cfc2;
+  --wp-text-primary: #1a1a18;
+  --wp-text-secondary: #5c594f;
+  --wp-text-muted: #6e6a5c;
+  --wp-accent: #b0521f;
+  --wp-accent-hover: #8f421b;
+  --wp-accent-bright: #c9622b;
+  --wp-accent-subtle: #f3e2d3;
+  --wp-accent-foreground: #ffffff;
+  --wp-success: #2e7d4f;
+  --wp-warning: #8a6508;
+  --wp-warning-subtle: #f3e6c9;
+  --wp-danger: #b23a2e;
+  --wp-danger-subtle: #f5e1de;
+  --wp-danger-foreground: #ffffff;
+}
+
+.dark {
+  --wp-bg: #15140f;
+  --wp-bg-elevated: #1e1c16;
+  --wp-bg-subtle: #26241c;
+  --wp-border: #332f24;
+  --wp-border-strong: #463f2d;
+  --wp-text-primary: #f5f3ec;
+  --wp-text-secondary: #b8b3a0;
+  --wp-text-muted: #968f7a;
+  --wp-accent: #e08a4f;
+  --wp-accent-hover: #ea9c63;
+  --wp-accent-bright: #e89a5f;
+  --wp-accent-subtle: #3a2e18;
+  /* Step 8 audit finding: white text on this lighter dark-mode accent
+     fails WCAG AA (2.65:1, needs 4.5:1) on solid accent-filled CTA
+     buttons — #e08a4f is much lighter than light mode's #b0521f accent,
+     which does pass with white text. Dark near-black text instead,
+     matching --wp-bg's dark value, gives ~7.6:1. */
+  --wp-accent-foreground: #15140f;
+  --wp-success: #4caf7d;
+  --wp-warning: #d9a441;
+  --wp-warning-subtle: #3a2e13;
+  --wp-danger: #e2685c;
+  --wp-danger-subtle: #3a201c;
+  /* Same class of bug as --wp-accent-foreground above: white text on this
+     dark-mode danger red is only 3.30:1 (fails AA's 4.5:1). Dark near-black
+     passes comfortably (~5.8:1). */
+  --wp-danger-foreground: #15140f;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Step 8 audit finding: display-lg/xl (48px+, used as the mobile-first
+     heading size by design — see app/page.tsx's H1) can force horizontal
+     overflow at very narrow viewports (280px, folded-phone width) when a
+     single word is long enough on its own. Preserves the deliberate
+     large-type look everywhere else; only kicks in at the extreme case. */
+  h1 {
+    overflow-wrap: anywhere;
+  }
+  /* UI modernization pass finding: Tailwind's Preflight resets native
+     <button> cursor to `default`, so every raw <button> in the app (icon
+     buttons, dialog actions, chip toggles, etc.) showed the arrow cursor
+     instead of a pointer on hover — a real, product-wide affordance bug.
+     The shared Button component (components/ui/button.tsx) now sets
+     cursor-pointer explicitly; this covers every remaining raw <button>
+     so nothing was missed. disabled: falls back to not-allowed. */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/* skeleton shimmer — AgentGuide/01_ThemeGuideline.md §4.9 */
+@keyframes wp-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.wp-skeleton {
+  background-color: var(--wp-bg-subtle);
+  background-image: linear-gradient(
+    90deg,
+    var(--wp-bg-subtle) 0%,
+    var(--wp-border) 50%,
+    var(--wp-bg-subtle) 100%
+  );
+  background-size: 200% 100%;
+  animation: wp-shimmer 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-skeleton {
+    animation: none;
+    background-image: none;
+  }
+}
+
+/* hero ambient decoration — AgentGuide/01_ThemeGuideline.md §6, very slow
+   (20s+), GPU-cheap (transform/opacity only), never distracts from the
+   search bar per the Step 2 Design Quality Bar */
+@keyframes wp-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-24px, 28px) scale(1.06);
+  }
+}
+
+.animate-wp-drift {
+  animation: wp-drift 24s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-wp-drift {
+    animation: none;
+  }
+}
+
+/* Step 8 audit finding: the base-ui component kit's open/close transitions
+   (Dialog, AlertDialog, Sheet, DropdownMenu — powered by tw-animate-css's
+   animate-in/animate-out/fade/zoom utilities) don't respect
+   prefers-reduced-motion on their own, unlike the Framer Motion tree (see
+   providers.tsx's MotionConfig) and the CSS-keyframe animations above.
+   Standard reduced-motion CSS reset: collapse everything using these
+   data-attribute-driven transitions to effectively instant. */
+@media (prefers-reduced-motion: reduce) {
+  [data-open],
+  [data-closed] {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

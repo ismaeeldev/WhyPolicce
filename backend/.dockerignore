@@ -1,0 +1,16 @@
+# Same reasoning as frontend/.dockerignore — .env holds a real Neon
+# connection string, Auth0 domain, and Stripe secret key; never let it (or
+# the local dev venv/db) into the Docker build context.
+.env
+.env.*.local
+
+venv
+__pycache__
+*.pyc
+*.db
+
+.git
+.gitignore
+
+*.md
+!README.md
