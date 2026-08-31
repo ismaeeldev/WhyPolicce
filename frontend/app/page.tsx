@@ -5,13 +5,13 @@ import { HeroContent } from "@/components/marketing/HeroContent";
 import { ScrollReveal } from "@/components/marketing/ScrollReveal";
 
 export const metadata: Metadata = {
-  title: "WhyPolice — Ask why. Get the answer, live.",
+  title: "WhyPolice — Public safety intelligence, live.",
   description:
-    "A calm, real-time AI search that streams its answer as it thinks — no ads, no clutter, no ten blue links. Sign up free.",
+    "Ask about police reports, case updates, and public safety data — and watch a clear, sourced answer stream in as it's written. Sign up free.",
   openGraph: {
-    title: "WhyPolice — Ask why. Get the answer, live.",
+    title: "WhyPolice — Public safety intelligence, live.",
     description:
-      "A calm, real-time AI search that streams its answer as it thinks — no ads, no clutter, no ten blue links.",
+      "Ask about police reports, case updates, and public safety data — and watch a clear, sourced answer stream in as it's written.",
     type: "website",
   },
 };
@@ -20,7 +20,7 @@ const STEPS = [
   {
     n: "01",
     title: "Ask, plainly",
-    body: "Type a real question, the way you'd ask a person — no keyword-stuffing required.",
+    body: "Type a real question about a case, report, or local safety policy — no keyword-stuffing required.",
   },
   {
     n: "02",
@@ -53,9 +53,9 @@ export default function Home() {
               HTML, never gated behind client-side JS/animation. See
               components/marketing/HeroContent.tsx for why. */}
           <h1 className="font-display text-display-lg sm:text-display-xl leading-[1.05] text-text-primary">
-            Ask why.
+            Public safety intelligence.
             <br />
-            Get the answer, live.
+            Answered live.
           </h1>
           <HeroContent />
         </div>
@@ -84,9 +84,9 @@ export default function Home() {
         <ScrollReveal className="mx-auto max-w-[720px] text-center">
           <Sparkles className="h-6 w-6 text-accent mx-auto mb-6" strokeWidth={1.5} />
           <p className="font-display text-2xl sm:text-3xl leading-snug text-text-primary">
-            We built WhyPolice on one belief: search stopped being about finding
-            answers and started being about winning your attention. We wanted
-            the first one back.
+            We built WhyPolice on one belief: public safety information
+            shouldn&apos;t take a dozen tabs and a records request to
+            understand. Ask plainly, get a clear answer.
           </p>
         </ScrollReveal>
       </section>

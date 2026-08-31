@@ -36,8 +36,9 @@ export function HeroContent() {
         transition={{ duration: 0.5, ease: EASE }}
         className="mt-5 max-w-[520px] text-body-lg text-text-secondary"
       >
-        Real-time search that streams its answer as it thinks — no ads, no
-        clutter, just what you asked.
+        Ask about police reports, case updates, curfews, and public safety
+        data — the answer streams in live, no ads, no clutter, just what
+        you asked.
       </motion.p>
 
       <motion.div

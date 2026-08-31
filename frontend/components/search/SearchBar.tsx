@@ -11,17 +11,17 @@ import { trackEvent } from "@/lib/analytics";
 const PENDING_QUERY_KEY = "wp_pending_query";
 
 const PLACEHOLDER_EXAMPLES = [
-  "Compare Roth IRA vs 401k for a freelancer",
-  "Why does the sky turn orange at sunset?",
-  "Summarize the latest Fed rate decision",
-  "Explain quantum entanglement like I'm 12",
+  "Why did the NYPD close the case on Wall Street?",
+  "What is the curfew in Austin tonight?",
+  "Summarize the latest incident report for downtown Seattle",
+  "Has there been a case update for the Main Street robbery?",
 ];
 
 const EXAMPLE_CHIPS = [
-  "Explain the James Webb deep field image",
-  "Draft a polite deadline-extension email",
-  "Why do cats knead blankets?",
-  "What's the difference between weather and climate?",
+  "What's the curfew policy in Chicago this weekend?",
+  "Give me a summary of last week's precinct incident log",
+  "Is there an active public safety alert in my area?",
+  "What happened in the case filed against a local business?",
 ];
 
 type SearchBarProps = {

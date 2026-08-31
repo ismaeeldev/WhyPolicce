@@ -5,28 +5,30 @@ import { ScrollReveal } from "@/components/marketing/ScrollReveal";
 export const metadata: Metadata = {
   title: "About — WhyPolice",
   description:
-    "Why we built a search product that streams answers in real time, keeps accounts spam-free, and never turns your questions into a product.",
+    "Why we built an AI search product for police reports, municipal logs, and public safety data that streams answers in real time and never turns your questions into a product.",
   openGraph: {
     title: "About — WhyPolice",
     description:
-      "Why we built a search product that streams answers in real time, keeps accounts spam-free, and never turns your questions into a product.",
+      "Why we built an AI search product for police reports, municipal logs, and public safety data that streams answers in real time and never turns your questions into a product.",
     type: "website",
   },
 };
 
 const PARAGRAPHS = [
   <>
-    Somewhere along the way, search stopped being about answers. It
-    became ten blue links, three ads above the fold, and a page you
-    scroll through hoping something useful is buried in it. We wanted
-    the opposite: ask a real question, watch the answer arrive as it&apos;s
-    formed, and move on with your day.
+    Public safety information is scattered across police department
+    sites, municipal logs, and records requests that take days to
+    answer a question you needed today. We wanted the opposite: ask a
+    real question about a case, a curfew, or a local incident, and
+    watch the answer arrive as it&apos;s formed.
   </>,
   <>
     That&apos;s the whole idea behind WhyPolice. You type a question the way
     you&apos;d ask a person. The answer streams back in real time — no
     spinner, no waiting for a page to finish loading, just the response
-    building itself in front of you.
+    building itself in front of you. When something needs a live,
+    official record rather than a general answer, we say so plainly
+    and point you to the right source instead of guessing.
   </>,
   <>
     We ask you to sign in before searching, and we know that&apos;s a small
@@ -47,7 +49,7 @@ export default function AboutPage() {
     <div className="mx-auto max-w-[680px] px-6 py-20 sm:py-28">
       <ScrollReveal>
         <h1 className="font-display text-display-lg leading-[1.1] mb-8">
-          We got tired of searching for the search results.
+          Public safety information shouldn&apos;t take a records request.
         </h1>
       </ScrollReveal>
 
