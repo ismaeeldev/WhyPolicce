@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Pencil, Trash2 } from "lucide-react";
+import { BrainCircuit, Pencil, Trash2 } from "lucide-react";
 
 import {
   AlertDialog,
@@ -28,6 +28,13 @@ const CARD_VARIANTS = {
  * Memory note card — AgentGuide/01_ThemeGuideline.md §4.4, same hover-lift
  * language as SessionCard (Step 6) for visual consistency across the app's
  * card surfaces.
+ *
+ * UI polish pass: this card and SessionCard were visually identical
+ * (same border/shadow/hover), so History and Memory read as the same
+ * screen re-skinned. Added a small BrainCircuit glyph — already the
+ * app's established icon for "memory" (Navbar, Account page) — as a
+ * quiet per-card marker that differentiates the two surfaces without
+ * breaking their intentional shared card language.
  */
 export function NoteCard({
   note,
@@ -57,9 +64,12 @@ export function NoteCard({
       className="group rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6 shadow-none transition-shadow duration-150 hover:shadow-card"
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-body text-text-primary leading-relaxed whitespace-pre-wrap">
-          {note.content}
-        </p>
+        <div className="flex items-start gap-2.5 min-w-0">
+          <BrainCircuit className="h-4 w-4 shrink-0 mt-1 text-accent" strokeWidth={1.75} />
+          <p className="text-body text-text-primary leading-relaxed whitespace-pre-wrap">
+            {note.content}
+          </p>
+        </div>
         {isSaving ? (
           <span className="shrink-0 text-caption text-text-muted">Saving…</span>
         ) : (

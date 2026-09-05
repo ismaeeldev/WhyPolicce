@@ -4,6 +4,7 @@ Verifies the signature (against Auth0's published JWKS for AUTH0_DOMAIN),
 issuer, and audience of an incoming Bearer token, and extracts auth0_sub/email.
 """
 
+import time
 from dataclasses import dataclass
 
 import httpx
@@ -27,15 +28,32 @@ class AuthenticatedUser:
 
 
 _jwks_cache: dict | None = None
+_jwks_cache_at: float = 0.0
+
+# Found during hardening: the previous cache never expired for the entire
+# process lifetime (only fetched once, ever, on first use). Auth0
+# periodically rotates its signing keys — a real, documented operational
+# event, not hypothetical — and once that happens, every new token signed
+# with the new key would fail "Signing key not found for this token" until
+# the backend process happened to restart. 1 hour balances not hammering
+# Auth0's JWKS endpoint on every request against not staying stale for
+# days after a real rotation.
+_JWKS_CACHE_TTL_SECONDS = 3600
 
 
-def _get_jwks() -> dict:
-    global _jwks_cache
-    if _jwks_cache is None:
-        url = f"https://{settings.AUTH0_DOMAIN}/.well-known/jwks.json"
-        resp = httpx.get(url, timeout=5.0)
-        resp.raise_for_status()
-        _jwks_cache = resp.json()
+def _fetch_jwks() -> dict:
+    url = f"https://{settings.AUTH0_DOMAIN}/.well-known/jwks.json"
+    resp = httpx.get(url, timeout=5.0)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _get_jwks(force_refresh: bool = False) -> dict:
+    global _jwks_cache, _jwks_cache_at
+    is_stale = _jwks_cache is None or (time.monotonic() - _jwks_cache_at) > _JWKS_CACHE_TTL_SECONDS
+    if is_stale or force_refresh:
+        _jwks_cache = _fetch_jwks()
+        _jwks_cache_at = time.monotonic()
     return _jwks_cache
 
 
@@ -50,15 +68,48 @@ def verify_token(token: str) -> AuthenticatedUser:
     except JOSEError as exc:
         raise AuthError("Malformed token") from exc
 
-    jwks = _get_jwks()
-    rsa_key = next(
-        (
-            {"kty": k["kty"], "kid": k["kid"], "use": k["use"], "n": k["n"], "e": k["e"]}
-            for k in jwks.get("keys", [])
-            if k.get("kid") == unverified_header.get("kid")
-        ),
-        None,
-    )
+    # Found during hardening: a real JWKS-fetch failure (Auth0 outage,
+    # network issue, DNS problem — httpx.HTTPError and its subclasses, not
+    # a JOSEError) was previously left uncaught here, leaking a raw
+    # exception straight past this function's own documented contract
+    # ("never raises a raw exception past this boundary") and surfacing
+    # as an unhandled 500 to the user instead of a clean 401 — verified
+    # by forcing a real ConnectTimeout through _get_jwks() and confirming
+    # it leaked unhandled before this fix. This is a genuinely different
+    # failure than "malformed token" (which fails the block above, before
+    # any network call happens), so it gets its own distinct message —
+    # useful for whoever investigates a real spike of these, so they look
+    # at Auth0/network connectivity, not token formatting.
+    try:
+        jwks = _get_jwks()
+    except httpx.HTTPError as exc:
+        raise AuthError("Could not verify token — identity provider unreachable") from exc
+
+    def _find_key(keys: list[dict]) -> dict | None:
+        return next(
+            (
+                {"kty": k["kty"], "kid": k["kid"], "use": k["use"], "n": k["n"], "e": k["e"]}
+                for k in keys
+                if k.get("kid") == unverified_header.get("kid")
+            ),
+            None,
+        )
+
+    rsa_key = _find_key(jwks.get("keys", []))
+    if rsa_key is None:
+        # A key genuinely missing from an up-to-TTL cache is itself a
+        # strong signal a real Auth0 key rotation just happened (not just
+        # a malformed/forged token — those fail signature verification
+        # below, not this lookup) — force one immediate refresh before
+        # giving up, rather than waiting up to _JWKS_CACHE_TTL_SECONDS for
+        # the normal refresh to happen on its own. Same httpx.HTTPError
+        # protection as the first _get_jwks() call above — this refresh
+        # attempt can fail for the same real network/outage reasons.
+        try:
+            jwks = _get_jwks(force_refresh=True)
+        except httpx.HTTPError as exc:
+            raise AuthError("Could not verify token — identity provider unreachable") from exc
+        rsa_key = _find_key(jwks.get("keys", []))
     if rsa_key is None:
         raise AuthError("Signing key not found for this token")
 

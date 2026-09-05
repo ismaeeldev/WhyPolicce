@@ -10,4 +10,6 @@ stripe
 slowapi
 openai
 google-genai
+pgvector==0.5.0
+apscheduler==3.11.3
 pytest

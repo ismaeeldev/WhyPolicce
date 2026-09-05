@@ -95,12 +95,24 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
           whileInView="show"
           viewport={{ once: true, margin: "-40px" }}
           variants={cardVariants}
-          className={`relative rounded-lg bg-bg-elevated p-6 sm:p-8 transition-shadow duration-200 hover:shadow-card ${
+          className={`relative overflow-hidden rounded-lg bg-bg-elevated p-6 sm:p-8 transition-shadow duration-200 hover:shadow-card ${
             plan.featured
               ? "border-2 border-accent shadow-card"
               : "border border-border-default"
           }`}
         >
+          {/* Free card previously read as a plain afterthought next to
+              Pro's border/shadow/badge — UI polish pass gives it its own
+              quiet visual identity (a soft corner texture) instead of
+              just "the un-highlighted one." */}
+          {!plan.featured && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.06]"
+              style={{ background: "radial-gradient(circle, var(--wp-text-primary) 0%, transparent 70%)" }}
+            />
+          )}
+
           {plan.featured && (
             <span className="absolute -top-3 left-6 rounded-full bg-accent-subtle px-2.5 py-0.5 text-caption font-medium text-text-primary">
               Most popular
@@ -128,14 +140,14 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
               type="button"
               onClick={onUpgradeClick}
               disabled={upgradePending}
-              className="mt-6 block w-full rounded-sm bg-accent px-4 py-2.5 text-center text-body-sm font-medium text-accent-foreground hover:bg-accent-hover transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+              className="mt-6 block w-full rounded-sm bg-accent px-4 py-2.5 text-center text-body-sm font-medium text-accent-foreground transition-all hover:bg-accent-hover active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               {upgradePending ? "Starting checkout…" : plan.cta}
             </button>
           ) : authenticated ? null : (
             <Link
               href={plan.href}
-              className={`mt-6 block rounded-sm px-4 py-2.5 text-center text-body-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+              className={`mt-6 block rounded-sm px-4 py-2.5 text-center text-body-sm font-medium transition-all active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
                 plan.featured
                   ? "bg-accent text-accent-foreground hover:bg-accent-hover"
                   : "border border-border-strong text-text-primary hover:bg-bg-subtle"

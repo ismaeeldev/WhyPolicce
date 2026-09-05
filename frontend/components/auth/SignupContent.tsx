@@ -36,7 +36,11 @@ export function SignupContent() {
       </p>
 
       {pendingQuery && (
-        <div className="mb-6 rounded-md border border-border-default bg-bg-elevated p-4 text-left">
+        // bg-subtle, not bg-elevated — this callout now sits inside
+        // AuthPageShell's own bg-elevated card (UI polish pass), so it
+        // needs a visually distinct fill to still read as an inset
+        // element rather than disappearing into a same-color surface.
+        <div className="mb-6 rounded-md border border-border-default bg-bg-subtle p-4 text-left">
           <p className="text-caption text-text-muted uppercase tracking-wide mb-1">
             We kept your question
           </p>

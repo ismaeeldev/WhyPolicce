@@ -126,6 +126,7 @@ async def search_stream(
                 body.prompt,
                 deep_search=body.deepSearch,
                 memory_notes=[n.content for n in memory_notes],
+                db_session=session,
             ):
                 collected += chunk
                 yield f"data: {json.dumps({'type': 'token', 'data': chunk})}\n\n"

@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.5-flash"
 
+    # RAG pipeline (AgentGuide/revision2.md). Embeddings are OpenAI-only for
+    # now (no Gemini fallback here, unlike stream_answer) — text-embedding-3-small
+    # outputs 1536 dims, matching app/models/public_record.py's Vector(1536)
+    # column exactly. If this model ever changes, the column dimension must
+    # be migrated too, not just this value.
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]

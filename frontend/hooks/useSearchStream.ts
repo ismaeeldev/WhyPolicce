@@ -182,9 +182,20 @@ export function useSearchStream() {
           return;
         }
         if (!receivedDone) {
+          // Found during hardening: the previous message ("is the backend
+          // running on port 8000?") was a hardcoded local-dev assumption,
+          // shown verbatim in production too — misleading for a real user
+          // and for anyone investigating a real report of this error,
+          // since a production backend obviously isn't on port 8000. This
+          // path fires when the connection reached the server (unlike the
+          // TypeError case below, which never connected at all) but
+          // closed before any answer arrived — a real possibility now
+          // that RAG retrieval can add real, sometimes 20-30s+ delay
+          // before the first token streams, if an intermediate proxy or
+          // the browser itself times out an idle connection first.
           dispatch({
             type: "error",
-            message: "Can't reach the search service — is the backend running on port 8000?",
+            message: "that answer didn't arrive — the search may have taken too long.",
           });
           trackEvent("search_interrupted", { reason: "stream_closed_early" });
         }
@@ -194,8 +205,8 @@ export function useSearchStream() {
           err instanceof ApiError
             ? err.message
             : err instanceof TypeError
-              ? "Can't reach the search service — is the backend running on port 8000?"
-              : "That answer didn't arrive.";
+              ? "we couldn't reach the search service — check your connection."
+              : "that answer didn't arrive.";
         dispatch({ type: "error", message });
         trackEvent("search_interrupted", { reason: "network_error" });
       }

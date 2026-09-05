@@ -12,5 +12,6 @@ error. See AgentGuide/05_PROJECT_STATE.md Step 4 notes.
 """
 
 from app.models.memory import *  # noqa: F401,F403
+from app.models.public_record import *  # noqa: F401,F403
 from app.models.search import *  # noqa: F401,F403
 from app.models.user import *  # noqa: F401,F403

@@ -11,6 +11,7 @@ import app.models  # noqa: F401 — registers every model on SQLModel.metadata, 
 from app.core.config import settings
 from app.core.db import create_db_and_tables
 from app.routers import billing, health, memory, search, users
+from app.services.scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger("whypolice")
 
@@ -23,7 +24,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # schema hasn't shipped to production; revisit with Alembic once the app
     # is live and schema changes need to preserve existing data.
     create_db_and_tables()
+    # RAG pipeline (AgentGuide/revision2.md Phase 2) — background NYC
+    # Socrata sync. Degrades gracefully (logs, doesn't raise/crash startup)
+    # if DATABASE_URL isn't configured, matching this project's existing
+    # pattern for optional dependencies (see search_service.py's mock
+    # fallback, billing.py's 501-until-configured Stripe routes).
+    start_scheduler()
     yield
+    stop_scheduler()
 
 
 app = FastAPI(title="WhyPolice API", lifespan=lifespan)

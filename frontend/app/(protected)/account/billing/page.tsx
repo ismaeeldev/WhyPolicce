@@ -64,8 +64,15 @@ export default function BillingPage() {
               {tier === "pro" ? "Pro" : "Free"}
             </span>
           </div>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bg-subtle">
-            <Receipt className="h-4 w-4 text-text-muted" strokeWidth={1.5} />
+          {/* UI polish pass: a lone flat circle read as a bare
+              placeholder icon — a soft ring + subtle glow gives the
+              "coming soon" chip a bit more presence without implying
+              billing is more built-out than it actually is. */}
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-accent-subtle opacity-40 blur-md" />
+            <div className="relative flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-bg-subtle">
+              <Receipt className="h-4 w-4 text-text-muted" strokeWidth={1.5} />
+            </div>
           </div>
         </div>
 

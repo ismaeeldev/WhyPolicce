@@ -12,6 +12,14 @@ const EASE = [0.22, 1, 0.36, 1] as const;
  * glow behind the card, reusing the same slow-drift decorative language
  * already established for the homepage hero (globals.css's `wp-drift`
  * keyframe) rather than inventing a new visual motif.
+ *
+ * UI polish pass finding: the content sat directly on the page background
+ * with only the blurred glow behind it for depth — no surface of its own,
+ * so it read as floating text rather than a real object. Wrapped it in the
+ * same bg-elevated/border/shadow-card treatment used everywhere else in
+ * the app (AnswerPanel, SessionCard, NoteCard) so auth gets the same
+ * "object-hood" as every other surface, with the glow now sitting behind
+ * a real card instead of behind bare text.
  */
 export function AuthPageShell({
   children,
@@ -32,7 +40,9 @@ export function AuthPageShell({
         transition={{ duration: 0.4, ease: EASE }}
         className={`relative w-full text-center ${maxWidthClassName}`}
       >
-        {children}
+        <div className="rounded-lg border border-border-default bg-bg-elevated p-8 shadow-card sm:p-10">
+          {children}
+        </div>
       </motion.div>
     </div>
   );

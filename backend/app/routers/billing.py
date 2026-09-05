@@ -47,7 +47,16 @@ def _event_object(event: object) -> dict | None:
         return None
     if isinstance(obj, dict):
         return obj
-    # Stripe SDK object — convert to plain dict via the JSON serializer.
+    # Stripe SDK object (StripeObject) — convert via its own to_dict(), not
+    # json.dumps(obj, default=str): that previously called str(obj) on the
+    # WHOLE object (since it isn't natively JSON-serializable), producing
+    # its pretty-printed repr as a single string, then re-parsing that
+    # string back into a plain `str`, not a dict — silently breaking every
+    # real webhook event through this path. Found via a real signed
+    # webhook test during Phase 4 (revision2.md): AttributeError: 'str'
+    # object has no attribute 'get' in _handle_checkout_completed.
+    if hasattr(obj, "to_dict"):
+        return obj.to_dict()
     return json.loads(json.dumps(obj, default=str))
 
 

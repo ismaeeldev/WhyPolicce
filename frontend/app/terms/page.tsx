@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ScrollReveal } from "@/components/marketing/ScrollReveal";
+
 export const metadata: Metadata = {
   title: "Terms — WhyPolice",
   description: "The terms of using WhyPolice.",
@@ -14,8 +16,10 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <div className="mx-auto max-w-[680px] px-6 py-20 sm:py-28">
-      <h1 className="font-display text-display-lg leading-[1.1] mb-8">Terms</h1>
-      <div className="space-y-6 text-body text-text-secondary leading-relaxed">
+      <ScrollReveal>
+        <h1 className="font-display text-display-lg leading-[1.1] mb-8">Terms</h1>
+      </ScrollReveal>
+      <ScrollReveal className="space-y-6 text-body text-text-secondary leading-relaxed">
         <p>
           By creating a WhyPolice account, you agree to use the service for
           legitimate search purposes and not to abuse, scrape, or attempt to
@@ -28,11 +32,15 @@ export default function TermsPage() {
           </Link>
           . We may adjust plan limits or pricing with reasonable notice.
         </p>
-        <p className="text-text-muted text-body-sm">
-          This page will be expanded with complete terms of service ahead of
-          public launch.
-        </p>
-      </div>
+        {/* Same treatment as Privacy's matching caveat — a real bordered
+            callout instead of muted text drifting off the paragraph list. */}
+        <div className="rounded-md border border-dashed border-border-strong bg-bg-subtle p-4">
+          <p className="text-text-muted text-body-sm">
+            This page will be expanded with complete terms of service ahead
+            of public launch.
+          </p>
+        </div>
+      </ScrollReveal>
     </div>
   );
 }

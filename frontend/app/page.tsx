@@ -61,16 +61,34 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How it works — numbered flow, deliberately not a 3-icon grid */}
-      <section className="border-t border-border-default py-20 sm:py-28 px-6">
-        <div className="mx-auto max-w-[1000px]">
+      {/* How it works — numbered flow, deliberately not a 3-icon grid.
+          Connecting line now animates its own width in alongside the
+          stagger (was a static full-width line) so the "flow" reads as
+          something happening, not just three cards sitting next to a
+          decorative rule. */}
+      <section className="relative border-t border-border-default py-20 sm:py-28 px-6 overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-[0.4]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, var(--wp-border) 1px, transparent 0)",
+            backgroundSize: "28px 28px",
+            maskImage: "radial-gradient(ellipse 60% 100% at 50% 0%, black, transparent)",
+          }}
+        />
+        <div className="relative mx-auto max-w-[1000px]">
           <ScrollReveal className="grid gap-10 sm:grid-cols-3 sm:gap-6">
             {STEPS.map((step, i) => (
-              <div key={step.n} className="relative">
+              <div key={step.n} className="group relative">
                 {i < STEPS.length - 1 && (
-                  <div className="hidden sm:block absolute top-5 left-[calc(100%-1rem)] w-[calc(100%-1.5rem)] h-px bg-border-default" />
+                  <div className="hidden sm:block absolute top-5 left-[calc(100%-1rem)] w-[calc(100%-1.5rem)] h-px overflow-hidden bg-border-default">
+                    <div className="wp-line-draw h-full w-full origin-left bg-accent/40" />
+                  </div>
                 )}
-                <span className="font-display text-2xl text-accent">{step.n}</span>
+                <span className="font-display text-2xl text-accent transition-transform duration-300 group-hover:scale-110 inline-block">
+                  {step.n}
+                </span>
                 <h2 className="text-h3 font-semibold mt-3 mb-1.5">{step.title}</h2>
                 <p className="text-body-sm text-text-secondary">{step.body}</p>
               </div>
@@ -79,11 +97,23 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Product principle — a single editorial statement, not another grid */}
-      <section className="border-t border-border-default py-20 sm:py-28 px-6 bg-bg-subtle">
-        <ScrollReveal className="mx-auto max-w-[720px] text-center">
+      {/* Product principle — a single editorial statement, not another grid.
+          Was a flat bg-subtle rectangle with only a Sparkles icon for
+          visual interest; added a soft radial glow + hairline top/bottom
+          accent rule so the section reads as a considered "pull quote"
+          moment rather than a plain color-block break between sections. */}
+      <section className="relative border-t border-border-default py-20 sm:py-28 px-6 bg-bg-subtle overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.08] blur-3xl"
+          style={{
+            background: "radial-gradient(circle, var(--wp-accent-bright) 0%, transparent 70%)",
+          }}
+        />
+        <ScrollReveal className="relative mx-auto max-w-[720px] text-center">
+          <span className="mx-auto mb-6 block h-px w-12 bg-accent/50" />
           <Sparkles className="h-6 w-6 text-accent mx-auto mb-6" strokeWidth={1.5} />
-          <p className="font-display text-2xl sm:text-3xl leading-snug text-text-primary">
+          <p className="font-display text-2xl sm:text-3xl leading-snug text-text-primary text-balance">
             We built WhyPolice on one belief: public safety information
             shouldn&apos;t take a dozen tabs and a records request to
             understand. Ask plainly, get a clear answer.

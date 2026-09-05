@@ -202,3 +202,76 @@ class TestStripeWebhookTierUpdates:
 
         session.refresh(user)
         assert user.tier == Tier.free
+
+    def test_checkout_completed_upgrades_user_via_real_stripe_object(
+        self, client: TestClient, session, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Regression test for a real bug found during Phase 4 live testing
+        (revision2.md): every test above this one posts a plain JSON dict
+        with no STRIPE_WEBHOOK_SECRET configured, which takes the
+        json.loads() branch in the webhook route — that path never
+        exercises _event_object()'s StripeObject-conversion branch, which
+        is what a REAL Stripe webhook (signature-verified via
+        stripe.Webhook.construct_event) actually returns. A real signed
+        webhook against this exact code previously failed with
+        AttributeError: 'str' object has no attribute 'get', because
+        json.dumps(obj, default=str) on a StripeObject serializes its
+        pretty-printed repr as one big string, not its fields — fixed by
+        using StripeObject.to_dict() instead. This test constructs a real
+        stripe.Event via construct_event (not a mock) so the fix (and any
+        future regression) is actually exercised, not bypassed."""
+        import hashlib
+        import hmac
+        import json
+        import time
+
+        import stripe
+
+        webhook_secret = "whsec_test_regression"
+        monkeypatch.setattr(
+            "app.routers.billing.settings.STRIPE_WEBHOOK_SECRET", webhook_secret
+        )
+
+        user = User(auth0_sub="auth0|stripe-real-object", email="real@test.example", tier=Tier.free)
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        payload = {
+            "id": "evt_test_real_object",
+            "object": "event",
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": "cs_test_real",
+                    "client_reference_id": str(user.id),
+                    "customer": "cus_test_real_object",
+                }
+            },
+        }
+        payload_str = json.dumps(payload)
+        timestamp = int(time.time())
+        signed_payload = f"{timestamp}.{payload_str}"
+        signature = hmac.new(
+            webhook_secret.encode("utf-8"), signed_payload.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
+        sig_header = f"t={timestamp},v1={signature}"
+
+        # Sanity check: this really does produce a genuine StripeObject,
+        # not a dict — otherwise this test would silently stop testing
+        # what it claims to.
+        real_event = stripe.Webhook.construct_event(
+            payload_str.encode("utf-8"), sig_header, webhook_secret
+        )
+        assert not isinstance(real_event.data.object, dict)
+
+        res = client.post(
+            "/api/billing/webhook",
+            content=payload_str.encode("utf-8"),
+            headers={"stripe-signature": sig_header, "content-type": "application/json"},
+        )
+        assert res.status_code == 200
+
+        session.refresh(user)
+        assert user.tier == Tier.pro
+        assert user.stripe_customer_id == "cus_test_real_object"

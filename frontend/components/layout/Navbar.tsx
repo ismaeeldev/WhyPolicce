@@ -3,6 +3,7 @@
 import { useUser } from "@auth0/nextjs-auth0";
 import { BrainCircuit, History, LogOut, Menu, User as UserIcon } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,6 +40,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, isLoading } = useUser();
+  const pathname = usePathname();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -59,16 +61,26 @@ export function Navbar() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="group relative text-body-sm text-text-secondary hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm"
-            >
-              {link.label}
-              <span className="absolute -bottom-1 left-0 h-px w-0 bg-accent transition-all duration-200 ease-out group-hover:w-full" />
-            </Link>
-          ))}
+          {NAV_LINKS.map((link) => {
+            const isActive = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={isActive ? "page" : undefined}
+                className={`group relative text-body-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm ${
+                  isActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {link.label}
+                <span
+                  className={`absolute -bottom-1 left-0 h-px bg-accent transition-all duration-200 ease-out ${
+                    isActive ? "w-full" : "w-0 group-hover:w-full"
+                  }`}
+                />
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden md:flex items-center gap-2">
@@ -153,21 +165,30 @@ export function Navbar() {
                 <span className="text-body-sm text-text-muted">Appearance</span>
                 <ThemeToggle />
               </div>
-              {NAV_LINKS.map((link) => (
-                <SheetClose
-                  key={link.href}
-                  render={
-                    <Link
-                      href={link.href}
-                      className="rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-                    />
-                  }
-                >
-                  <span className="block rounded-sm px-2 py-2.5 text-body text-text-primary hover:bg-bg-subtle transition-colors">
-                    {link.label}
-                  </span>
-                </SheetClose>
-              ))}
+              {NAV_LINKS.map((link) => {
+                const isActive = pathname === link.href;
+                return (
+                  <SheetClose
+                    key={link.href}
+                    render={
+                      <Link
+                        href={link.href}
+                        aria-current={isActive ? "page" : undefined}
+                        className="rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                      />
+                    }
+                  >
+                    <span
+                      className={`flex items-center gap-2 rounded-sm px-2 py-2.5 text-body transition-colors hover:bg-bg-subtle ${
+                        isActive ? "text-text-primary font-medium" : "text-text-primary"
+                      }`}
+                    >
+                      {link.label}
+                      {isActive && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                    </span>
+                  </SheetClose>
+                );
+              })}
               {user ? (
                 <div className="mt-2 flex flex-col gap-2">
                   <SheetClose

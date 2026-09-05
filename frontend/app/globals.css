@@ -224,6 +224,42 @@
   }
 }
 
+/* "How it works" connecting line draw-in — UI polish pass. Runs once via
+   `animation-timeline: view()` scoped to the section entering view, so it
+   feels tied to the same scroll moment as ScrollReveal's stagger without
+   needing its own IntersectionObserver/GSAP wiring. Falls back to simply
+   being fully drawn (scaleX(1), no animation) in browsers without
+   scroll-driven animation support — CSS treats an unsupported
+   animation-timeline as if no animation-name were set, so the base
+   scale-x-100 rule below is what actually renders there. */
+.wp-line-draw {
+  transform: scaleX(1);
+}
+
+@supports (animation-timeline: view()) {
+  .wp-line-draw {
+    animation: wp-line-draw linear;
+    animation-timeline: view();
+    animation-range: entry 10% cover 40%;
+  }
+}
+
+@keyframes wp-line-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-line-draw {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
+
 /* Step 8 audit finding: the base-ui component kit's open/close transitions
    (Dialog, AlertDialog, Sheet, DropdownMenu — powered by tw-animate-css's
    animate-in/animate-out/fade/zoom utilities) don't respect

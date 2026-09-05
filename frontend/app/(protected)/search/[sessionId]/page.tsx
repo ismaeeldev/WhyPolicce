@@ -99,7 +99,19 @@ export default function SessionDetailPage() {
       <div className="flex flex-col gap-10">
         {pairs.map((pair) => (
           <div key={pair.key}>
-            <p className="text-body-lg text-text-primary font-medium">{pair.prompt}</p>
+            {/* UI polish pass: the prompt line was just bold body text
+                with no visual separation from the answer below it — in a
+                multi-turn session, turn boundaries were hard to scan.
+                A small caption label + accent rule gives each prompt its
+                own clear "turn start" marker, echoing the caption-label
+                pattern already used elsewhere (e.g. SignupContent's
+                "We kept your question" callout). */}
+            <p className="mb-1.5 text-caption font-medium uppercase tracking-wide text-text-muted">
+              You asked
+            </p>
+            <p className="border-l-2 border-accent/40 pl-3 text-body-lg text-text-primary font-medium">
+              {pair.prompt}
+            </p>
             <AnswerPanel
               text={pair.answer ?? ""}
               status={pair.answer !== null ? "complete" : "error"}
