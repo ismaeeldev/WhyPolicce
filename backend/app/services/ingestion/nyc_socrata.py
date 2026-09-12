@@ -13,15 +13,44 @@ download — "it's better to read from the source" than to store/manage a
 large static snapshot. Each run re-fetches and upserts by the source's own
 record id (cmplnt_num / arrest_key) so repeated runs update existing rows
 instead of duplicating them.
+
+**Real, significant staleness bug found and fixed (Data Freshness Fix
+phase, prompted by a real client report — "last arrest in Harlem" query
+returning nothing recent)**: `_fetch_records()` previously called Socrata
+with only `$limit`, no `$order` clause at all. Confirmed live: Socrata's
+default (unordered) response for both NYC datasets starts from the
+OLDEST end of the dataset (2026-01-01), not the newest — so every sync
+since this module was first written had been re-fetching and re-upserting
+the same ~200 oldest rows over and over, never reaching the genuinely
+current data actually available at the live source (confirmed live max
+arrest_date = 2026-06-30 on the same day the DB's stored max was found to
+be 2026-04-02, over 5 months stale). Every other city module built in
+later phases already orders by date DESC — this was the one original
+module that predated that pattern and was never brought in line with it.
+Fixed by adding `$order={field} DESC` to every NYC fetch.
+
+Separately, confirmed via a live schema check that neither NYC dataset
+has a neighborhood-level field of its own (only borough + precinct
+number) — so a query for a specific neighborhood like "Harlem" previously
+could only ever resolve to "Manhattan" borough-level data. Fixed in the
+same phase by adding `nyc_precincts.py`, a real, independently-verified
+NYPD-precinct-to-neighborhood lookup (source: NYPD's own public
+per-precinct pages), applied to both summarizers so a precinct number
+already present in every record (e.g. arrest_precinct=28) now also
+resolves to its real neighborhood name (e.g. "Central Harlem") in the
+generated summary text — no external geocoding API call needed, since
+precinct number was already a live field in every record.
 """
 
 import logging
+from datetime import datetime, timezone
 
 import httpx
 from sqlmodel import Session, select
 
 from app.models.public_record import PublicRecord
 from app.services.embedding_service import embed_texts
+from app.services.ingestion.nyc_precincts import precinct_to_neighborhood
 
 logger = logging.getLogger(__name__)
 
@@ -84,10 +113,24 @@ def _summarize_complaint(record: dict) -> str:
     status = _clean_field(record.get("crm_atpt_cptd_cd"))
     law_cat = _clean_field(record.get("law_cat_cd"))
 
+    # Real bug found and fixed (Revision 3 Step 9, multi-city expansion):
+    # this summary previously said "in the Bronx" but never "New York
+    # City" itself — worked fine while NYC was the only ingested city, but
+    # once other cities exist in the same table, a query naming the city
+    # by name (e.g. "New York City" or "NYC") has nothing to textually
+    # match against. Every other city's summarizer now leads with its own
+    # city name for the same reason (see chicago_socrata.py's comment for
+    # the real query that first caught this class of bug).
+    neighborhood = precinct_to_neighborhood(precinct)
+
     prefix = f"{law_cat.title()} " if law_cat else ""
+    location_phrase = f"reported in {boro}"
+    if neighborhood:
+        location_phrase += f" ({neighborhood})"
+    location_phrase += f", precinct {precinct}, on {date}."
     parts = [
-        f"{prefix}complaint: {offense}" + (f" ({detail})" if detail and detail != offense else ""),
-        f"reported in {boro}, precinct {precinct}, on {date}.",
+        f"New York City {prefix.lower()}complaint: {offense}" + (f" ({detail})" if detail and detail != offense else ""),
+        location_phrase,
     ]
     if location_type:
         parts.append(f"Location type: {location_type}.")
@@ -108,17 +151,23 @@ def _summarize_arrest(record: dict) -> str:
     date = raw_date[:10] if raw_date else "an unknown date"
     law_cat = _clean_field(record.get("law_cat_cd"))
 
+    neighborhood = precinct_to_neighborhood(precinct)
+
     prefix = f"{law_cat.title()} " if law_cat else ""
+    location_phrase = f"in {boro}"
+    if neighborhood:
+        location_phrase += f" ({neighborhood})"
+    location_phrase += f", precinct {precinct}, on {date}."
     parts = [
-        f"{prefix}arrest: {offense}" + (f" ({detail})" if detail and detail != offense else ""),
-        f"in {boro}, precinct {precinct}, on {date}.",
+        f"New York City {prefix.lower()}arrest: {offense}" + (f" ({detail})" if detail and detail != offense else ""),
+        location_phrase,
     ]
     return " ".join(p for p in parts if p.strip())
 
 
-async def _fetch_records(url: str, limit: int) -> list[dict]:
+async def _fetch_records(url: str, limit: int, order_field: str) -> list[dict]:
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(url, params={"$limit": limit})
+        response = await client.get(url, params={"$limit": limit, "$order": f"{order_field} DESC"})
         response.raise_for_status()
         return response.json()
 
@@ -130,11 +179,12 @@ async def _sync_dataset(
     id_field: str,
     summarize: callable,
     limit: int,
+    order_field: str,
 ) -> dict:
     """Fetches, summarizes, embeds, and upserts one dataset. Returns a
     small stats dict so the caller (scheduler, or a manual run) can log
     what actually happened rather than just "done"."""
-    records = await _fetch_records(url, limit)
+    records = await _fetch_records(url, limit, order_field)
     logger.info("nyc_socrata: fetched %d records from %s", len(records), source)
 
     inserted = 0
@@ -180,9 +230,22 @@ async def _sync_dataset(
         existing = existing_by_id.get(external_id)
 
         if existing:
+            # Real bug found and fixed (Revision 3 Step 9): the update path
+            # never touched `existing.city`, only the insert path set it —
+            # confirmed directly against the live DB that rows ingested
+            # before the city-name-in-summary fix kept the stale value 'NY'
+            # forever on every later re-sync. See socrata_base.py's
+            # identical fix/comment.
+            existing.city = city
             existing.raw_text = summary
             existing.raw_json = raw_record
             existing.embedding = embedding
+            # Real bug found and fixed during a data-accuracy audit
+            # (plan.md) — see socrata_base.py's identical fix/comment:
+            # PublicRecord.updated_at only has a default_factory (applied
+            # on INSERT), no onupdate=, so a resynced row silently kept its
+            # original insertion timestamp forever without this.
+            existing.updated_at = datetime.now(timezone.utc)
             session.add(existing)
             updated += 1
         else:
@@ -212,13 +275,13 @@ async def _sync_dataset(
 
 async def sync_nyc_complaints(session: Session, limit: int = DEFAULT_FETCH_LIMIT) -> dict:
     return await _sync_dataset(
-        session, NYC_COMPLAINT_URL, SOURCE_COMPLAINT, "cmplnt_num", _summarize_complaint, limit
+        session, NYC_COMPLAINT_URL, SOURCE_COMPLAINT, "cmplnt_num", _summarize_complaint, limit, "cmplnt_fr_dt"
     )
 
 
 async def sync_nyc_arrests(session: Session, limit: int = DEFAULT_FETCH_LIMIT) -> dict:
     return await _sync_dataset(
-        session, NYC_ARREST_URL, SOURCE_ARREST, "arrest_key", _summarize_arrest, limit
+        session, NYC_ARREST_URL, SOURCE_ARREST, "arrest_key", _summarize_arrest, limit, "arrest_date"
     )
 
 
@@ -242,5 +305,14 @@ async def sync_all_nyc(session: Session, limit: int = DEFAULT_FETCH_LIMIT) -> li
             results.append(await sync_fn(session, limit))
         except Exception as exc:
             logger.exception("nyc_socrata: %s sync failed, continuing with other datasets", source_name)
+            # Step 9 finding (from the Phase 1 multi-city orchestrator hitting
+            # this for real): a failed INSERT/commit leaves the shared
+            # SQLAlchemy Session in an aborted-transaction state that poisons
+            # every subsequent query on it, even an unrelated dataset's. This
+            # loop never happened to trigger that with NYC's own two datasets,
+            # but the same shared-session risk exists here — rollback so a
+            # real future failure here can't silently take the other dataset
+            # down with it the way Seattle's failure did to Austin.
+            session.rollback()
             results.append({"source": source_name, "error": str(exc)})
     return results
