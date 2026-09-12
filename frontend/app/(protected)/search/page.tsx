@@ -1,12 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 
 import { AnswerPanel } from "@/components/search/AnswerPanel";
 import { SearchBar } from "@/components/search/SearchBar";
 import { useSearchStream } from "@/hooks/useSearchStream";
 import { useUser } from "@/hooks/useUser";
 import { useUpgradeModalStore } from "@/stores/useUpgradeModalStore";
+
+// Same staggered fade+slide-up entrance as HeroContent.tsx (the landing
+// page's own established pattern) — reused verbatim rather than inventing
+// a second animation language for the same product. Deliberately NOT
+// applied to the H1 above (see its own comment) or to AnswerPanel's
+// internal streaming text, which stays untouched per its own §7.4
+// anti-fluctuation discipline (AnswerPanel.tsx's docstring) — only this
+// page's own static chrome (the search bar) gets a one-time mount
+// entrance, same LCP-safety split HeroContent.tsx already documents.
+const EASE = [0.22, 1, 0.36, 1] as const;
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0 },
+};
 
 const PENDING_QUERY_KEY = "wp_pending_query";
 const SELECTED_STATE_KEY = "wp_selected_state";
@@ -106,18 +121,25 @@ export default function SearchPage() {
   const isBusy = stream.status === "submitting" || stream.status === "streaming";
 
   return (
-    <div className="flex flex-1 flex-col items-center px-6 py-16 sm:py-20">
+    <div className="flex flex-1 flex-col items-center px-5 py-10 sm:px-6 sm:py-16">
       <div className="w-full max-w-[760px]">
-        <SearchBar
-          autoFocus
-          initialValue={prefill}
-          disabled={isBusy}
-          deepSearch={deepSearch}
-          onDeepSearchChange={setDeepSearch}
-          selectedState={selectedState}
-          onStateChange={setSelectedState}
-          onSubmit={handleSubmit}
-        />
+        {/* H1 stays plain, un-animated markup — same LCP-safety reasoning
+            as HeroContent.tsx's docstring: this heading is this route's
+            actual Largest Contentful Paint candidate, so it must never be
+            gated behind Framer Motion's initial="hidden" state. */}
+        <div className="mb-8 text-center"><p className="wp-eyebrow justify-center mb-3">Your next question starts here</p><h1 className="font-display text-h1 sm:text-display-lg">What would you like to understand?</h1></div>
+        <motion.div initial="hidden" animate="show" variants={fadeUp} transition={{ duration: 0.5, ease: EASE }}>
+          <SearchBar
+            autoFocus
+            initialValue={prefill}
+            disabled={isBusy}
+            deepSearch={deepSearch}
+            onDeepSearchChange={setDeepSearch}
+            selectedState={selectedState}
+            onStateChange={setSelectedState}
+            onSubmit={handleSubmit}
+          />
+        </motion.div>
         <AnswerPanel
           text={stream.text}
           status={stream.status}

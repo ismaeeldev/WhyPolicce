@@ -30,7 +30,7 @@ function LoginContent({ returnTo }: { returnTo?: string }) {
 
   return (
     <AuthPageShell>
-      <h1 className="font-display text-display-lg leading-[1.1] mb-3">Welcome back.</h1>
+      <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-3">Welcome back.</h1>
       <p className="text-body text-text-secondary mb-8">
         Log in to pick up right where you left off.
       </p>

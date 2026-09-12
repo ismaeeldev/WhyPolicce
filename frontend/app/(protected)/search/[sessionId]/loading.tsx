@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function SessionDetailLoading() {
   return (
-    <div className="mx-auto max-w-[760px] px-6 py-12 sm:py-16">
+    <div className="mx-auto w-full min-w-0 max-w-[760px] px-5 sm:px-6 py-12 sm:py-16">
       <Skeleton className="h-4 w-28 mb-6" />
       <Skeleton className="h-8 w-2/3 mb-8" />
 

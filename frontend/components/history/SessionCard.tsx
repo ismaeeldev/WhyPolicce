@@ -33,8 +33,8 @@ export function SessionCard({ session, index }: { session: HistorySession; index
         href={`/search/${session.id}`}
         className="block rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6 shadow-none transition-shadow duration-150 group-hover:shadow-card focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
       >
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-body text-text-primary leading-snug line-clamp-2">
+        <div className="flex flex-col items-start justify-between gap-3 pr-8 sm:flex-row">
+          <p className="text-body text-text-primary leading-snug line-clamp-2 [overflow-wrap:anywhere]">
             {session.title || "Untitled search"}
           </p>
           {session.isDeepSearch && (

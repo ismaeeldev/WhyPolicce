@@ -79,9 +79,12 @@ export function TypedHeadline() {
   }, []);
 
   return (
-    <h1 className="font-display text-display-lg sm:text-display-xl leading-[1.05] text-text-primary min-h-[1.1em] sm:min-h-[2.2em]">
-      <span suppressHydrationWarning>{mounted ? displayText : QUESTIONS[0]}</span>
-      <span className="wp-typed-cursor" aria-hidden="true" />
+    <h1 className="wp-hero-headline font-display text-text-primary">
+      <span className="sr-only">Ask why. Understand what matters.</span>
+      <span aria-hidden="true" className="wp-headline-stack">
+        {QUESTIONS.map((question) => <span key={question} className="wp-headline-measure">{question}<span className="wp-typed-cursor" /></span>)}
+        <span className="wp-headline-live"><span suppressHydrationWarning>{mounted ? displayText : QUESTIONS[0]}</span><span className="wp-typed-cursor" /></span>
+      </span>
     </h1>
   );
 }

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { ScrollReveal } from "@/components/marketing/ScrollReveal";
 import { PricingCards } from "@/components/pricing/PricingCards";
 
 export const metadata: Metadata = {
@@ -17,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function PricingPage() {
   return (
-    <div className="relative overflow-hidden px-6 py-20 sm:py-28">
+    <div className="relative overflow-hidden px-5 py-12 sm:px-6 sm:py-20">
       {/* UI polish pass: header was plain text on flat background with no
           visual anchor — same ambient-glow language as the hero/product
           principle sections gives the page a consistent point of visual
@@ -29,9 +28,10 @@ export default function PricingPage() {
           background: "radial-gradient(circle, var(--wp-accent-bright) 0%, transparent 70%)",
         }}
       />
-      <ScrollReveal className="relative mx-auto max-w-[680px] text-center mb-14">
+      <div className="wp-page-intro relative mx-auto max-w-[680px] text-center mb-12">
+        <p className="wp-eyebrow justify-center mb-4">Room to go deeper</p>
         <div>
-          <h1 className="font-display text-display-lg leading-[1.1] mb-4">
+          <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-4">
             Simple pricing, no surprises.
           </h1>
           <p className="text-body-lg text-text-secondary">
@@ -39,7 +39,7 @@ export default function PricingPage() {
             than most people do.
           </p>
         </div>
-      </ScrollReveal>
+      </div>
       <div className="relative">
         <PricingCards />
       </div>

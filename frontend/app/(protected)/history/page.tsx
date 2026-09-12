@@ -64,10 +64,10 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[760px] px-6 py-12 sm:py-16">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="font-display text-2xl text-text-primary">History</h1>
-        <div className="flex items-center gap-2">
+    <div className="mx-auto w-full min-w-0 max-w-[760px] px-5 sm:px-6 py-12 sm:py-16">
+      <div className="wp-page-toolbar mb-8 flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
+        <h1 className="font-display text-h1 text-text-primary">History</h1>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled
@@ -140,7 +140,7 @@ export default function HistoryPage() {
                   }}
                   disabled={exportingId === session.id}
                   aria-label="Export session as JSON"
-                  className="absolute right-4 top-4 sm:right-6 sm:top-6 rounded-sm p-1.5 text-text-muted opacity-0 transition-opacity duration-150 hover:bg-bg-subtle hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-accent outline-none disabled:opacity-40"
+                  className="absolute right-4 top-4 sm:right-6 sm:top-6 rounded-sm p-1.5 text-text-muted wp-touch-action opacity-0 transition-opacity duration-150 hover:bg-bg-subtle hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-accent outline-none disabled:opacity-40"
                 >
                   <Download className="h-4 w-4" />
                 </button>
@@ -159,7 +159,7 @@ function EmptyState() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border-default py-16 text-center"
+      className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border-strong bg-bg-elevated py-16 text-center"
     >
       <HistoryIcon className="h-8 w-8 text-text-muted" strokeWidth={1.5} />
       <p className="text-body text-text-primary">No searches yet</p>

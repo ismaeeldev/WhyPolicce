@@ -27,7 +27,7 @@ export function SignupContent() {
 
   return (
     <AuthPageShell maxWidthClassName="max-w-[440px]">
-      <h1 className="font-display text-display-lg leading-[1.1] mb-3">
+      <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-3">
         Create your account.
       </h1>
       <p className="text-body text-text-secondary mb-6">
@@ -44,7 +44,7 @@ export function SignupContent() {
           <p className="text-caption text-text-muted uppercase tracking-wide mb-1">
             We kept your question
           </p>
-          <p className="text-body-sm text-text-primary">&ldquo;{pendingQuery}&rdquo;</p>
+          <p className="text-body-sm text-text-primary [overflow-wrap:anywhere]">&ldquo;{pendingQuery}&rdquo;</p>
         </div>
       )}
 

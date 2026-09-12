@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function BillingLoading() {
   return (
-    <div className="mx-auto max-w-[560px] px-6 py-16 sm:py-20">
+    <div className="mx-auto w-full min-w-0 max-w-[560px] px-5 sm:px-6 py-16 sm:py-20">
       <Skeleton className="h-4 w-32 mb-6" />
       <Skeleton className="h-8 w-24" />
       <div className="mt-6 rounded-md border border-border-default bg-bg-elevated p-6">

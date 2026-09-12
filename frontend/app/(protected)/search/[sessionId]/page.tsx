@@ -5,6 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
+import SessionDetailLoading from "./loading";
+
 import { AnswerPanel } from "@/components/search/AnswerPanel";
 import { ApiError } from "@/lib/api-client";
 import { useSessionDetail } from "@/hooks/useSessionDetail";
@@ -34,12 +36,12 @@ export default function SessionDetailPage() {
   };
 
   if (isLoading) {
-    return null; // loading.tsx handles the route-level skeleton
+    return <SessionDetailLoading />;
   }
 
   if (isNotFound) {
     return (
-      <div className="mx-auto max-w-[760px] px-6 py-20 text-center">
+      <div className="mx-auto w-full min-w-0 max-w-[760px] px-5 sm:px-6 py-20 text-center">
         <p className="text-body text-text-primary">This search couldn&apos;t be found.</p>
         <p className="mt-1 text-body-sm text-text-muted">
           It may have been deleted, or the link may be incorrect.
@@ -56,7 +58,7 @@ export default function SessionDetailPage() {
 
   if (isError || !session) {
     return (
-      <div className="mx-auto max-w-[760px] px-6 py-20 text-center">
+      <div className="mx-auto w-full min-w-0 max-w-[760px] px-5 sm:px-6 py-20 text-center">
         <p className="text-body text-text-primary">Couldn&apos;t load this search right now.</p>
         <Link
           href="/history"
@@ -91,7 +93,7 @@ export default function SessionDetailPage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
-      className="mx-auto max-w-[760px] px-6 py-12 sm:py-16"
+      className="mx-auto w-full min-w-0 max-w-[760px] px-5 sm:px-6 py-12 sm:py-16"
     >
       <Link
         href="/history"
@@ -101,7 +103,7 @@ export default function SessionDetailPage() {
         Back to history
       </Link>
 
-      <h1 className="font-display text-2xl text-text-primary mb-8 leading-snug">
+      <h1 className="font-display text-h1 text-text-primary mb-8 leading-snug [overflow-wrap:anywhere]">
         {session.title || "Untitled search"}
       </h1>
 

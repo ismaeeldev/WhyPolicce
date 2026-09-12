@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function AccountLoading() {
   return (
-    <div className="mx-auto max-w-[560px] px-6 py-16 sm:py-20">
+    <div className="mx-auto w-full min-w-0 max-w-[560px] px-5 sm:px-6 py-16 sm:py-20">
       <Skeleton className="h-8 w-28 mb-8" />
       <div className="flex items-center gap-4">
         <Skeleton className="h-16 w-16 rounded-full" />

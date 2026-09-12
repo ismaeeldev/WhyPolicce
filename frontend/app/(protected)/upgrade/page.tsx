@@ -43,7 +43,7 @@ export default function UpgradePage() {
   };
 
   return (
-    <div className="mx-auto max-w-[880px] px-6 py-16 sm:py-20 text-center">
+    <div className="mx-auto w-full min-w-0 max-w-[880px] px-5 sm:px-6 py-16 sm:py-20 text-center">
       <motion.h1
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

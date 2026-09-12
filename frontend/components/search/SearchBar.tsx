@@ -143,7 +143,7 @@ export function SearchBar({
   };
 
   return (
-    <div className="w-full max-w-[760px] mx-auto">
+    <div className="wp-search w-full min-w-0 max-w-[760px] mx-auto">
       {/* Revision 3 (plan.md Step 3): category pills, matching why.com's
           real Sport/Technology/Politics row above its search reveal —
           adapted to public-safety topics. Landing-page-only (showCategories
@@ -159,7 +159,7 @@ export function SearchBar({
               type="button"
               aria-pressed={categoryIndex === i}
               onClick={() => selectCategory(i)}
-              className={`rounded-full border px-4 py-1.5 text-caption font-semibold uppercase tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+              className={`wp-category rounded-full border px-3.5 py-2 text-caption font-medium transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
                 categoryIndex === i
                   // Real contrast bug found and fixed during a UI audit
                   // (plan.md "UI audit"): accent (#B0521F) text on
@@ -200,14 +200,14 @@ export function SearchBar({
           /search keeps filling its own container. */}
       <form
         onSubmit={handleSubmit}
-        className={`relative mx-auto flex items-center rounded-full border border-border-default shadow-card transition-colors focus-within:border-accent ${
-          showCategories ? "max-w-[580px]" : "w-full"
+        className={`wp-search-form relative mx-auto flex min-w-0 items-center rounded-full border border-border-default shadow-card transition-colors focus-within:border-accent ${
+          showCategories ? "max-w-[640px]" : "w-full"
         }`}
         style={{ backgroundColor: "rgba(17, 17, 16, 0.86)" }}
       >
         <Search
           aria-hidden="true"
-          className="pointer-events-none absolute left-5 h-4 w-4 text-text-muted"
+          className="pointer-events-none absolute left-5 h-4 w-4 text-search-pill-foreground/60"
         />
         <input
           ref={inputRef}
@@ -218,19 +218,19 @@ export function SearchBar({
           disabled={disabled}
           aria-label="Search"
           placeholder="Ask anything…"
-          className="h-16 w-full flex-1 bg-transparent pl-11 pr-14 text-search-pill text-search-pill-foreground outline-none placeholder:text-text-muted disabled:opacity-60"
+          className="h-16 min-w-0 w-full flex-1 bg-transparent pl-11 pr-3 text-body sm:text-search-pill text-search-pill-foreground outline-none placeholder:text-search-pill-foreground/60 disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={!value.trim() || disabled}
           aria-label="Submit search"
-          className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-text-primary text-bg transition-all hover:opacity-90 active:scale-95 disabled:bg-bg-subtle disabled:text-text-muted disabled:opacity-100 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+          className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground transition-all hover:opacity-90 active:scale-95 disabled:bg-bg-subtle disabled:text-text-muted disabled:opacity-100 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
         >
           <ArrowUp className="h-4 w-4" />
         </button>
       </form>
 
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+      <div className="wp-search-suggestions mt-5 flex flex-wrap items-center justify-center gap-2">
         {/* State Selector, Step 6 — real client-requested feature. Real
             options fetched live from GET /api/search/states (Step 3),
             not the client's own draft's 5-state hardcoded placeholder
@@ -243,7 +243,7 @@ export function SearchBar({
             onChange={(e) => onStateChange(e.target.value || null)}
             disabled={disabled}
             aria-label="Select U.S. State"
-            className="rounded-full border border-border-default bg-bg-elevated px-3.5 py-1.5 text-body-sm text-text-secondary transition-colors hover:border-border-strong focus-visible:ring-2 focus-visible:ring-accent outline-none disabled:opacity-60 cursor-pointer"
+            className="min-h-10 rounded-full border border-border-default bg-bg-elevated px-3.5 py-2 text-body-sm text-text-secondary transition-colors hover:border-border-strong focus-visible:ring-2 focus-visible:ring-accent outline-none disabled:opacity-60 cursor-pointer"
           >
             <option value="">All states</option>
             {supportedStates?.map((s) => (
@@ -259,7 +259,7 @@ export function SearchBar({
             aria-pressed={deepSearch}
             disabled={disabled}
             onClick={() => onDeepSearchChange(!deepSearch)}
-            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-body-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-60 ${
+            className={`flex items-center gap-1.5 min-h-10 rounded-full border px-3.5 py-2 text-body-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-60 ${
               deepSearch
                 ? "border-accent bg-accent-subtle text-text-primary"
                 : "border-border-default bg-bg-elevated text-text-secondary hover:border-border-strong"
@@ -275,7 +275,7 @@ export function SearchBar({
             type="button"
             onClick={() => fillChip(chip)}
             disabled={disabled}
-            className="rounded-full border border-border-default bg-bg-elevated px-3.5 py-1.5 text-body-sm text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary hover:bg-bg-subtle focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-60"
+            className="min-h-10 rounded-full border border-border-default bg-bg-elevated px-3.5 py-2 text-body-sm text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary hover:bg-bg-subtle focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-60"
           >
             {chip}
           </button>

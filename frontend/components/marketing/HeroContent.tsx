@@ -34,7 +34,7 @@ export function HeroContent() {
       <motion.p
         variants={item}
         transition={{ duration: 0.5, ease: EASE }}
-        className="mt-5 max-w-[520px] text-body-lg text-text-secondary"
+        className="mt-6 max-w-[520px] text-body text-text-secondary sm:text-body-lg"
       >
         Ask about police reports, case updates, curfews, and public safety
         data — the answer streams in live, no ads, no clutter, just what
@@ -44,7 +44,7 @@ export function HeroContent() {
       <motion.div
         variants={item}
         transition={{ duration: 0.5, ease: EASE }}
-        className="mt-10 w-full"
+        className="mt-8 w-full sm:mt-10"
       >
         {/* Revision 3 (plan.md Step 3): showCategories is landing-page-only
             — this is the only place SearchBar renders the why.com-style

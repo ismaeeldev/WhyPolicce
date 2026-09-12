@@ -37,12 +37,12 @@ export default function AccountPage() {
   const tier = me?.tier ?? "free";
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-[560px] px-6 py-16 sm:py-20">
+    <div className="mx-auto w-full min-w-0 max-w-[560px] px-5 sm:px-6 py-16 sm:py-20">
       <motion.h1
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: EASE }}
-        className="font-display text-2xl text-text-primary mb-8"
+        className="font-display text-h1 text-text-primary mb-8"
       >
         Account
       </motion.h1>
@@ -71,8 +71,7 @@ export default function AccountPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1, ease: EASE }}
-        whileHover={{ y: -2 }}
-        className="mt-6 rounded-md border border-border-default bg-bg-elevated p-6 shadow-none transition-shadow duration-150 hover:shadow-card"
+                className="mt-6 rounded-md border border-border-default bg-bg-elevated p-5 sm:p-6 shadow-card transition-shadow duration-150 hover:shadow-card"
       >
         <div className="flex items-center justify-between">
           <div>

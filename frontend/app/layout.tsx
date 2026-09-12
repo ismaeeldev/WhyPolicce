@@ -37,8 +37,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-bg text-text-primary">
         <Providers>
+          <a href="#main-content" className="wp-skip-link">Skip to content</a>
           <Navbar />
-          <main className="flex flex-1 flex-col">{children}</main>
+          <main id="main-content" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">{children}</main>
           <Footer />
         </Providers>
       </body>

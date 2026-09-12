@@ -76,16 +76,17 @@ const SECTIONS = [
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-[680px] px-6 py-20 sm:py-28">
-      <ScrollReveal>
-        <h1 className="font-display text-display-lg leading-[1.1] mb-14">
+    <div className="mx-auto w-full min-w-0 max-w-[680px] px-5 sm:px-6 py-12 sm:py-20">
+      <div className="wp-page-intro">
+        <p className="wp-eyebrow mb-4">Our perspective</p>
+        <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-14">
           Public safety information shouldn&apos;t take a records request.
         </h1>
-      </ScrollReveal>
+      </div>
 
       <ScrollReveal className="flex flex-col gap-10">
         {SECTIONS.map((section) => (
-          <div key={section.n} className="flex gap-5">
+          <div key={section.n} className="flex gap-4 border-t border-border-default pt-7 sm:gap-6">
             <span className="font-display text-xl text-accent shrink-0 pt-0.5">
               {section.n}
             </span>
@@ -93,7 +94,7 @@ export default function AboutPage() {
               <h2 className="text-h3 font-semibold text-text-primary mb-1.5">
                 {section.title}
               </h2>
-              <p className="text-body-lg text-text-secondary leading-relaxed">
+              <p className="text-body sm:text-body-lg text-text-secondary leading-relaxed">
                 {section.body}
               </p>
             </div>

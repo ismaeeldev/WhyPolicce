@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function MemoryLoading() {
   return (
-    <div className="mx-auto max-w-[760px] px-6 py-12 sm:py-16">
+    <div className="mx-auto w-full min-w-0 max-w-[760px] px-5 sm:px-6 py-12 sm:py-16">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <Skeleton className="h-8 w-28" />

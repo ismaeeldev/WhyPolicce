@@ -1,6 +1,7 @@
 "use client";
 
 import { BrainCircuit, Check, Copy, Landmark, Lock, RotateCcw } from "lucide-react";
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 import { ThinkingIndicator } from "@/components/search/ThinkingIndicator";
@@ -156,17 +157,26 @@ export function AnswerPanel({
   const showActions = status === "complete";
 
   return (
-    <div
+    <motion.div
       ref={containerRef}
       onScroll={handleScroll}
       aria-live="polite"
       aria-busy={isWaiting || isStreaming}
-      className="mt-6 min-h-[120px] max-h-[50vh] overflow-y-auto rounded-md border border-border-default bg-bg-elevated p-5 sm:p-6"
+      // A one-time entrance for the PANEL ITSELF only, on the idle-> first-
+      // status transition (mount). Framer Motion's initial/animate on a
+      // container div never touches the streaming text inside it — that
+      // stays exactly the plain, unanimated block growth this file's own
+      // §7.4 anti-fluctuation docstring requires. No per-token animation,
+      // no re-keying, nothing added to the token-by-token path at all.
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="wp-answer-panel mt-6 min-h-[160px] max-h-[65svh] overflow-y-auto rounded-md border border-border-default bg-bg-elevated p-5 sm:p-6"
     >
       {isWaiting && !text && <ThinkingIndicator />}
 
       {(text || isStreaming) && (
-        <p className="text-body text-text-primary leading-relaxed whitespace-pre-wrap">
+        <p className="text-body text-text-primary leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
           {text}
           {isStreaming && (
             <span className="inline-block w-[2px] h-[1em] align-middle ml-0.5 bg-accent animate-pulse" />
@@ -189,7 +199,7 @@ export function AnswerPanel({
       )}
 
       {showActions && (
-        <div className="mt-5 flex items-center gap-2 border-t border-border-default pt-4">
+        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border-default pt-4">
           <button
             type="button"
             onClick={handleCopy}
@@ -216,6 +226,6 @@ export function AnswerPanel({
           </button>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

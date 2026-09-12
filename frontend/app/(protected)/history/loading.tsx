@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function HistoryLoading() {
   return (
-    <div className="mx-auto max-w-[760px] px-6 py-12 sm:py-16">
+    <div className="mx-auto w-full min-w-0 max-w-[760px] px-5 sm:px-6 py-12 sm:py-16">
       <div className="mb-8 flex items-center justify-between">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-9 w-28 rounded-sm" />

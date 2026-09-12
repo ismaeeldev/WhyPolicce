@@ -1,82 +1,39 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
-/**
- * GSAP ScrollTrigger-driven staggered reveal for marketing sections —
- * AgentGuide/01_ThemeGuideline.md §7.1 (GSAP reserved for scroll-driven
- * storytelling) and §7.2 (stagger 60-100ms, trigger ~20% viewport entry,
- * opacity + translateY(16px->0)). §7.4 point 3: fires once, never re-triggers.
- *
- * GSAP is dynamically imported (not a static top-level import) — Lighthouse
- * traced it to ~580ms of blocking script evaluation on initial load for a
- * library that's only needed once the user actually scrolls below the fold.
- * The initial hidden state is set synchronously via plain inline styles
- * (useLayoutEffect, no GSAP needed) so there's no flash-of-visible-content
- * while the GSAP chunk loads in the background.
- */
-export function ScrollReveal({
-  children,
-  className,
-}: {
+/** Content stays readable before hydration and if animation cannot load. */
+export function ScrollReveal({ children, className }: {
   children: React.ReactNode;
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  // Runs before paint, plain DOM — avoids a visible flash before GSAP loads.
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) return;
-    for (const child of Array.from(el.children)) {
-      const style = (child as HTMLElement).style;
-      style.opacity = "0";
-      style.transform = "translateY(16px)";
-    }
-  }, []);
-
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) return;
-
-    let trigger: { kill: () => void } | undefined;
-    let cancelled = false;
-
-    import("gsap").then(({ gsap }) =>
-      import("gsap/ScrollTrigger").then(({ ScrollTrigger }) => {
-        if (cancelled || !ref.current) return;
-        gsap.registerPlugin(ScrollTrigger);
-        const targets = Array.from(ref.current.children);
-        trigger = ScrollTrigger.create({
-          trigger: ref.current,
-          start: "top 80%",
-          once: true,
-          onEnter: () => {
-            gsap.to(targets, {
-              opacity: 1,
-              y: 0,
-              duration: 0.5,
-              ease: "power3.out",
-              stagger: 0.08,
-            });
-          },
-        });
-      }),
-    );
-
+    const element = ref.current;
+    if (!element || !("IntersectionObserver" in window)) return;
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const animations: Animation[] = [];
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      if (preference.matches) return;
+      Array.from(element.children).forEach((child, index) => {
+        animations.push(child.animate(
+          [{ opacity: 0, transform: "translateY(16px)" }, { opacity: 1, transform: "translateY(0)" }],
+          { duration: 480, delay: Math.min(index * 70, 280), easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" },
+        ));
+      });
+    }, { rootMargin: "0px 0px -8% 0px" });
+    const stop = () => { if (preference.matches) animations.forEach((animation) => animation.cancel()); };
+    observer.observe(element);
+    preference.addEventListener("change", stop);
     return () => {
-      cancelled = true;
-      trigger?.kill();
+      observer.disconnect();
+      preference.removeEventListener("change", stop);
+      animations.forEach((animation) => animation.cancel());
     };
   }, []);
 
-  return (
-    <div ref={ref} className={className}>
-      {children}
-    </div>
-  );
+  return <div ref={ref} className={className}>{children}</div>;
 }

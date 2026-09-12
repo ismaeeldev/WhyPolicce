@@ -31,14 +31,14 @@ export function NotFoundContent() {
         className="relative flex flex-col items-center text-center"
       >
         <SearchX className="h-10 w-10 text-text-muted mb-6" strokeWidth={1.5} />
-        <h1 className="font-display text-display-lg leading-[1.1] mb-3">
+        <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-3">
           No results for that page.
         </h1>
         <p className="max-w-sm text-body text-text-secondary mb-8">
           It doesn&apos;t exist, or may have moved. The trail runs cold here —
           try a fresh search instead.
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/"
             className="rounded-sm bg-accent px-5 py-2.5 text-body-sm font-medium text-accent-foreground transition-all hover:bg-accent-hover active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"

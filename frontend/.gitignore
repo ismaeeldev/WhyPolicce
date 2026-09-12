@@ -42,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# UI review screenshots (local visual QA artifacts, not source)
+.ui-review/

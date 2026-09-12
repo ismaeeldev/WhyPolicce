@@ -14,16 +14,17 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="mx-auto max-w-[680px] px-6 py-20 sm:py-28">
+    <div className="mx-auto w-full min-w-0 max-w-[680px] px-5 sm:px-6 py-12 sm:py-20">
       {/* UI polish pass: was missing ScrollReveal (its About/Terms siblings
           both have it), and the "coming soon" caveat had zero visual
           distinction from the substantive policy paragraphs above it
           besides muted color — now a real bordered callout so it reads
           as an intentional notice, not an afterthought trailing off. */}
-      <ScrollReveal>
-        <h1 className="font-display text-display-lg leading-[1.1] mb-8">Privacy</h1>
-      </ScrollReveal>
-      <ScrollReveal className="space-y-6 text-body text-text-secondary leading-relaxed">
+      <div className="wp-page-intro">
+        <p className="wp-eyebrow mb-4">Your trust matters</p>
+        <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-8">Privacy</h1>
+      </div>
+      <ScrollReveal className="flex flex-col gap-6 text-body text-text-secondary leading-relaxed">
         <p>
           We require an account to search WhyPolice for one reason: to keep
           the platform free of bots and spam. It is not used to build an

@@ -53,16 +53,16 @@ export function Navbar() {
 
   return (
     <header
-      className={`sticky top-0 z-30 bg-bg/90 backdrop-blur-sm transition-colors duration-200 ${
+      className={`sticky top-0 z-30 bg-bg/90 backdrop-blur-xl transition-colors duration-200 ${
         scrolled ? "border-b border-border-default" : "border-b border-transparent"
       }`}
     >
-      <div className="mx-auto max-w-[1200px] px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-display text-xl text-text-primary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
-          WhyPolice
+      <div className="mx-auto max-w-[1200px] px-5 sm:px-6 h-20 flex items-center justify-between">
+        <Link href="/" className="font-display text-2xl tracking-tight text-text-primary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
+          WhyPolice<span className="text-accent">.</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8">
+        <nav aria-label="Main navigation" className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -153,8 +153,9 @@ export function Navbar() {
           <button
             type="button"
             aria-label="Open menu"
+            aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(true)}
-            className="md:hidden flex h-9 w-9 items-center justify-center rounded-sm hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            className="md:hidden flex h-11 w-11 items-center justify-center rounded-sm hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
           >
             <Menu className="h-5 w-5" />
           </button>

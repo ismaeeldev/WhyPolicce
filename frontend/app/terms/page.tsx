@@ -15,11 +15,12 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="mx-auto max-w-[680px] px-6 py-20 sm:py-28">
-      <ScrollReveal>
-        <h1 className="font-display text-display-lg leading-[1.1] mb-8">Terms</h1>
-      </ScrollReveal>
-      <ScrollReveal className="space-y-6 text-body text-text-secondary leading-relaxed">
+    <div className="mx-auto w-full min-w-0 max-w-[680px] px-5 sm:px-6 py-12 sm:py-20">
+      <div className="wp-page-intro">
+        <p className="wp-eyebrow mb-4">The essentials</p>
+        <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-8">Terms</h1>
+      </div>
+      <ScrollReveal className="flex flex-col gap-6 text-body text-text-secondary leading-relaxed">
         <p>
           By creating a WhyPolice account, you agree to use the service for
           legitimate search purposes and not to abuse, scrape, or attempt to

@@ -66,14 +66,14 @@ export function NoteCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5 min-w-0">
           <BrainCircuit className="h-4 w-4 shrink-0 mt-1 text-accent" strokeWidth={1.75} />
-          <p className="text-body text-text-primary leading-relaxed whitespace-pre-wrap">
+          <p className="text-body text-text-primary leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
             {note.content}
           </p>
         </div>
         {isSaving ? (
           <span className="shrink-0 text-caption text-text-muted">Saving…</span>
         ) : (
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+        <div className="wp-touch-action flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
           <button
             type="button"
             onClick={onEdit}

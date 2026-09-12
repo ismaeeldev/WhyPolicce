@@ -39,7 +39,7 @@ export default function Home() {
   return (
     <div className="flex flex-col flex-1">
       {/* Hero */}
-      <section className="relative flex flex-1 items-center justify-center overflow-hidden py-24 sm:py-32 px-6">
+      <section className="wp-home-hero relative flex flex-1 items-center justify-center overflow-hidden px-5 sm:px-6">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 right-[8%] h-[420px] w-[420px] rounded-full opacity-[0.14] blur-3xl animate-wp-drift"
@@ -58,6 +58,7 @@ export default function Home() {
               client JS cost ~550ms of real LCP) — the typing/deleting
               animation only begins after hydration, never blocking
               initial paint. */}
+          <p className="wp-eyebrow mb-7"><span className="size-1.5 rounded-full bg-accent" />Public safety, made clear</p>
           <TypedHeadline />
           <HeroContent />
         </div>
@@ -68,7 +69,7 @@ export default function Home() {
           stagger (was a static full-width line) so the "flow" reads as
           something happening, not just three cards sitting next to a
           decorative rule. */}
-      <section className="relative border-t border-border-default py-20 sm:py-28 px-6 overflow-hidden">
+      <section className="relative border-t border-border-default py-16 sm:py-24 px-5 sm:px-6 overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-[0.4]"
@@ -80,11 +81,12 @@ export default function Home() {
           }}
         />
         <div className="relative mx-auto max-w-[1000px]">
-          <ScrollReveal className="grid gap-10 sm:grid-cols-3 sm:gap-6">
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-4"><div><p className="wp-eyebrow mb-3">From question to clarity</p><h2 className="font-display text-h1">A little less searching.<br />A lot more understanding.</h2></div><p className="max-w-xs text-body-sm text-text-muted">One question. A clear answer. Everything you need to pick up the thread.</p></div>
+          <ScrollReveal className="grid gap-8 sm:grid-cols-3 sm:gap-8">
             {STEPS.map((step, i) => (
-              <div key={step.n} className="group relative">
+              <div key={step.n} className="group relative border-t border-border-default pt-6">
                 {i < STEPS.length - 1 && (
-                  <div className="hidden sm:block absolute top-5 left-[calc(100%-1rem)] w-[calc(100%-1.5rem)] h-px overflow-hidden bg-border-default">
+                  <div className="hidden sm:block absolute top-0 left-[calc(100%-1rem)] w-[calc(100%-1.5rem)] h-px overflow-hidden bg-border-default">
                     <div className="wp-line-draw h-full w-full origin-left bg-accent/40" />
                   </div>
                 )}
@@ -104,7 +106,7 @@ export default function Home() {
           visual interest; added a soft radial glow + hairline top/bottom
           accent rule so the section reads as a considered "pull quote"
           moment rather than a plain color-block break between sections. */}
-      <section className="relative border-t border-border-default py-20 sm:py-28 px-6 bg-bg-subtle overflow-hidden">
+      <section className="relative border-t border-border-default py-16 sm:py-24 px-5 sm:px-6 bg-bg-subtle overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.08] blur-3xl"
@@ -126,7 +128,7 @@ export default function Home() {
       {/* Privacy note — plain text, no card/border/icon-badge. why.com never
           wraps a single paragraph in decorative chrome; the restraint IS
           the design. Kept as its own section purely for vertical rhythm. */}
-      <section className="border-t border-border-default py-16 sm:py-20 px-6">
+      <section className="border-t border-border-default py-14 sm:py-16 px-5 sm:px-6">
         <ScrollReveal className="mx-auto max-w-[620px] text-center">
           <h2 className="text-h3 font-semibold mb-2">Your searches are yours</h2>
           <p className="text-body-sm text-text-secondary">

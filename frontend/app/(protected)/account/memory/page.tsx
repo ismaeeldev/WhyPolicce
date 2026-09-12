@@ -60,10 +60,10 @@ export default function MemoryPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[760px] px-6 py-12 sm:py-16">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="mx-auto w-full min-w-0 max-w-[760px] px-5 sm:px-6 py-12 sm:py-16">
+      <div className="wp-page-toolbar mb-8 flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
         <div>
-          <h1 className="font-display text-2xl text-text-primary">Memory</h1>
+          <h1 className="font-display text-h1 text-text-primary">Memory</h1>
           <p className="mt-1 text-body-sm text-text-muted">
             Tell WhyPolice what to remember about you.
           </p>
@@ -126,7 +126,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border-default py-16 text-center px-6"
+      className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border-strong bg-bg-elevated py-16 text-center px-6"
     >
       <BrainCircuit className="h-8 w-8 text-text-muted" strokeWidth={1.5} />
       <p className="text-body text-text-primary">Tell WhyPolice what to remember about you</p>

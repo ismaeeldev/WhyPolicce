@@ -42,14 +42,14 @@ export function ErrorContent({
         className="relative flex flex-col items-center text-center"
       >
         <TriangleAlert className="h-10 w-10 text-text-muted mb-6" strokeWidth={1.5} />
-        <h1 className="font-display text-display-lg leading-[1.1] mb-3">
+        <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-3">
           Something went wrong.
         </h1>
         <p className="max-w-sm text-body text-text-secondary mb-8">
           That search hit a snag on our end. Try again, or head back home —
           nothing you had in progress was lost.
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
             onClick={reset}

@@ -9,9 +9,9 @@ import Link from "next/link";
 export function Footer() {
   return (
     <footer className="border-t border-border-default mt-auto">
-      <div className="mx-auto max-w-[1200px] px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-body-sm text-text-muted">
+      <div className="mx-auto max-w-[1200px] px-5 sm:px-6 py-7 flex flex-col sm:flex-row items-center justify-between gap-4 text-body-sm text-text-muted">
         <span>&copy; {new Date().getFullYear()} WhyPolice. All rights reserved.</span>
-        <nav className="flex items-center gap-5">
+        <nav aria-label="Legal" className="flex items-center gap-5">
           <Link href="/privacy" className="hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
             Privacy
           </Link>

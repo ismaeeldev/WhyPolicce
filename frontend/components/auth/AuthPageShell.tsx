@@ -23,13 +23,13 @@ const EASE = [0.22, 1, 0.36, 1] as const;
  */
 export function AuthPageShell({
   children,
-  maxWidthClassName = "max-w-[400px]",
+  maxWidthClassName = "max-w-[440px]",
 }: {
   children: React.ReactNode;
   maxWidthClassName?: string;
 }) {
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-20">
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden px-5 py-12 sm:px-6 sm:py-20">
       <div
         aria-hidden="true"
         className="animate-wp-drift pointer-events-none absolute h-[420px] w-[420px] rounded-full bg-accent-subtle opacity-40 blur-[90px]"
@@ -40,7 +40,8 @@ export function AuthPageShell({
         transition={{ duration: 0.4, ease: EASE }}
         className={`relative w-full text-center ${maxWidthClassName}`}
       >
-        <div className="rounded-lg border border-border-default bg-bg-elevated p-8 shadow-card sm:p-10">
+        <div className="wp-auth-card rounded-lg border border-border-default bg-bg-elevated p-6 shadow-card sm:p-10">
+          <p className="wp-eyebrow justify-center mb-6">Your space for clarity</p>
           {children}
         </div>
       </motion.div>

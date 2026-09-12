@@ -95,9 +95,9 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
           whileInView="show"
           viewport={{ once: true, margin: "-40px" }}
           variants={cardVariants}
-          className={`relative rounded-lg bg-bg-elevated p-6 sm:p-8 transition-shadow duration-200 hover:shadow-card ${
+          className={`wp-plan-card relative rounded-lg bg-bg-elevated p-6 sm:p-8 text-left transition-shadow duration-200 hover:shadow-card ${
             plan.featured
-              ? "border-2 border-accent shadow-card"
+              ? "border border-accent shadow-card"
               : "border border-border-default"
           }`}
         >
@@ -134,8 +134,8 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
           <h2 className="text-h2 font-semibold">{plan.name}</h2>
           <p className="mt-1 text-body-sm text-text-secondary">{plan.description}</p>
 
-          <div className="mt-5 flex items-baseline gap-1">
-            <span className="font-display text-4xl text-text-primary">{plan.price}</span>
+          <div className="mt-7 flex items-baseline gap-2">
+            <span className="font-display text-display-lg text-text-primary">{plan.price}</span>
             <span className="text-body-sm text-text-muted">{plan.cadence}</span>
           </div>
 
@@ -169,7 +169,7 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
             </Link>
           )}
 
-          <ul className="mt-7 space-y-3">
+          <ul className="mt-7 flex flex-col gap-4 border-t border-border-default pt-6">
             {plan.features.map((f) => (
               <li key={f.label} className="flex items-start gap-2.5 text-body-sm">
                 {f.included ? (
