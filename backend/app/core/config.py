@@ -5,6 +5,24 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     DATABASE_URL: str = ""
+    # Real production-reliability bug found and fixed during a data-accuracy
+    # audit (plan.md "Data-accuracy audit"): the weekly scheduled sync
+    # (app/services/scheduler.py) coordinates against overlapping runs with
+    # a Postgres session-level advisory lock (pg_try_advisory_lock). Session
+    # -level advisory locks are tied to the specific physical backend
+    # connection that acquired them — confirmed live, not assumed, that
+    # Neon's pooled `-pooler` endpoint (this app's normal DATABASE_URL, used
+    # for short request-scoped connections) can silently reassign/recycle
+    # that physical backend mid-session, which drops the lock without the
+    # app ever seeing an error. A long-running, many-minutes sync is exactly
+    # the kind of session this can happen to. Neon's own direct (non-pooled)
+    # endpoint — the same hostname with `-pooler` removed — holds one stable
+    # physical connection for its whole duration, which session-level
+    # advisory locks require. Optional explicit override for deployments
+    # whose hostname doesn't follow the `-pooler` naming convention; falls
+    # back to deriving it from DATABASE_URL (see database_url_direct below)
+    # when unset, so most deployments need no extra configuration.
+    DATABASE_URL_DIRECT: str = ""
     AUTH0_DOMAIN: str = ""
     AUTH0_AUDIENCE: str = ""
     STRIPE_SECRET_KEY: str = ""
@@ -38,6 +56,20 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
+
+    @property
+    def database_url_direct(self) -> str:
+        """Non-pooled connection string for long-running sessions that need
+        a stable physical backend (currently: the scheduler's sync session
+        — see DATABASE_URL_DIRECT's comment above for why). Explicit
+        DATABASE_URL_DIRECT wins if set; otherwise derived from
+        DATABASE_URL by stripping Neon's `-pooler` hostname segment. If
+        DATABASE_URL doesn't contain `-pooler` (already direct, or a
+        non-Neon/non-pooled provider), this is just DATABASE_URL unchanged
+        — safe no-op rather than a broken derived URL."""
+        if self.DATABASE_URL_DIRECT:
+            return self.DATABASE_URL_DIRECT
+        return self.DATABASE_URL.replace("-pooler.", ".", 1)
 
 
 settings = Settings()

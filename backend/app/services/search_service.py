@@ -43,25 +43,39 @@ SYSTEM_PROMPT = (
 # user asked about" (verified during Phase 2 testing: a location-specific
 # query can surface a same-offense-type record from a different borough
 # when no exact match exists — the model must not blur that distinction).
+#
+# Real bug found and fixed (Revision 3 Step 9, multi-city expansion): this
+# used to hardcode "(from NYC Open Data's NYPD complaint/arrest datasets)"
+# — correct back when NYC was the only ingested city, but actively wrong
+# and misleading once Chicago/LA/Seattle/etc. records exist too. Confirmed
+# directly: a real "Any recent incidents in Chicago?" query correctly
+# retrieved 2 genuine Chicago records, but the model still answered "I
+# don't have Chicago records" — traced to this exact hardcoded NYC claim
+# in its own system prompt, which it was (correctly) trusting over the
+# literal record text. Each record's own summary text already states its
+# real city/precinct/date (see every ingestion module's _summarize_*), so
+# the instruction no longer needs to (and must not) assert a single source
+# city itself.
 RAG_RECORDS_INSTRUCTION = (
     "\n\nHere are real, retrieved public safety records that may be "
-    "relevant to this question (from NYC Open Data's NYPD complaint/arrest "
-    "datasets):\n{records_block}\n"
+    "relevant to this question, from official public open-data sources "
+    "for the specific city/agency named in each record below "
+    "(not necessarily the same city across every record):\n{records_block}\n"
     "Use these records to answer if they're genuinely relevant — summarize "
-    "what they actually say, don't invent details beyond them. If a record "
-    "is only a partial match (e.g. same type of incident but a different "
-    "borough/precinct/date than asked about), say so plainly rather than "
-    "implying it's the exact record the user meant. If none of these "
-    "records actually answer the question, say so honestly instead of "
-    "forcing a connection."
+    "what they actually say, don't invent details beyond them. Pay close "
+    "attention to which city each record is actually from — a record from "
+    "a different city than the one asked about is NOT a match, even if the "
+    "offense type is similar; say so plainly rather than implying it's the "
+    "record the user meant. If none of these records actually answer the "
+    "question, say so honestly instead of forcing a connection."
 )
 
 # Used when NO records were retrieved (either nothing relevant exists yet
-# for this query, or it's outside the currently-ingested scope — NYC only
-# as of Phase 2) — this is the original honest-limitation framing, kept
-# for exactly this case rather than removed, since the underlying gap
-# (no live connection to every police department/court) is still real for
-# anything not yet ingested.
+# for this query, or it's outside the currently-ingested scope) — this is
+# the original honest-limitation framing, kept for exactly this case
+# rather than removed, since the underlying gap (no live connection to
+# every police department/court) is still real for anything not yet
+# ingested.
 NO_RECORDS_INSTRUCTION = (
     " You do not have a live connection to any police department, court, "
     "or municipal database beyond what's provided above — for anything "
@@ -72,6 +86,26 @@ NO_RECORDS_INSTRUCTION = (
     "(the city or county government site, the relevant police "
     "department's public records or non-emergency line) instead of "
     "guessing a specific answer."
+    # Real gap found and fixed during a 20-question stability test batch
+    # (plan.md "Test similar client questions"): "Compare crime between "
+    # "Miami and Detroit" retrieved zero real records, so this branch
+    # applied — but the model still gave a confident, detailed comparative
+    # answer (violent-crime rates, drug-trafficking dynamics, NIBRS
+    # reporting differences) drawn from its own general knowledge, with no
+    # explicit statement that this wasn't from WhyPolice's own data. It
+    # wasn't fabricated nonsense and it did point to the FBI Crime Data
+    # Explorer as an authoritative source — but a user reading it next to
+    # every other answer in this product (which DOES cite real, retrieved
+    # records) could easily mistake it for one, since nothing in the reply
+    # itself drew that distinction. This instruction previously only
+    # covered the time-sensitive/jurisdiction-specific case explicitly —
+    # extended to cover this broader "answering from general knowledge,
+    # not this system's own data" case too.
+    " If you answer using your own general knowledge rather than a "
+    "retrieved record — e.g. general statistics, historical trends, or "
+    "comparisons between cities — say so explicitly (e.g. 'this isn't "
+    "from WhyPolice's own retrieved records, but generally...') so it's "
+    "never confused with a cited, retrieved record."
 )
 
 OFF_TOPIC_INSTRUCTION = (
@@ -84,6 +118,28 @@ OFF_TOPIC_INSTRUCTION = (
 
 def _format_records_block(records: list[PublicRecord]) -> str:
     return "\n".join(f"- {r.raw_text}" for r in records)
+
+
+def _build_citations(records: list[PublicRecord]) -> list[dict]:
+    """Turns retrieved records into a de-duplicated, order-preserving list
+    of real source citations for the UI (city + underlying data source,
+    e.g. {"city": "Chicago", "source": "chicago_crimes"}) — the same
+    (source, city) pair a record's own `_summarize_*` text already states
+    in prose, just surfaced as structured data instead of requiring a user
+    to parse it out of the answer text themselves. Multiple retrieved
+    records from the same (city, source) collapse into one citation entry
+    (a query can retrieve several records from the same dataset — the
+    citation should say "here's where this came from," not repeat the
+    same source N times)."""
+    seen: set[tuple[str, str]] = set()
+    citations: list[dict] = []
+    for record in records:
+        key = (record.city, record.source)
+        if key in seen:
+            continue
+        seen.add(key)
+        citations.append({"city": record.city, "source": record.source})
+    return citations
 
 DEEP_SEARCH_SUFFIX = (
     " This is a 'deep search' request — go further than a quick answer: "
@@ -200,6 +256,8 @@ async def stream_answer(
     deep_search: bool = False,
     memory_notes: list[str] | None = None,
     db_session: Session | None = None,
+    sources_out: list[dict] | None = None,
+    state: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """Yields the answer text chunk-by-chunk.
 
@@ -217,13 +275,33 @@ async def stream_answer(
     existing tests/callers that don't pass a session still work exactly
     as before — retrieval finding nothing relevant is the same as not
     attempting it, per _build_system_prompt's NO_RECORDS_INSTRUCTION path.
-    """
+
+    sources_out is an optional caller-owned list this function appends
+    real citation dicts to ({"city": ..., "source": ...}, de-duplicated,
+    preserving retrieval order) as soon as retrieval completes — a
+    generator can't also `return` a value, so a citations UI (real client-
+    facing gap found and fixed post-Phase-31: answers previously showed no
+    visible source/city attribution despite every answer being backed by
+    real, retrieved public records) needs this side-channel instead of a
+    second return value. Deliberately populated BEFORE the first chunk is
+    yielded, not after streaming completes, so a caller can safely read it
+    once the async generator is exhausted (mirrors how app/routers/
+    search.py already reads `collected` after the loop) without needing to
+    coordinate with in-progress streaming.
+
+    state, Step 4/5 of the State Selector feature (real client-requested
+    feature — see vector_search_service.CITY_TO_STATE's own docstring):
+    an optional real 2-letter USPS code, already validated at the API
+    boundary (app/schemas/search.py) against WhyPolice's actual real
+    coverage before it ever reaches here. Passed straight through to
+    find_relevant_records, which does the real scoping/filtering — this
+    function stays a thin pass-through, same as deep_search/memory_notes."""
     notes = memory_notes or []
 
     retrieved_records: list[PublicRecord] = []
     if db_session is not None:
         try:
-            retrieved_records = await find_relevant_records(db_session, prompt)
+            retrieved_records = await find_relevant_records(db_session, prompt, state=state)
         except Exception:
             # A retrieval failure (embedding API error, DB issue) must not
             # break search entirely — degrade to the no-records path,
@@ -231,6 +309,9 @@ async def stream_answer(
             # existed, rather than a hard 500 on the whole search.
             logger.warning("RAG retrieval failed, falling back to no-records prompt", exc_info=True)
             retrieved_records = []
+
+    if sources_out is not None:
+        sources_out.extend(_build_citations(retrieved_records))
 
     system = _build_system_prompt(deep_search, notes, retrieved_records)
     max_tokens = _DEEP_SEARCH_MAX_TOKENS if deep_search else _STANDARD_MAX_TOKENS

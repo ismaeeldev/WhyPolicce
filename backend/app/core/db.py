@@ -2,6 +2,7 @@ import logging
 from collections.abc import Generator
 
 from sqlalchemy import text
+from sqlalchemy.pool import NullPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.core.config import settings
@@ -40,6 +41,38 @@ engine = (
     else None
 )
 
+# Dedicated engine for the scheduler's long-running weekly sync session —
+# see Settings.database_url_direct's docstring for the real bug this fixes
+# (a session-level pg_advisory_lock silently dropped mid-sync when the
+# physical backend connection gets reassigned/recycled out from under it).
+# NOT used for normal per-request sessions (get_session() below still uses
+# the pooled `engine`) — a direct connection bypasses Neon's pooler
+# entirely, which is correct for one long-lived session but would exhaust
+# connection limits fast if every short-lived API request used it too.
+#
+# Deliberately does NOT set pool_recycle (unlike the main `engine`) — found
+# live during this fix's own verification, not assumed: pool_recycle=300
+# makes SQLAlchemy's OWN connection pool silently swap out the physical
+# connection after 5 minutes regardless of activity, which defeats the
+# entire point of this engine just as effectively as Neon's pooler did.
+# A single sync run reliably exceeds 5 minutes (the full 30-phase run took
+# over 90 minutes). NullPool goes further: it never reuses connections
+# across checkouts at all (opens one on connect, closes it on
+# session-close), removing pooling-related recycling risk entirely rather
+# than just tuning it — appropriate here since this engine only ever needs
+# one real connection open at a time (the scheduler's own advisory lock
+# already prevents overlapping syncs from this app's side; that guarantee
+# is only trustworthy at all once the connection itself doesn't move).
+sync_engine = (
+    create_engine(
+        settings.database_url_direct,
+        echo=False,
+        poolclass=NullPool,
+    )
+    if settings.database_url_direct
+    else None
+)
+
 
 def get_session() -> Generator[Session, None, None]:
     if engine is None:
@@ -70,6 +103,25 @@ def create_db_and_tables() -> None:
             conn.commit()
 
     SQLModel.metadata.create_all(engine)
+
+    # Real bug avoided, not just theoretical: create_all() only creates
+    # tables that don't exist yet — it does NOT add a new column to an
+    # already-existing table (confirmed via SQLAlchemy's own documented
+    # behavior, not assumed). search_messages.sources is a genuinely new
+    # column (added for the real-source-citations UI feature) on a table
+    # that already exists in every deployed database, so a plain
+    # create_all() call would silently leave it missing there and the app
+    # would 500 the first time code tries to read/write it. ADD COLUMN IF
+    # NOT EXISTS is the same safe, idempotent, no-Alembic-needed pattern
+    # already used above for the vector extension and HNSW index — a no-op
+    # on a database that already has the column (e.g. a fresh deploy where
+    # create_all() just created the whole table with it included).
+    if engine.dialect.name == "postgresql":
+        with engine.connect() as conn:
+            conn.execute(
+                text("ALTER TABLE search_messages ADD COLUMN IF NOT EXISTS sources JSON")
+            )
+            conn.commit()
 
     # HNSW index for the embedding column's cosine-distance similarity
     # search (app/services/vector_search_service.py). Not expressible via

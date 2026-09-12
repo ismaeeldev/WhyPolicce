@@ -14,6 +14,7 @@ from app.models.user import Tier, User
 from app.schemas.search import SearchStreamRequest
 from app.services.rate_limit import RateLimitExceeded, check_rate_limit
 from app.services.search_service import stream_answer
+from app.services.vector_search_service import supported_states
 
 router = APIRouter()
 
@@ -55,6 +56,28 @@ def _get_or_create_user(session: Session, current: AuthenticatedUser) -> User:
         session.commit()
         session.refresh(user)
     return user
+
+
+@router.get("/api/search/states")
+def get_supported_states(
+    current: AuthenticatedUser = Depends(get_current_user),
+) -> list[dict]:
+    """State Selector, Step 3 (real client-requested feature — their own
+    pasted SearchBar draft hardcoded 5 placeholder states: NY/CA/TX/FL/IL).
+
+    Returns the REAL, current list of states WhyPolice has actual
+    integrated data for, derived live from vector_search_service's
+    CITY_TO_STATE (Step 1/2) rather than a second hand-maintained list —
+    so the frontend dropdown can never silently drift out of sync with
+    real coverage as future city-expansion phases land. Auth-protected
+    like every other /api/search/* route, even though this particular
+    response has no per-user data — the page that consumes it is already
+    behind auth, so there's no reason to introduce a new unauthenticated
+    pattern just for this one endpoint.
+
+    No `session` dependency needed — this is pure in-memory derivation
+    from CITY_TO_STATE, no database read."""
+    return [{"code": code, "name": name} for code, name in supported_states()]
 
 
 @router.post("/api/search/stream")
@@ -121,12 +144,20 @@ async def search_stream(
 
     async def event_stream():
         collected = ""
+        # Populated by stream_answer as soon as RAG retrieval completes
+        # (before the first token is yielded) — see search_service.
+        # stream_answer's sources_out docstring for why a generator needs
+        # this side-channel rather than a second return value. Safe to
+        # read after the loop below, same as `collected`.
+        sources: list[dict] = []
         try:
             async for chunk in stream_answer(
                 body.prompt,
                 deep_search=body.deepSearch,
                 memory_notes=[n.content for n in memory_notes],
                 db_session=session,
+                sources_out=sources,
+                state=body.state,
             ):
                 collected += chunk
                 yield f"data: {json.dumps({'type': 'token', 'data': chunk})}\n\n"
@@ -137,11 +168,12 @@ async def search_stream(
                 content=collected,
                 is_deep_search=body.deepSearch,
                 memory_note_ids=referenced_note_ids,
+                sources=sources or None,
             )
             session.add(assistant_message)
             session.commit()
 
-            yield f"data: {json.dumps({'type': 'done', 'sessionId': str(db_session.id), 'memorySnippets': referenced_snippets})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'sessionId': str(db_session.id), 'memorySnippets': referenced_snippets, 'sources': sources})}\n\n"
         except Exception:
             yield f"data: {json.dumps({'type': 'error', 'message': 'Something went wrong while streaming the answer.'})}\n\n"
 
@@ -176,12 +208,34 @@ def get_history(
             .where(SearchMessage.is_deep_search == True)  # noqa: E712
         ).all()
     )
+    # Real, previously-missing gap found via UI review (plan.md "Product/
+    # quality work"): the source-citations feature already surfaces real
+    # public-record attribution on the live answer view and the session-
+    # detail replay view (SearchMessage.sources), but the history LIST
+    # never showed it — a user scanning past searches had no way to tell
+    # "this one found real records" from "this one didn't" without opening
+    # each session individually. Same boolean-flag-per-session pattern as
+    # isDeepSearch immediately above, not a new mechanism: a session
+    # "has sources" if ANY of its messages does. SQLModel/Postgres's JSON
+    # column can't be queried for "non-empty array" the same way a boolean
+    # column can, so this pulls the raw sources column for the relevant
+    # messages and checks truthiness in Python — the row count here is
+    # bounded by one user's own message history, not a table scan.
+    sources_by_session_id: dict = {}
+    for session_id, sources in session.exec(
+        select(SearchMessage.session_id, SearchMessage.sources).where(
+            SearchMessage.session_id.in_([s.id for s in sessions])
+        )
+    ).all():
+        if sources:
+            sources_by_session_id[session_id] = True
     return [
         {
             "id": str(s.id),
             "title": s.title,
             "createdAt": to_utc_iso(s.created_at),
             "isDeepSearch": s.id in deep_search_session_ids,
+            "hasSources": sources_by_session_id.get(s.id, False),
         }
         for s in sessions
     ]
@@ -232,6 +286,7 @@ def get_session_detail(
                     for note_id in (m.memory_note_ids or [])
                     if note_id in snippet_by_id
                 ],
+                "sources": m.sources or [],
                 "createdAt": to_utc_iso(m.created_at),
             }
             for m in messages

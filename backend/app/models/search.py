@@ -41,6 +41,17 @@ class SearchMessage(SQLModel, table=True):
     # local SQLite database used for Step 4's code-level testing (see
     # AgentGuide/05_PROJECT_STATE.md — no live Neon connection available yet).
     memory_note_ids: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    # Real source citations for an assistant answer — a list of
+    # {"city": ..., "source": ...} dicts built by
+    # search_service._build_citations from the actual PublicRecord rows
+    # retrieved for this answer (see stream_answer's sources_out param).
+    # Same JSON-column reasoning as memory_note_ids above: read back whole
+    # for display, never queried by individual element. Always None for a
+    # user-role message (only ever set when persisting the assistant
+    # reply) and empty/None when retrieval found nothing relevant, same
+    # "absence must be invisible" rule the memory citation line already
+    # follows.
+    sources: list[dict] | None = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True)),
