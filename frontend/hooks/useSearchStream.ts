@@ -7,6 +7,8 @@ import { trackEvent } from "@/lib/analytics";
 import { ApiError } from "@/lib/api-client";
 import { parseSseStream } from "@/lib/sse";
 
+import type { SearchSource } from "@/lib/sse";
+
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 
 export type StreamStatus =
@@ -25,12 +27,13 @@ type State = {
   errorMessage: string | null;
   retryAfterSeconds: number | null;
   memorySnippets: string[];
+  sources: SearchSource[];
 };
 
 type Action =
   | { type: "submit" }
   | { type: "token"; data: string }
-  | { type: "done"; sessionId: string; memorySnippets: string[] }
+  | { type: "done"; sessionId: string; memorySnippets: string[]; sources: SearchSource[] }
   | { type: "error"; message: string }
   | { type: "rate_limited"; message: string; retryAfterSeconds: number }
   | { type: "upgrade_required"; message: string }
@@ -43,6 +46,7 @@ const initialState: State = {
   errorMessage: null,
   retryAfterSeconds: null,
   memorySnippets: [],
+  sources: [],
 };
 
 function reducer(state: State, action: Action): State {
@@ -57,6 +61,7 @@ function reducer(state: State, action: Action): State {
         status: "complete",
         sessionId: action.sessionId,
         memorySnippets: action.memorySnippets,
+        sources: action.sources,
       };
     case "error":
       return { ...state, status: "error", errorMessage: action.message };
@@ -85,7 +90,7 @@ export function useSearchStream() {
   const requestIdRef = useRef(0);
 
   const submit = useCallback(
-    async (params: { prompt: string; sessionId?: string; deepSearch: boolean }) => {
+    async (params: { prompt: string; sessionId?: string; deepSearch: boolean; state?: string | null }) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -116,6 +121,13 @@ export function useSearchStream() {
             prompt: params.prompt,
             sessionId: params.sessionId,
             deepSearch: params.deepSearch,
+            // State Selector, Step 7 — real client-requested feature,
+            // matching the client's own pasted request body exactly
+            // (`state: params.state`). Omitted (undefined) when no
+            // state is selected — the backend schema already treats a
+            // missing/null state as "no scoping," the same general
+            // search behavior as before this feature existed.
+            state: params.state ?? undefined,
           }),
         });
 
@@ -164,6 +176,7 @@ export function useSearchStream() {
               type: "done",
               sessionId: event.sessionId,
               memorySnippets: event.memorySnippets ?? [],
+              sources: event.sources ?? [],
             });
             trackEvent("search_completed", { sessionId: event.sessionId });
             return;
@@ -177,7 +190,7 @@ export function useSearchStream() {
         if (receivedTokens && !receivedDone) {
           // Stream ended after tokens but before a done event — show the answer
           // instead of a false "interrupted" error (can happen on slow networks).
-          dispatch({ type: "done", sessionId: "", memorySnippets: [] });
+          dispatch({ type: "done", sessionId: "", memorySnippets: [], sources: [] });
           trackEvent("search_completed", { sessionId: "unknown" });
           return;
         }

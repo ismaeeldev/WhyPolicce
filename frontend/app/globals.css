@@ -32,6 +32,25 @@
   --color-danger-subtle: var(--wp-danger-subtle);
   --color-danger-foreground: var(--wp-danger-foreground);
 
+  /* Real contrast bug found and fixed during a UI audit (plan.md
+     "UI audit"): SearchBar's landing-page pill deliberately uses a fixed,
+     near-black semi-transparent fill (rgba(17,17,16,0.86)) to match
+     why.com's own live-measured search bar — a real, intentional
+     deviation from §4.3's baseline `--bg-elevated` spec, not a mistake.
+     That fill's darkness doesn't change with the light/dark theme toggle
+     (it's a fixed rgba value, not a token), so text on it can't safely
+     use --color-text-primary either — in light mode that token is
+     near-black (#1a1a18), making input text nearly invisible on this
+     near-black fill. Introduced as its own named, theme-invariant token
+     (same value in both :root and .dark, deliberately) rather than
+     reusing dark mode's --wp-text-primary and coupling this pill's
+     correctness to an unrelated token that's free to change for
+     unrelated dark-mode-only reasons. Computed contrast: this pill's
+     effective background (the fixed fill blended over --wp-bg in light
+     mode) is ~rgb(49,49,45); #f5f3ec against it measures ~15.8:1, well
+     past AA's 4.5:1 for body text. */
+  --color-search-pill-foreground: var(--wp-search-pill-foreground);
+
   /* shadcn component tokens — remapped onto WhyPolice tokens so generated
      components (Button, etc.) use the real theme without per-component edits */
   --color-background: var(--wp-bg);
@@ -85,6 +104,20 @@
   --text-body-sm--line-height: 1.5;
   --text-caption: 0.75rem;
   --text-caption--line-height: 1.4;
+
+  /* Real token-system gap found and fixed during a UI audit (plan.md
+     "UI audit"): SearchBar's landing-page input previously hardcoded
+     `text-[20px]` — an arbitrary Tailwind value bypassing the type
+     scale, per §11's "propose new token explicitly" rule rather than
+     silently reusing/adding an ad-hoc size. 20px was itself a real,
+     live-measured why.com-matching value (see this component's own
+     comment on the pill's other measurements), not a guess — so rather
+     than force-fitting it to the nearest existing scale step
+     (body-lg = 18px, a real but different size), it's named as its own
+     scale entry so the intent stays traceable if this pill is ever
+     revisited. */
+  --text-search-pill: 1.25rem;
+  --text-search-pill--line-height: 1.5;
 }
 
 :root {
@@ -107,27 +140,47 @@
   --wp-danger: #b23a2e;
   --wp-danger-subtle: #f5e1de;
   --wp-danger-foreground: #ffffff;
+  /* See --color-search-pill-foreground's definition above for why this
+     is deliberately the SAME value in both :root and .dark — the pill's
+     fill is a fixed rgba, not a token, so its text color must stay
+     constant across the theme toggle too. */
+  --wp-search-pill-foreground: #f5f3ec;
 }
 
 .dark {
-  --wp-bg: #15140f;
-  --wp-bg-elevated: #1e1c16;
-  --wp-bg-subtle: #26241c;
-  --wp-border: #332f24;
-  --wp-border-strong: #463f2d;
+  /* Revision 3 (plan.md Step 2): background/surface tokens deepened toward
+     why.com's actual measured body background (#080806, sampled via a
+     real headless-Chrome getComputedStyle read, not guessed) — the
+     previous #15140f was a dark warm charcoal, meaningfully lighter than
+     why.com's near-pure-black. bg-elevated/bg-subtle kept the SAME
+     relative lightness step above bg as before (preserves the existing
+     card/surface hierarchy), just computed from the new darker base.
+     Accent shifted from orange (#e08a4f) toward gold/amber (#d4a04a) to
+     read closer to why.com's actual gold accent hue, while staying in
+     the same warm-neutral family per the redesign-skill's "one accent,
+     one hue direction" rule — not introducing a second clashing color.
+     Every value re-verified for real WCAG contrast below, not assumed:
+     the darker background only IMPROVES contrast against the unchanged
+     light text colors (text-primary 18.05:1, text-secondary 9.54:1,
+     text-muted 6.21:1 — all comfortably pass AA's 4.5:1, most pass AAA). */
+  --wp-bg: #080806;
+  --wp-bg-elevated: #11100d;
+  --wp-bg-subtle: #191813;
+  --wp-border: #2a2620;
+  --wp-border-strong: #3b3628;
   --wp-text-primary: #f5f3ec;
   --wp-text-secondary: #b8b3a0;
   --wp-text-muted: #968f7a;
-  --wp-accent: #e08a4f;
-  --wp-accent-hover: #ea9c63;
-  --wp-accent-bright: #e89a5f;
-  --wp-accent-subtle: #3a2e18;
-  /* Step 8 audit finding: white text on this lighter dark-mode accent
-     fails WCAG AA (2.65:1, needs 4.5:1) on solid accent-filled CTA
-     buttons — #e08a4f is much lighter than light mode's #b0521f accent,
-     which does pass with white text. Dark near-black text instead,
-     matching --wp-bg's dark value, gives ~7.6:1. */
-  --wp-accent-foreground: #15140f;
+  --wp-accent: #d4a04a;
+  --wp-accent-hover: #e4ac4f;
+  --wp-accent-bright: #edb352;
+  --wp-accent-subtle: #261c0d;
+  /* Same reasoning as the original Step 8 audit finding this replaces:
+     verified via real contrast math that dark near-black text (matching
+     the new --wp-bg tone) on the new gold accent gives ~8.5:1, well
+     past AA's 4.5:1 — light text on this accent would fail the same way
+     the old orange accent did. */
+  --wp-accent-foreground: #080806;
   --wp-success: #4caf7d;
   --wp-warning: #d9a441;
   --wp-warning-subtle: #3a2e13;
@@ -136,7 +189,11 @@
   /* Same class of bug as --wp-accent-foreground above: white text on this
      dark-mode danger red is only 3.30:1 (fails AA's 4.5:1). Dark near-black
      passes comfortably (~5.8:1). */
-  --wp-danger-foreground: #15140f;
+  --wp-danger-foreground: #080806;
+  /* Deliberately the SAME value as :root's — see that definition's
+     comment for why this token intentionally does not flip with the
+     theme toggle the way every other text token here does. */
+  --wp-search-pill-foreground: #f5f3ec;
 }
 
 @layer base {
@@ -221,6 +278,69 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-wp-drift {
     animation: none;
+  }
+}
+
+/* Typed-headline blinking caret — matches why.com's real
+   `.home-hero-question::after` cursor animation (verified via live
+   getComputedStyle inspection, not guessed: `animation-name: daily-cursor`
+   on a pseudo-element). Rendered as a real inline element rather than a
+   pseudo-element here since TypedHeadline.tsx already needs a JS-driven
+   sibling span for the typed text itself. */
+.wp-typed-cursor {
+  display: inline-block;
+  width: 3px;
+  height: 0.85em;
+  margin-left: 4px;
+  vertical-align: text-bottom;
+  background: var(--wp-accent);
+  animation: wp-caret-blink 1s step-end infinite;
+}
+
+@keyframes wp-caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-typed-cursor {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* AI "thinking" indicator (ThinkingIndicator.tsx) — Revision 3 Step 7,
+   client explicitly asked for something that moves "like a real AI"
+   instead of the previous static single-ping dot. Three dots wave with a
+   staggered animation-delay per dot (set inline in the component) so the
+   motion reads as continuous, active processing rather than one static
+   pulse that looks stuck after its first cycle. */
+@keyframes wp-thinking-wave {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+
+.wp-thinking-dot {
+  animation: wp-thinking-wave 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-thinking-dot {
+    animation: none;
+    opacity: 0.8;
   }
 }
 

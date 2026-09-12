@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Landmark, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { formatRelativeTime } from "@/lib/format";
@@ -38,13 +38,36 @@ export function SessionCard({ session, index }: { session: HistorySession; index
             {session.title || "Untitled search"}
           </p>
           {session.isDeepSearch && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent-subtle px-2.5 py-0.5 text-text-primary text-[11px] leading-4 font-medium">
+            // Real token-drift fix from a UI audit (plan.md "UI audit"):
+            // this was the one badge in the codebase using a bespoke
+            // 11px/leading-4 pairing instead of the established
+            // text-caption token every other badge (Pro/tier badges,
+            // pricing's "Most popular", AnswerPanel's source/memory
+            // lines) already uses for this exact visual role.
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent-subtle px-2.5 py-0.5 text-text-primary text-caption font-medium">
               <Sparkles className="h-3 w-3 text-accent-bright" />
               Deep search
             </span>
           )}
         </div>
-        <p className="mt-2 text-body-sm text-text-muted">{formatRelativeTime(session.createdAt)}</p>
+        <div className="mt-2 flex items-center gap-2 text-body-sm text-text-muted">
+          <span>{formatRelativeTime(session.createdAt)}</span>
+          {/* Real gap found via UI review (plan.md "Product/quality
+              work"): the source-citations feature already surfaces real
+              public-record attribution on the live answer view and
+              session-detail replay, but a user scanning their history had
+              no way to tell "this one found real records" from "this one
+              didn't" without opening each session. Same "absence must be
+              invisible" rule as everywhere else this feature appears —
+              no icon at all when a session has no sources, never a
+              visible "no sources" state. Reuses AnswerPanel's own
+              Landmark icon for the same concept rather than a new one. */}
+          {session.hasSources && (
+            <span className="flex items-center gap-1" title="Sourced from real public records">
+              <Landmark className="h-3 w-3 shrink-0" />
+            </span>
+          )}
+        </div>
       </Link>
     </motion.div>
   );

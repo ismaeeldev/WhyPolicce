@@ -4,12 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api-client";
 
+import type { SearchSource } from "@/lib/sse";
+
 export type SessionMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   isDeepSearch: boolean;
   memorySnippets: string[];
+  sources: SearchSource[];
   createdAt: string;
 };
 

@@ -46,7 +46,11 @@ export function HeroContent() {
         transition={{ duration: 0.5, ease: EASE }}
         className="mt-10 w-full"
       >
-        <SearchBar />
+        {/* Revision 3 (plan.md Step 3): showCategories is landing-page-only
+            — this is the only place SearchBar renders the why.com-style
+            category pill row. The protected /search page's own SearchBar
+            usage is deliberately left without this prop. */}
+        <SearchBar showCategories />
       </motion.div>
     </motion.div>
   );

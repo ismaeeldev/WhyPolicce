@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 
 import { HeroContent } from "@/components/marketing/HeroContent";
 import { ScrollReveal } from "@/components/marketing/ScrollReveal";
+import { TypedHeadline } from "@/components/marketing/TypedHeadline";
 
 export const metadata: Metadata = {
   title: "WhyPolice — Public safety intelligence, live.",
@@ -48,15 +49,16 @@ export default function Home() {
           }}
         />
         <div className="relative mx-auto flex w-full max-w-[900px] flex-col items-center text-center">
-          {/* Plain static markup, not a client component — this is the page's
-              Largest Contentful Paint element, it must paint with the initial
-              HTML, never gated behind client-side JS/animation. See
-              components/marketing/HeroContent.tsx for why. */}
-          <h1 className="font-display text-display-lg sm:text-display-xl leading-[1.05] text-text-primary">
-            Public safety intelligence.
-            <br />
-            Answered live.
-          </h1>
+          {/* Revision 3 Step 7 (plan.md): why.com's real headline is a live,
+              rotating, character-typed question (verified via live DOM
+              inspection — a genuine typewriter effect with a blinking
+              caret), not a static tagline. TypedHeadline renders the FIRST
+              question as plain static text on the server (LCP-safe, per
+              the original finding this replaces: gating the H1 behind
+              client JS cost ~550ms of real LCP) — the typing/deleting
+              animation only begins after hydration, never blocking
+              initial paint. */}
+          <TypedHeadline />
           <HeroContent />
         </div>
       </section>

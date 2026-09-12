@@ -3,9 +3,11 @@
  * response.body.getReader(), no external SSE library, per the original scope
  * wording ("native web streams").
  */
+export type SearchSource = { city: string; source: string };
+
 export type SseEvent =
   | { type: "token"; data: string }
-  | { type: "done"; sessionId: string; memorySnippets?: string[] }
+  | { type: "done"; sessionId: string; memorySnippets?: string[]; sources?: SearchSource[] }
   | { type: "error"; message: string };
 
 function* parseSseBlocks(blocks: string[]): Generator<SseEvent> {

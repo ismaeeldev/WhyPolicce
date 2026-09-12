@@ -95,7 +95,7 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
           whileInView="show"
           viewport={{ once: true, margin: "-40px" }}
           variants={cardVariants}
-          className={`relative overflow-hidden rounded-lg bg-bg-elevated p-6 sm:p-8 transition-shadow duration-200 hover:shadow-card ${
+          className={`relative rounded-lg bg-bg-elevated p-6 sm:p-8 transition-shadow duration-200 hover:shadow-card ${
             plan.featured
               ? "border-2 border-accent shadow-card"
               : "border border-border-default"
@@ -104,13 +104,25 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
           {/* Free card previously read as a plain afterthought next to
               Pro's border/shadow/badge — UI polish pass gives it its own
               quiet visual identity (a soft corner texture) instead of
-              just "the un-highlighted one." */}
+              just "the un-highlighted one."
+
+              Revision 3 fix: this decoration used to be clipped via
+              `overflow-hidden` on the OUTER card div — found via a fresh
+              screenshot review that this also clipped the Pro card's
+              "Most popular" badge, which intentionally pokes above the
+              card's top edge (`-top-3`), making it render half-cut-off
+              and unreadable. Moved overflow-hidden onto a dedicated inner
+              wrapper around just the decorative glow instead, so it still
+              clips correctly without affecting anything that needs to
+              extend past the card's own bounds. */}
           {!plan.featured && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.06]"
-              style={{ background: "radial-gradient(circle, var(--wp-text-primary) 0%, transparent 70%)" }}
-            />
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
+              <div
+                aria-hidden="true"
+                className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.06]"
+                style={{ background: "radial-gradient(circle, var(--wp-text-primary) 0%, transparent 70%)" }}
+              />
+            </div>
           )}
 
           {plan.featured && (

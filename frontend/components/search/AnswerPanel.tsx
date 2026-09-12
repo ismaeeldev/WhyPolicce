@@ -1,11 +1,41 @@
 "use client";
 
-import { BrainCircuit, Check, Copy, Lock, RotateCcw } from "lucide-react";
+import { BrainCircuit, Check, Copy, Landmark, Lock, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { ThinkingIndicator } from "@/components/search/ThinkingIndicator";
 import { useUpgradeModalStore } from "@/stores/useUpgradeModalStore";
 
 import type { StreamStatus } from "@/hooks/useSearchStream";
+import type { SearchSource } from "@/lib/sse";
+
+// A source's own dataset id (e.g. "chicago_crimes", "nyc_nypd_arrest") is
+// internal/technical — a real client-facing gap this citation feature
+// exists to close would just move the "hard to parse" problem into the
+// citation line itself if shown verbatim. Turns it into the kind of
+// plain-language label a user actually reads, e.g. "Chicago Police Dept.
+// crime data" — falls back to a generic-but-still-honest label for any
+// source not in this map rather than ever hiding a real citation.
+function formatSourceLabel(source: SearchSource): string {
+  const isCalls = /_calls$/.test(source.source) || /calls_for_service|_cfs/.test(source.source);
+  const kind = isCalls ? "calls-for-service data" : "crime data";
+  return `${source.city} ${kind}`;
+}
+
+// Real bug found and fixed during this feature's own follow-up testing:
+// two technically distinct backend sources for the same city (e.g. NYC's
+// separate nyc_nypd_arrest and nyc_nypd_complaint datasets) both format to
+// the identical label "New York City crime data" — the backend's own
+// _build_citations() correctly keeps them as separate citation entries
+// (real, distinct datasets, right for data integrity), but rendering both
+// literally produced "New York City crime data, New York City crime
+// data," a genuinely confusing duplicate a user would read as a mistake.
+// De-duplicated at the DISPLAY layer, after formatting, not by changing
+// what the backend tracks — Set() on the formatted strings preserves
+// first-seen order, matching the citation list's own retrieval order.
+function formatSourceLabels(sources: SearchSource[]): string {
+  return Array.from(new Set(sources.map(formatSourceLabel))).join(", ");
+}
 
 /**
  * Streaming answer display — AgentGuide/01_ThemeGuideline.md §4.3, §7.3
@@ -25,6 +55,7 @@ export function AnswerPanel({
   onRetry,
   retryLabel = "Regenerate",
   memorySnippets = [],
+  sources = [],
 }: {
   text: string;
   status: StreamStatus;
@@ -40,6 +71,15 @@ export function AnswerPanel({
    * Absence must be invisible (empty array = nothing rendered), never a
    * visible "no memory used" state, per §7's edge-states checklist. */
   memorySnippets?: string[];
+  /** Real source citations — see search_service.py's _build_citations and
+   * this project's plan.md "Beyond Phase 31" UI-quality note: this answers
+   * a genuine, previously-missing client-facing gap (every answer is
+   * backed by real, retrieved public records, but the UI never visibly
+   * said so, only the answer's own free-text prose did). Same
+   * "absence must be invisible" rule as memorySnippets — an off-topic
+   * question with no retrieved records renders no citation line at all,
+   * never a "no sources found" state. */
+  sources?: SearchSource[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
@@ -123,15 +163,7 @@ export function AnswerPanel({
       aria-busy={isWaiting || isStreaming}
       className="mt-6 min-h-[120px] max-h-[50vh] overflow-y-auto rounded-md border border-border-default bg-bg-elevated p-5 sm:p-6"
     >
-      {isWaiting && !text && (
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-40" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-          </span>
-          <p className="text-body-sm text-text-secondary">Thinking…</p>
-        </div>
-      )}
+      {isWaiting && !text && <ThinkingIndicator />}
 
       {(text || isStreaming) && (
         <p className="text-body text-text-primary leading-relaxed whitespace-pre-wrap">
@@ -142,8 +174,15 @@ export function AnswerPanel({
         </p>
       )}
 
-      {showActions && memorySnippets.length > 0 && (
+      {showActions && sources.length > 0 && (
         <p className="mt-4 flex items-center gap-1.5 text-caption text-text-muted">
+          <Landmark className="h-3 w-3 shrink-0" />
+          Sourced from real public records: {formatSourceLabels(sources)}
+        </p>
+      )}
+
+      {showActions && memorySnippets.length > 0 && (
+        <p className="mt-1.5 flex items-center gap-1.5 text-caption text-text-muted">
           <BrainCircuit className="h-3 w-3 shrink-0" />
           Memory referenced: {memorySnippets.join(", ")}
         </p>

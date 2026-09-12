@@ -9,6 +9,12 @@ export type HistorySession = {
   title: string;
   createdAt: string;
   isDeepSearch: boolean;
+  /** Real gap found via UI review (plan.md "Product/quality work"): the
+   * source-citations feature already surfaces real public-record
+   * attribution on the live answer view and session-detail replay, but
+   * the history list never showed it. Mirrors isDeepSearch's own
+   * per-session boolean-flag pattern rather than introducing a new one. */
+  hasSources: boolean;
 };
 
 const HISTORY_KEY = ["search-history"];

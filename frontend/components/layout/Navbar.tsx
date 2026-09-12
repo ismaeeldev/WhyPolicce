@@ -30,8 +30,10 @@ const NAV_LINKS = [
 ];
 
 /**
- * Persistent top nav — AgentGuide/01_ThemeGuideline.md §4.1. Transparent at
- * the hero top, gains a hairline border once the page scrolls, per spec.
+ * Persistent top nav — AgentGuide/01_ThemeGuideline.md §4.1. Always a
+ * translucent, blurred backdrop (bg-bg/90 + backdrop-blur-sm) so it stays
+ * legible over the hero's animated glow and any scrolled content behind
+ * it; gains a hairline border only once the page scrolls, per spec.
  * Auth-aware slot per AgentGuide/03_MasterPromptGuide.md Step 3: logged-out
  * shows Log in/Sign up, logged-in shows avatar + dropdown (Account, Logout),
  * with a skeleton per ThemeGuideline §4.9 while the session resolves.

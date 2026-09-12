@@ -10,6 +10,8 @@ import { ApiError } from "@/lib/api-client";
 import { useSessionDetail } from "@/hooks/useSessionDetail";
 import { useUser } from "@/hooks/useUser";
 
+import type { SearchSource } from "@/lib/sse";
+
 const PENDING_QUERY_KEY = "wp_pending_query";
 
 /**
@@ -66,13 +68,20 @@ export default function SessionDetailPage() {
     );
   }
 
-  const pairs: { key: string; prompt: string; answer: string | null; memorySnippets: string[] }[] = [];
+  const pairs: {
+    key: string;
+    prompt: string;
+    answer: string | null;
+    memorySnippets: string[];
+    sources: SearchSource[];
+  }[] = [];
   for (const message of session.messages) {
     if (message.role === "user") {
-      pairs.push({ key: message.id, prompt: message.content, answer: null, memorySnippets: [] });
+      pairs.push({ key: message.id, prompt: message.content, answer: null, memorySnippets: [], sources: [] });
     } else if (pairs.length > 0) {
       pairs[pairs.length - 1].answer = message.content;
       pairs[pairs.length - 1].memorySnippets = message.memorySnippets;
+      pairs[pairs.length - 1].sources = message.sources ?? [];
     }
   }
 
@@ -121,6 +130,7 @@ export default function SessionDetailPage() {
               onRetry={() => continueSearch(pair.prompt)}
               retryLabel="Continue this search"
               memorySnippets={pair.memorySnippets}
+              sources={pair.sources}
             />
           </div>
         ))}
