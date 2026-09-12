@@ -1224,3 +1224,54 @@ useSearchStream.ts's submit() and the SSE POST body both add state, matching the
 First attempt read localStorage inside the useState lazy initializer (the same pattern already used for prefill's sessionStorage read) — but that pattern is only SSR-safe when the read value doesn't change what gets rendered differently server vs. client. prefill only feeds a text input's value (no hydration-relevant difference), but this fed which option a real select marks as selected — the server always renders with null (no localStorage server-side), so a real stored value on the client's first paint immediately produced a genuine React hydration mismatch, caught live in the running dev server's own browser console output (hydration-mismatch error, full component stack). Fixed using this project's own already-established pattern for exactly this class of problem (see useOnlineStatus.ts's docstring): render the SSR-safe default first, correct via useEffect immediately after hydration. A follow-on lint error (react-hooks/set-state-in-effect, disable-comment placed on the wrong line) was also caught and fixed on the way, matching the exact directive placement already established in SignupContent.tsx.
 
 Result: an 8-step feature, explicitly re-confirmed clean at every step before moving to the next per the user's own instruction — 4 real bugs found and fixed across the whole build (1 in Step 5's threshold, 1 in Step 5's query strategy, 1 in Step 5's second threshold recalibration, 1 in Step 8's hydration safety), none left unresolved, none discovered after the fact. Full backend test suite: 28/28 passing throughout (14 original plus 14 new). Frontend: TypeScript and ESLint clean throughout. The client's own literal request — "give me the last arrest made in Harlem New York as of 24 hours ago" — was independently re-tested during this work and confirmed to already behave honestly (real, cited Harlem-specific NYPD records returned, with an explicit, correct statement that "last 24 hours" can't be satisfied because the underlying dataset is roughly 2.5 months stale).
+
+## Project-wide gap audit — "fix all remaining item one by one, test, fill all the gap"
+
+Per the user's own instruction, ran a background gap-audit agent over the whole repo (not just the areas already worked on this session) to find any remaining genuine gaps. It returned 5 ranked findings:
+
+1. **149 uncommitted files** (highest severity — includes all of Phases 1-33's ingestion modules and this whole session's backend/frontend work, sitting only on disk, unrecoverable if lost).
+2. **Zero automated test coverage of the RAG/ingestion core** — despite this exact area having multiple documented real bugs found and fixed by hand this session (Fakesburg/Wall Street false citations, multi-city detection, state-scoped retrieval).
+3. No Next.js `error.tsx` error boundary anywhere in the frontend.
+4. The already-disclosed false-citation threshold architecture limitation (reviewed — already correctly handled/disclosed via code comments and the NO_RECORDS_INSTRUCTION fix; not a new action item).
+5. 6 cities whose data sources are network-blocked from this environment (Charlotte-Mecklenburg NC, Gilbert AZ, Durham NC, Greensboro NC, Stockton CA, Wichita KS) — confirmed accurate, but not actionable from here.
+
+### Finding 1 — 149 uncommitted files ✅ DONE (committed, not yet merged/pushed)
+
+Root cause: the last real commit (`2a0052e "Fix"`, 2026-09-05) predates almost all of Phases 1-33 and this whole session's work — 125 untracked + 24 modified files sitting only on disk.
+
+Created a dedicated branch (`catchup-commit-uncommitted-work`, off `main`) rather than committing directly to `main`, per this project's own git discipline. Organized into 4 logical commits:
+- `59ec943` "Add nationwide city ingestion modules (Phases 1-33)" (120 files)
+- `fbe3372` "Backend: RAG pipeline fixes, source citations, State Selector, reliability" (9 files)
+- `7b627b2` "Frontend: why.com UI rebuild, source citations, State Selector, moving indicator" (18 files)
+- `8e313a5` "Add plan.md (living execution record) and research scratch files" (11 files)
+
+`git status` confirmed clean after. The branch has deliberately NOT been merged into `main` or pushed to `origin` — merging/pushing is a more outward-facing, harder-to-reverse action than a local commit, so that decision is being held for explicit confirmation rather than made unilaterally.
+
+### Finding 2 — Zero automated coverage of the RAG/ingestion core ✅ DONE
+
+Added 19 new tests across 3 new files, all independently verified passing (not just trusted from creation):
+
+- `tests/test_citations.py` (5 tests) — `_build_citations()` in search_service.py: empty list, single record, duplicate (city, source) collapsing, same-city-different-source staying separate (the real NYC arrest/complaint case), multi-city order preservation. All 5 passed.
+- `tests/test_city_detection.py` (7 tests) — `_detect_named_city`/`_detect_named_cities()`: no city, single city, the real two-city Chicago/LA bug, singular-still-first, Washington DC alias variants, case-insensitivity, unknown city. All 7 passed.
+- `tests_live/test_retrieval_regressions.py` (7 tests, new sibling directory to tests/ — see its own conftest.py docstring for why it can't live inside tests/: that directory's conftest.py forces DATABASE_URL to sqlite:// at import time, and pytest always imports every conftest.py before collecting, so a live-DB test placed inside tests/ would silently run against SQLite or crash). Gated by a real `settings.DATABASE_URL.startswith("postgresql")` check (not an os.environ check — pydantic-settings' env_file loading doesn't populate os.environ, confirmed directly before relying on it). Locks in as permanent regressions every real bug found and fixed live this session: Fakesburg (whole-table), Wall Street (city-scoped), Fakesburg+state=CA (state-scoped), plus 4 known-good cases (single city, two cities, state-scoped vague query, explicit-city-overrides-state). Ran live against the real database: **7/7 passed in 292s, suite correctly NOT skipped** (confirming the real-DATABASE_URL detection works in this environment).
+
+Re-ran the full offline suite afterward to confirm zero interference from the new tests_live/ directory's existence: **40/40 passed in 1.21s** (28 pre-existing + 12 new offline tests; the 7 live tests are intentionally excluded from this default run).
+
+### Finding 3 — No error.tsx anywhere in the frontend ✅ DONE
+
+Confirmed via direct search: no `error.tsx` or `global-error.tsx` existed anywhere in `frontend/app/`, so any thrown render/data error fell through to Next.js's bare default error screen instead of anything on-brand — the same class of gap `not-found.tsx` already closed for 404s, just never done for this case.
+
+Added 3 files, modeled directly on the existing `not-found.tsx`/`NotFoundContent.tsx` pattern (same ambient-glow decoration, same button-pair layout, same design tokens):
+- `components/shared/ErrorContent.tsx` — the shared on-brand error UI (`"use client"`, logs the error via `console.error` per Next.js's own requirement, "Try again" (`reset()`) + "Back to home" buttons).
+- `app/error.tsx` — the route-segment boundary, catches errors thrown anywhere under `app/` below the root layout.
+- `app/global-error.tsx` — catches errors thrown by the root layout itself (the one case `error.tsx` can't cover, since it renders inside that same layout); renders its own minimal `<html>/<body>` per Next.js's requirement, deliberately without fonts/Providers/Navbar/Footer since those are exactly what may have failed.
+
+Verified: `tsc --noEmit` clean, ESLint clean on all 3 new files. Live-verified the mechanism actually engages: added a temporary route that unconditionally throws, hit it against the real running dev server, and confirmed via the raw SSR response that Next.js correctly suspended the errored subtree server-side (`<div hidden="">`) rather than crashing the response — the documented, standard signal that the thrown error was handed to the error-boundary mechanism rather than escaping it. (Full client-side render of the boundary's own text needs a real browser to observe, since Next.js resolves error boundaries post-hydration, not in static SSR HTML — installing Playwright's browser binaries just for this one-off check wasn't worth the footprint given the mechanism itself is standard, documented Next.js behavior, not custom logic being verified for the first time.) Temporary test route removed afterward; not part of the diff.
+
+### Finding 4 — false-citation threshold architecture limitation — reviewed, no new action
+
+Already correctly handled: the fraud/swindle-vs-"made up" embedding collision is disclosed in code comments at every threshold (`MAX_RELEVANT_DISTANCE`, `_CITY_SCOPED_MAX_DISTANCE`, `_STATE_SCOPED_MAX_DISTANCE`) as a known, recurring pattern with an explicit note that a third recurrence in new data would mean the real fix is architectural, not another threshold nudge. `NO_RECORDS_INSTRUCTION`'s general-knowledge-disclosure fix (this session) is the correct complementary safeguard on the answer-generation side. No code change needed here — reviewed and confirmed adequate, not a gap.
+
+### Finding 5 — 6 network-blocked cities — reviewed, not actionable here
+
+Charlotte-Mecklenburg NC, Gilbert AZ, Durham NC, Greensboro NC, Stockton CA, Wichita KS — their data-source hosts are network-blocked from this environment. Confirmed accurate (consistent with this project's long history of real, verified rejections for similarly blocked/dead sources across Phases 1-33), but resolving it requires network access this environment doesn't have — not something to action from here. Left open, documented, not silently dropped.
