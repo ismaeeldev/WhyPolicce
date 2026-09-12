@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@auth0/nextjs-auth0";
-import { BrainCircuit, History, LogOut, Menu, User as UserIcon } from "lucide-react";
+import { BrainCircuit, History, LogOut, Menu, Search, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -86,6 +86,17 @@ export function Navbar() {
         </nav>
 
         <div className="hidden md:flex items-center gap-2">
+          {/* Direct shortcut into the product from anywhere on the marketing
+              site — /search is auth-gated already (redirects to /login with
+              a returnTo), so this is a plain, honest link, not a new route
+              or a special-cased "logged out" variant. */}
+          <Link
+            href="/search"
+            aria-label="Search"
+            className="flex h-9 w-9 items-center justify-center rounded-sm text-text-secondary hover:bg-bg-subtle hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+          >
+            <Search className="h-4 w-4" />
+          </Link>
           <ThemeToggle />
           {isLoading ? (
             <Skeleton className="h-9 w-9 rounded-full" />
@@ -168,6 +179,25 @@ export function Navbar() {
                 <span className="text-body-sm text-text-muted">Appearance</span>
                 <ThemeToggle />
               </div>
+              <SheetClose
+                render={
+                  <Link
+                    href="/search"
+                    aria-current={pathname === "/search" ? "page" : undefined}
+                    className="rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                  />
+                }
+              >
+                <span
+                  className={`flex items-center gap-2 rounded-sm px-2 py-2.5 text-body transition-colors hover:bg-bg-subtle ${
+                    pathname === "/search" ? "text-text-primary font-medium" : "text-text-primary"
+                  }`}
+                >
+                  <Search className="h-4 w-4 text-text-muted" />
+                  Search
+                  {pathname === "/search" && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                </span>
+              </SheetClose>
               {NAV_LINKS.map((link) => {
                 const isActive = pathname === link.href;
                 return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 
 import { SearchBar } from "@/components/search/SearchBar";
 
@@ -10,6 +11,12 @@ const item = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0 },
 };
+
+// Same key the protected /search page reads (app/(protected)/search/page.tsx)
+// — picking a state here before signing up/logging in "just works" once the
+// user lands on the real search page, with no separate handoff plumbing
+// needed (the pending-query handoff already only carries the prompt text).
+const SELECTED_STATE_KEY = "wp_selected_state";
 
 /**
  * Subhead + search bar, with a deliberate staggered entrance on mount —
@@ -24,6 +31,34 @@ const item = {
  * secondary elements (which aren't the LCP candidate) get the entrance motion.
  */
 export function HeroContent() {
+  // Same hydration-safety pattern as SearchPage's own selectedState (see
+  // its docstring): the <select>'s selected <option> is render-affecting,
+  // so it must render the SSR-safe default (null) on first paint always,
+  // then correct itself in an effect right after hydration — not read
+  // localStorage inside a useState lazy initializer, which would make the
+  // client's first paint disagree with the server's and trip a real React
+  // hydration-mismatch error (the exact bug already found and fixed once
+  // on the /search page for this identical case).
+  const [selectedState, setSelectedStateRaw] = useState<string | null>(null);
+  useEffect(() => {
+    const stored = localStorage.getItem(SELECTED_STATE_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (stored) setSelectedStateRaw(stored);
+  }, []);
+  const setSelectedState = (value: string | null) => {
+    setSelectedStateRaw(value);
+    try {
+      if (value) {
+        localStorage.setItem(SELECTED_STATE_KEY, value);
+      } else {
+        localStorage.removeItem(SELECTED_STATE_KEY);
+      }
+    } catch {
+      // Storage unavailable (private browsing, quota) — selection still
+      // works for this visit, it just won't carry through to signup/login.
+    }
+  };
+
   return (
     <motion.div
       initial="hidden"
@@ -50,7 +85,7 @@ export function HeroContent() {
             — this is the only place SearchBar renders the why.com-style
             category pill row. The protected /search page's own SearchBar
             usage is deliberately left without this prop. */}
-        <SearchBar showCategories />
+        <SearchBar showCategories selectedState={selectedState} onStateChange={setSelectedState} />
       </motion.div>
     </motion.div>
   );

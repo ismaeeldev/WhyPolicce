@@ -88,10 +88,18 @@ def test_supported_states_returns_real_full_names_sorted():
 class TestGetSupportedStatesEndpoint:
     """Step 3: GET /api/search/states."""
 
-    def test_requires_auth(self):
+    def test_works_without_auth(self):
+        # Deliberately public (see the route's own docstring): the landing
+        # page's SearchBar now offers the same state selector to logged-out
+        # visitors, and this response carries zero per-user data, so there's
+        # nothing an auth requirement would protect. Was 401-without-auth
+        # until that landing-page usage was added.
         with TestClient(app) as anon_client:
             res = anon_client.get("/api/search/states")
-        assert res.status_code == 401
+        assert res.status_code == 200
+        body = res.json()
+        assert isinstance(body, list)
+        assert len(body) > 5
 
     def test_returns_real_states(self, client: TestClient):
         res = client.get("/api/search/states")

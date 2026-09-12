@@ -59,9 +59,7 @@ def _get_or_create_user(session: Session, current: AuthenticatedUser) -> User:
 
 
 @router.get("/api/search/states")
-def get_supported_states(
-    current: AuthenticatedUser = Depends(get_current_user),
-) -> list[dict]:
+def get_supported_states() -> list[dict]:
     """State Selector, Step 3 (real client-requested feature — their own
     pasted SearchBar draft hardcoded 5 placeholder states: NY/CA/TX/FL/IL).
 
@@ -69,11 +67,17 @@ def get_supported_states(
     integrated data for, derived live from vector_search_service's
     CITY_TO_STATE (Step 1/2) rather than a second hand-maintained list —
     so the frontend dropdown can never silently drift out of sync with
-    real coverage as future city-expansion phases land. Auth-protected
-    like every other /api/search/* route, even though this particular
-    response has no per-user data — the page that consumes it is already
-    behind auth, so there's no reason to introduce a new unauthenticated
-    pattern just for this one endpoint.
+    real coverage as future city-expansion phases land.
+
+    Deliberately public now, unlike every other /api/search/* route: it
+    was originally auth-protected on the assumption that only the
+    already-authenticated /search page would ever call it (see git
+    history), but the landing page's SearchBar now offers the same state
+    selector to logged-out visitors too, so their pick carries through
+    once they sign up/log in. This response carries zero per-user data,
+    so requiring a session protects nothing — a public GET here is also
+    just honest about what a visitor should be able to see before
+    creating an account.
 
     No `session` dependency needed — this is pure in-memory derivation
     from CITY_TO_STATE, no database read."""
