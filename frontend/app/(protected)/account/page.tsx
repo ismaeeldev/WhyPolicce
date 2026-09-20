@@ -2,11 +2,13 @@
 
 import { useUser as useAuth0User } from "@auth0/nextjs-auth0";
 import { motion } from "framer-motion";
-import { BrainCircuit, ChevronRight, CreditCard, Sparkles } from "lucide-react";
+import { BrainCircuit, ChevronRight, CreditCard, Scale, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
+import { AttorneyStatusBanner } from "@/components/account/AttorneyStatusBanner";
+import { BecomeAttorneyDialog } from "@/components/account/BecomeAttorneyDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "@/hooks/useUser";
 import { useToastStore } from "@/stores/useToastStore";
@@ -26,6 +28,7 @@ export default function AccountPage() {
   const { data: me, refetch } = useUser();
   const searchParams = useSearchParams();
   const showToast = useToastStore((s) => s.show);
+  const [attorneyDialogOpen, setAttorneyDialogOpen] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("upgraded") !== "1") return;
@@ -122,6 +125,30 @@ export default function AccountPage() {
         </Link>
       </motion.div>
 
+      {/* Forum rebuild M2.1: attorney entry point. role/verificationStatus
+          ride the same /api/me request as tier above (no second loading
+          state), matching this step's own explicit requirement. */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.18, ease: EASE }}
+        className="mt-3"
+      >
+        {me?.role === "attorney" && me.verificationStatus ? (
+          <AttorneyStatusBanner status={me.verificationStatus} />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAttorneyDialogOpen(true)}
+            className="group flex w-full items-center gap-2.5 rounded-sm border border-border-default px-4 py-3 text-body-sm text-text-primary transition-colors hover:border-border-strong hover:bg-bg-subtle focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+          >
+            <Scale className="h-4 w-4 text-text-muted" />
+            Become an Attorney
+            <ChevronRight className="ml-auto h-4 w-4 text-text-muted transition-transform group-hover:translate-x-0.5" />
+          </button>
+        )}
+      </motion.div>
+
       <motion.a
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -131,6 +158,8 @@ export default function AccountPage() {
       >
         Log out
       </motion.a>
+
+      <BecomeAttorneyDialog open={attorneyDialogOpen} onOpenChange={setAttorneyDialogOpen} />
     </div>
   );
 }

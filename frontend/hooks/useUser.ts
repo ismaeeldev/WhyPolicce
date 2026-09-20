@@ -9,6 +9,13 @@ export type MeResponse = {
   id: string;
   email: string;
   tier: "free" | "pro";
+  // Forum rebuild, Milestone 2 Step M2.1 (WhyPoliceForum_MasterGuide.md) —
+  // rides the same GET /api/me request as everything else here, per that
+  // step's own explicit requirement (no second loading state to
+  // coordinate). verificationStatus is null for every citizen row and for
+  // an attorney row that hasn't started the "Become an Attorney" flow yet.
+  role: "citizen" | "attorney";
+  verificationStatus: "pending" | "approved" | "rejected" | null;
 };
 
 /**
