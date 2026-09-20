@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 import app.models  # noqa: F401 — registers every model on SQLModel.metadata, see app/models/__init__.py
 from app.core.config import settings
 from app.core.db import create_db_and_tables
-from app.routers import billing, health, memory, search, users
+from app.routers import billing, health, inquiries, memory, search, users
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger("whypolice")
@@ -92,3 +92,4 @@ app.include_router(users.router)
 app.include_router(search.router)
 app.include_router(memory.router)
 app.include_router(billing.router)
+app.include_router(inquiries.router)
