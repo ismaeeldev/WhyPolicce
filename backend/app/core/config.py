@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"  # Stripe Checkout success/cancel redirect target
     RATE_LIMIT_PER_MINUTE: int = 20
     PORT: int = 8000
+    # Forum rebuild, Milestone 1 Step M1.5 (WhyPoliceForum_MasterGuide.md).
+    # A deliberately minimal admin gate for Milestone 1 — a hardcoded
+    # allowlist of admin Auth0 `sub` values, not a full role-based admin
+    # system. Building a real admin panel/permission model was never part
+    # of the original 3-milestone plan (per M1.5's own Manual Step note);
+    # this is the smallest thing that lets a human actually approve
+    # attorneys and review reports without editing the database by hand.
+    # Comma-separated in the env var, parsed into a real set below.
+    ADMIN_AUTH0_SUBS: str = ""
     # Real LLM integration (AgentGuide/00_SCOPE.md §6). Client-directed
     # 2026-08-27: OpenAI (small model) is primary, Gemini is the fallback
     # used on ANY OpenAI API error (auth, rate limit, timeout, network) —
@@ -56,6 +65,14 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
+
+    @property
+    def admin_auth0_subs(self) -> set[str]:
+        """Same comma-separated-string-to-set parsing pattern as
+        cors_origins above — a real set, not a raw string, so the admin
+        gate in app/routers/admin.py does a real membership check, not an
+        error-prone substring search."""
+        return {s.strip() for s in self.ADMIN_AUTH0_SUBS.split(",") if s.strip()}
 
     @property
     def database_url_direct(self) -> str:
