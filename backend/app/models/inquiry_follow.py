@@ -14,6 +14,7 @@ once, and the email-alerts feature (M3.3) has no rows to query for
 import uuid
 from datetime import datetime, timezone
 
+from sqlalchemy import ForeignKey
 from sqlmodel import Column, DateTime, Field, SQLModel, UniqueConstraint
 
 
@@ -31,7 +32,22 @@ class InquiryFollow(SQLModel, table=True):
     )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    inquiry_id: uuid.UUID = Field(foreign_key="inquiries.id", index=True)
+    # ondelete="CASCADE" — real bug found by Milestone 1's Final Master
+    # Testing gate, live against the real dev database: deleting an
+    # inquiry that already had a real follower (the exact scenario that
+    # gate's own Full User Journey walkthrough exercises) raised an
+    # unhandled 500 (psycopg2.errors.ForeignKeyViolation), not a clean
+    # response, because this FK previously had no ondelete policy
+    # (Postgres's implicit restrict default). Cascading — rather than the
+    # app catching a restrict violation and rejecting the delete — is the
+    # deliberate choice: restricting would make almost every followed
+    # inquiry permanently undeletable, contradicting the client's own
+    # "delete anytime, no time limit" answer. Applied identically to
+    # ThreadComment/EvidenceAttachment/AttorneyRequest's own FKs into
+    # inquiries.id (see their own models for the same comment).
+    inquiry_id: uuid.UUID = Field(
+        sa_column=Column(ForeignKey("inquiries.id", ondelete="CASCADE"), index=True)
+    )
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),

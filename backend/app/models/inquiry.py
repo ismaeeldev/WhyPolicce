@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
+from sqlalchemy import ForeignKey
 from sqlmodel import Column, DateTime, Enum as SAEnum, Field, SQLModel
 
 
@@ -105,7 +106,22 @@ class ThreadComment(SQLModel, table=True):
     __tablename__ = "thread_comments"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    inquiry_id: uuid.UUID = Field(foreign_key="inquiries.id", index=True)
+    # ondelete="CASCADE": a citizen can delete their own inquiry at any
+    # time with no time limit (client's explicit answer, M1.4) — real gap
+    # found by Milestone 1's own Final Master Testing gate, live against
+    # the real dev database: deleting an inquiry that already had a real
+    # comment on it (the exact scenario that gate's own Full User Journey
+    # walkthrough exercises) raised an unhandled 500
+    # (psycopg2.errors.ForeignKeyViolation), not a clean response, because
+    # this FK previously had no ondelete policy at all (Postgres's
+    # implicit NO ACTION/restrict default). Cascading here — rather than
+    # the app catching a restrict violation and rejecting the delete — is
+    # the deliberate choice: restricting would make almost every inquiry
+    # with any real engagement permanently undeletable, contradicting the
+    # client's own "delete anytime" answer.
+    inquiry_id: uuid.UUID = Field(
+        sa_column=Column(ForeignKey("inquiries.id", ondelete="CASCADE"), index=True)
+    )
     author_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     body: str
     created_at: datetime = Field(

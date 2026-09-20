@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
+from sqlalchemy import ForeignKey
 from sqlmodel import Column, DateTime, Field, SQLModel, UniqueConstraint
 
 
@@ -33,7 +34,12 @@ class AttorneyRequest(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     attorney_id: uuid.UUID = Field(foreign_key="users.id", index=True)
-    inquiry_id: uuid.UUID = Field(foreign_key="inquiries.id", index=True)
+    # ondelete="CASCADE" — see app/models/inquiry.py's ThreadComment.inquiry_id
+    # for the real bug (unhandled 500 on delete_inquiry, found by
+    # Milestone 1's Final Master Testing gate) this fixes identically here.
+    inquiry_id: uuid.UUID = Field(
+        sa_column=Column(ForeignKey("inquiries.id", ondelete="CASCADE"), index=True)
+    )
     status: AttorneyRequestStatus = Field(default=AttorneyRequestStatus.pending)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
