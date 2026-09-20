@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api-client";
 
@@ -69,6 +69,50 @@ export function useInquiries(filters: InquiriesFilters) {
     getNextPageParam: (lastPage) => {
       const nextOffset = lastPage.offset + lastPage.items.length;
       return nextOffset < lastPage.total ? nextOffset : undefined;
+    },
+  });
+}
+
+export type InquiryCreatePayload = {
+  title: string;
+  description: string;
+  state: string;
+  city: string;
+  precinct?: string;
+  statusTag: StatusTag;
+};
+
+/**
+ * New-inquiry submission — forum rebuild, Milestone 2 Step M2.3
+ * (WhyPoliceForum_MasterGuide.md). Payload is converted to the backend's
+ * snake_case InquiryCreate schema here (statusTag -> status_tag) since
+ * every response the frontend reads back is camelCase but every request
+ * body this codebase sends is snake_case, matching InquiryCreate/
+ * InquiryUpdate's own established convention. Never sends `tier` —
+ * that field's own backend docstring is explicit that a client-sent
+ * "expanded" claim is not trusted at face value without a real
+ * webhook-confirmed upgrade (Milestone 3), so this mutation only ever
+ * creates a free-tier submission; the $2.99 upgrade path is entirely a
+ * client-side gate on submission (intercept before ever calling this),
+ * not something this endpoint call itself unlocks.
+ */
+export function useCreateInquiry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: InquiryCreatePayload) =>
+      apiFetch<Inquiry>("/api/v1/inquiries", {
+        method: "POST",
+        body: JSON.stringify({
+          title: payload.title,
+          description: payload.description,
+          state: payload.state,
+          city: payload.city,
+          precinct: payload.precinct,
+          status_tag: payload.statusTag,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inquiries"] });
     },
   });
 }
