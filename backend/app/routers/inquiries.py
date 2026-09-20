@@ -309,6 +309,58 @@ def get_inquiry(
         truncate=False,
     )
     out["isFollowing"] = is_following
+
+    # Real gap found while building M2.4's thread page (WhyPoliceForum_
+    # MasterGuide.md): _inquiry_out never exposed WHO the author is, so
+    # the frontend had no way to know whether the current viewer should
+    # see their own Edit/Delete controls or the consultation-request
+    # Accept/Decline section. A per-viewer computed boolean, not the raw
+    # author_id UUID — never exposes the author's identity to other
+    # viewers, just a yes/no the viewer needs for their own UI (the
+    # actual security boundary remains M1.4's server-side ownership
+    # check on the PATCH/DELETE endpoints themselves, unaffected by
+    # this field).
+    out["isAuthor"] = user is not None and inquiry.author_id == user.id
+
+    # Real gap found while building M2.4's thread page (WhyPoliceForum_
+    # MasterGuide.md): M1.4 built POST /attorneys/request-consultation
+    # and PATCH .../request-consultation/{id} (accept/decline), but no
+    # endpoint anywhere ever surfaced an inquiry's own AttorneyRequest
+    # rows back to its author — without this, the accept/decline
+    # endpoint has no UI that could ever call it, since the author never
+    # sees that a request exists. Author-only: attorneyRequests is
+    # always an empty list for every other viewer (including the
+    # requesting attorney themselves, who sees their own request's
+    # status via GET /attorneys/me/requests instead, not here) — never
+    # even queried for a non-author viewer, both to avoid the extra
+    # query and because a citizen has no legitimate reason to see who
+    # else requested consultation on someone else's inquiry.
+    if user is not None and inquiry.author_id == user.id:
+        requests = session.exec(
+            select(AttorneyRequest, User)
+            .join(User, AttorneyRequest.attorney_id == User.id)
+            .where(AttorneyRequest.inquiry_id == inquiry.id)
+            .order_by(AttorneyRequest.created_at.asc())
+        ).all()
+        out["attorneyRequests"] = [
+            {
+                "id": str(req.id),
+                "attorneyId": str(req.attorney_id),
+                # Never the attorney's email (privacy rule) — bar
+                # number/jurisdiction are professional licensing
+                # details, not personal contact info, and are exactly
+                # what an inquiry author needs to identify who is
+                # requesting before deciding accept/decline.
+                "attorneyBarNo": attorney.verified_bar_no,
+                "attorneyBarJurisdiction": attorney.bar_jurisdiction,
+                "status": req.status.value,
+                "createdAt": to_utc_iso(req.created_at),
+            }
+            for req, attorney in requests
+        ]
+    else:
+        out["attorneyRequests"] = []
+
     return out
 
 
@@ -725,6 +777,55 @@ def request_consultation(
         "attorneyId": str(request.attorney_id),
         "status": request.status.value,
         "createdAt": to_utc_iso(request.created_at),
+    }
+
+
+@router.get("/attorneys/me/requests")
+def list_my_consultation_requests(
+    limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
+    offset: int = Query(default=0, ge=0),
+    current: AuthenticatedUser = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Real gap found while building M2.4's attorney portal
+    (WhyPoliceForum_MasterGuide.md) — M1.4 let an attorney CREATE a
+    consultation request, but never gave them any way to find out
+    whether the citizen ever responded, making respond_to_consultation
+    invisible from the attorney's own side of the product. Any
+    authenticated user can call this (matches request_consultation's
+    own role check being enforced there, not here) — a citizen account
+    simply always gets an empty list back, since they can never have a
+    real AttorneyRequest row as attorney_id.
+    """
+    user = _get_or_create_user(session, current)
+
+    statement = select(AttorneyRequest, Inquiry).join(
+        Inquiry, AttorneyRequest.inquiry_id == Inquiry.id
+    ).where(AttorneyRequest.attorney_id == user.id)
+    total = session.exec(select(func.count()).select_from(statement.subquery())).one()
+    rows = session.exec(
+        statement.order_by(AttorneyRequest.created_at.desc()).offset(offset).limit(limit)
+    ).all()
+
+    return {
+        "items": [
+            {
+                "id": str(req.id),
+                "status": req.status.value,
+                "createdAt": to_utc_iso(req.created_at),
+                "inquiry": {
+                    "id": str(inquiry.id),
+                    "title": inquiry.title,
+                    "statusTag": inquiry.status_tag.value,
+                    "state": inquiry.state,
+                    "city": inquiry.city,
+                },
+            }
+            for req, inquiry in rows
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
     }
 
 

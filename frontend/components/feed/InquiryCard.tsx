@@ -17,8 +17,19 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "n
  * p-6/p-4). Follower/comment counts use tabular-nums in a reserved-width
  * container so a 1->2 digit change never shifts adjacent content
  * (Standing UI Discipline rule 12).
+ *
+ * `extraAction` (added M2.4): an optional slot rendered alongside
+ * Follow, reused by the attorney portal's "Request Consultation"
+ * button rather than duplicating this whole card for that one
+ * additional action — the citizen feed simply never passes it.
  */
-export function InquiryCard({ inquiry }: { inquiry: Inquiry }) {
+export function InquiryCard({
+  inquiry,
+  extraAction,
+}: {
+  inquiry: Inquiry;
+  extraAction?: React.ReactNode;
+}) {
   const [pressed, setPressed] = useState(false);
   const followMutation = useFollowInquiry();
   const unfollowMutation = useUnfollowInquiry();
@@ -88,21 +99,24 @@ export function InquiryCard({ inquiry }: { inquiry: Inquiry }) {
           View Thread &amp; Timeline
         </Link>
 
-        <button
-          type="button"
-          onClick={handleFollowClick}
-          disabled={followMutation.isPending || unfollowMutation.isPending}
-          className={`flex items-center gap-1.5 rounded-sm px-3.5 py-1.5 text-body-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:cursor-not-allowed ${
-            inquiry.isFollowing
-              ? "bg-accent-subtle text-text-primary hover:bg-accent-subtle/80"
-              : "border border-border-strong text-text-primary hover:bg-bg-subtle"
-          }`}
-        >
-          {inquiry.isFollowing ? "Following" : "Follow"}
-          <span className="inline-block min-w-[2ch] text-right tabular-nums">
-            {inquiry.followerCount}
-          </span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleFollowClick}
+            disabled={followMutation.isPending || unfollowMutation.isPending}
+            className={`flex items-center gap-1.5 rounded-sm px-3.5 py-1.5 text-body-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:cursor-not-allowed ${
+              inquiry.isFollowing
+                ? "bg-accent-subtle text-text-primary hover:bg-accent-subtle/80"
+                : "border border-border-strong text-text-primary hover:bg-bg-subtle"
+            }`}
+          >
+            {inquiry.isFollowing ? "Following" : "Follow"}
+            <span className="inline-block min-w-[2ch] text-right tabular-nums">
+              {inquiry.followerCount}
+            </span>
+          </button>
+          {extraAction}
+        </div>
       </div>
     </div>
   );
