@@ -1,143 +1,145 @@
-import type { Metadata } from "next";
-import { Sparkles } from "lucide-react";
+"use client";
 
-import { HeroContent } from "@/components/marketing/HeroContent";
-import { ScrollReveal } from "@/components/marketing/ScrollReveal";
-import { TypedHeadline } from "@/components/marketing/TypedHeadline";
+import { useState } from "react";
 
-export const metadata: Metadata = {
-  title: "WhyPolice — Public safety intelligence, live.",
-  description:
-    "Ask about police reports, case updates, and public safety data — and watch a clear, sourced answer stream in as it's written. Sign up free.",
-  openGraph: {
-    title: "WhyPolice — Public safety intelligence, live.",
-    description:
-      "Ask about police reports, case updates, and public safety data — and watch a clear, sourced answer stream in as it's written.",
-    type: "website",
-  },
-};
+import { FeedEmptyStateNoInquiries, FeedEmptyStateNoResults } from "@/components/feed/FeedEmptyState";
+import { FeedFilterBar } from "@/components/feed/FeedFilterBar";
+import { InquiryCard } from "@/components/feed/InquiryCard";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useInquiries, type InquiriesFilters } from "@/hooks/useInquiries";
 
-const STEPS = [
-  {
-    n: "01",
-    title: "Ask, plainly",
-    body: "Type a real question about a case, report, or local safety policy — no keyword-stuffing required.",
-  },
-  {
-    n: "02",
-    title: "Watch it think",
-    body: "The answer streams in live, token by token, so you're never staring at a blank screen.",
-  },
-  {
-    n: "03",
-    title: "Keep what matters",
-    body: "Every search is saved to your history, exportable any time, gone the moment you clear it.",
-  },
-];
+const DEFAULT_FILTERS: InquiriesFilters = { region: "", status: "", sort: "newest", q: "" };
 
-export default function Home() {
+/**
+ * Home feed — forum rebuild, Milestone 2 Step M2.2 (WhyPoliceForum_
+ * MasterGuide.md). Replaces the old RAG-search product's landing page
+ * entirely (per this step's own Manual Step decision, confirmed by the
+ * user) — this is now the new product's primary landing surface at `/`,
+ * public/unauthenticated per the scope PDF (reading the forum needs no
+ * login; only submitting/managing content does, per M2.0's proxy.ts).
+ *
+ * Content max-width 1200px (ThemeGuideline §3), feed itself single-column
+ * at max-w-[760px] matching the client's own reference mockup layout, not
+ * a multi-column grid. Pagination: "Load more" button (Standing
+ * Implementation Discipline item 5's own required, documented decision) —
+ * simpler to implement correctly and test deterministically than
+ * scroll-triggered infinite-scroll, and avoids IntersectionObserver edge
+ * cases/accidental re-fetches on fast scroll.
+ */
+export default function HomeFeedPage() {
+  const [searchInput, setSearchInput] = useState("");
+  const [filters, setFilters] = useState<InquiriesFilters>(DEFAULT_FILTERS);
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+
+  const query = useInquiries({ ...filters, q: debouncedSearch });
+
+  const handleFiltersChange = (next: Partial<InquiriesFilters>) => {
+    setFilters((prev) => ({ ...prev, ...next }));
+  };
+
+  const handleClearAll = () => {
+    setSearchInput("");
+    setFilters(DEFAULT_FILTERS);
+  };
+
+  const allItems = query.data?.pages.flatMap((page) => page.items) ?? [];
+  const total = query.data?.pages[0]?.total ?? 0;
+  const hasAnyFilterOrSearch =
+    !!filters.region || !!filters.status || filters.sort !== "newest" || !!debouncedSearch;
+
   return (
-    <div className="flex flex-col flex-1">
-      {/* Hero */}
-      <section className="wp-home-hero relative flex flex-1 items-center justify-center overflow-hidden px-5 sm:px-6">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-24 right-[8%] h-[420px] w-[420px] rounded-full opacity-[0.14] blur-3xl animate-wp-drift"
-          style={{
-            background:
-              "radial-gradient(circle, var(--wp-accent-bright) 0%, transparent 70%)",
-          }}
+    <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-6 py-8 sm:py-12">
+      <div className="mx-auto max-w-[760px]">
+        <h1 className="font-display text-h1 text-text-primary mb-6">Community Forum</h1>
+
+        <FeedFilterBar
+          searchInput={searchInput}
+          onSearchInputChange={setSearchInput}
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          onClearAll={handleClearAll}
         />
-        <div className="relative mx-auto flex w-full max-w-[900px] flex-col items-center text-center">
-          {/* Revision 3 Step 7 (plan.md): why.com's real headline is a live,
-              rotating, character-typed question (verified via live DOM
-              inspection — a genuine typewriter effect with a blinking
-              caret), not a static tagline. TypedHeadline renders the FIRST
-              question as plain static text on the server (LCP-safe, per
-              the original finding this replaces: gating the H1 behind
-              client JS cost ~550ms of real LCP) — the typing/deleting
-              animation only begins after hydration, never blocking
-              initial paint. */}
-          <p className="wp-eyebrow mb-7"><span className="size-1.5 rounded-full bg-accent" />Public safety, made clear</p>
-          <TypedHeadline />
-          <HeroContent />
+
+        <div className="mt-6 flex flex-col gap-4">
+          {query.isError && (
+            <div className="rounded-md border border-danger bg-danger-subtle p-5 text-center">
+              <p className="text-body-sm text-text-primary mb-3">
+                The feed didn&apos;t load — that&apos;s on us, not you.
+              </p>
+              <button
+                type="button"
+                onClick={() => query.refetch()}
+                className="rounded-sm px-4 py-2 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {/* Real bug found via live testing, not caught by code review:
+              query.isLoading is TanStack Query's "very first load of this
+              queryKey" flag — when the debounced search term changes, the
+              filters object (and therefore the query key) changes too, so
+              this becomes a brand-new query with its own fresh isLoading
+              cycle. During that window, allItems is correctly empty (no
+              data yet) but isLoading genuinely IS true, which is exactly
+              right — the bug was that nothing was ever rendered for that
+              state: the empty-state block only handled "done loading,
+              zero results," and cards can only render once data exists,
+              leaving a real, silent blank gap between clearing the old
+              list and the new one arriving. Fixed with an explicit
+              isLoading skeleton row so a mid-search fetch is never a
+              blank area. */}
+          {query.isLoading && (
+            <div className="flex flex-col gap-4" role="status" aria-label="Loading inquiries">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6 animate-pulse">
+                  <div className="h-5 w-32 rounded-full bg-bg-subtle" />
+                  <div className="mt-3 h-5 w-2/3 rounded bg-bg-subtle" />
+                  <div className="mt-3 h-4 w-full rounded bg-bg-subtle" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!query.isError && !query.isLoading && allItems.length === 0 && (
+            hasAnyFilterOrSearch ? (
+              <FeedEmptyStateNoResults onClearFilters={handleClearAll} />
+            ) : (
+              <FeedEmptyStateNoInquiries />
+            )
+          )}
+
+          {!query.isLoading &&
+            allItems.map((inquiry) => <InquiryCard key={inquiry.id} inquiry={inquiry} />)}
+
+          {query.hasNextPage && (
+            <div className="flex justify-center py-2">
+              {query.isFetchingNextPage ? (
+                <div
+                  className="h-8 w-8 animate-spin rounded-full border-2 border-border-default border-t-accent"
+                  role="status"
+                  aria-label="Loading more"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => query.fetchNextPage()}
+                  className="rounded-sm border border-border-strong px-5 py-2.5 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                >
+                  Load more
+                </button>
+              )}
+            </div>
+          )}
+
+          {!query.hasNextPage && allItems.length > 0 && (
+            <p className="py-2 text-center text-caption text-text-muted">
+              {total} {total === 1 ? "inquiry" : "inquiries"} total
+            </p>
+          )}
         </div>
-      </section>
-
-      {/* How it works — numbered flow, deliberately not a 3-icon grid.
-          Connecting line now animates its own width in alongside the
-          stagger (was a static full-width line) so the "flow" reads as
-          something happening, not just three cards sitting next to a
-          decorative rule. */}
-      <section className="relative border-t border-border-default py-16 sm:py-24 px-5 sm:px-6 overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.4]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, var(--wp-border) 1px, transparent 0)",
-            backgroundSize: "28px 28px",
-            maskImage: "radial-gradient(ellipse 60% 100% at 50% 0%, black, transparent)",
-          }}
-        />
-        <div className="relative mx-auto max-w-[1000px]">
-          <div className="mb-10 flex flex-wrap items-end justify-between gap-4"><div><p className="wp-eyebrow mb-3">From question to clarity</p><h2 className="font-display text-h1">A little less searching.<br />A lot more understanding.</h2></div><p className="max-w-xs text-body-sm text-text-muted">One question. A clear answer. Everything you need to pick up the thread.</p></div>
-          <ScrollReveal className="grid gap-8 sm:grid-cols-3 sm:gap-8">
-            {STEPS.map((step, i) => (
-              <div key={step.n} className="group relative border-t border-border-default pt-6">
-                {i < STEPS.length - 1 && (
-                  <div className="hidden sm:block absolute top-0 left-[calc(100%-1rem)] w-[calc(100%-1.5rem)] h-px overflow-hidden bg-border-default">
-                    <div className="wp-line-draw h-full w-full origin-left bg-accent/40" />
-                  </div>
-                )}
-                <span className="font-display text-2xl text-accent transition-transform duration-300 group-hover:scale-110 inline-block">
-                  {step.n}
-                </span>
-                <h2 className="text-h3 font-semibold mt-3 mb-1.5">{step.title}</h2>
-                <p className="text-body-sm text-text-secondary">{step.body}</p>
-              </div>
-            ))}
-          </ScrollReveal>
-        </div>
-      </section>
-
-      {/* Product principle — a single editorial statement, not another grid.
-          Was a flat bg-subtle rectangle with only a Sparkles icon for
-          visual interest; added a soft radial glow + hairline top/bottom
-          accent rule so the section reads as a considered "pull quote"
-          moment rather than a plain color-block break between sections. */}
-      <section className="relative border-t border-border-default py-16 sm:py-24 px-5 sm:px-6 bg-bg-subtle overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.08] blur-3xl"
-          style={{
-            background: "radial-gradient(circle, var(--wp-accent-bright) 0%, transparent 70%)",
-          }}
-        />
-        <ScrollReveal className="relative mx-auto max-w-[720px] text-center">
-          <span className="mx-auto mb-6 block h-px w-12 bg-accent/50" />
-          <Sparkles className="h-6 w-6 text-accent mx-auto mb-6" strokeWidth={1.5} />
-          <p className="font-display text-2xl sm:text-3xl leading-snug text-text-primary text-balance">
-            We built WhyPolice on one belief: public safety information
-            shouldn&apos;t take a dozen tabs and a records request to
-            understand. Ask plainly, get a clear answer.
-          </p>
-        </ScrollReveal>
-      </section>
-
-      {/* Privacy note — plain text, no card/border/icon-badge. why.com never
-          wraps a single paragraph in decorative chrome; the restraint IS
-          the design. Kept as its own section purely for vertical rhythm. */}
-      <section className="border-t border-border-default py-14 sm:py-16 px-5 sm:px-6">
-        <ScrollReveal className="mx-auto max-w-[620px] text-center">
-          <h2 className="text-h3 font-semibold mb-2">Your searches are yours</h2>
-          <p className="text-body-sm text-text-secondary">
-            An account keeps bots and spam off the platform — it doesn&apos;t
-            turn your questions into a product. Nothing you search is sold,
-            shared, or handed to anyone else.
-          </p>
-        </ScrollReveal>
-      </section>
+      </div>
     </div>
   );
 }

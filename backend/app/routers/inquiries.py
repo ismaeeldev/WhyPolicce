@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 
 from app.core.db import get_session
-from app.core.security import AuthenticatedUser, get_current_user
+from app.core.security import AuthenticatedUser, get_current_user, get_optional_user
 from app.core.timeutil import to_utc_iso
 from app.models.attorney_request import AttorneyRequest, AttorneyRequestStatus
 from app.models.evidence_attachment import EvidenceAttachment
@@ -171,14 +171,26 @@ def list_inquiries(
     q: str | None = Query(default=None, max_length=200),
     limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
     offset: int = Query(default=0, ge=0),
-    current: AuthenticatedUser = Depends(get_current_user),
+    current: AuthenticatedUser | None = Depends(get_optional_user),
     session: Session = Depends(get_session),
 ) -> dict:
     """Feed endpoint. `q` is the real backend for the feed's own search box
     (M2.2) — matches against title, description, city, and precinct.
     `limit`/`offset` pagination is mandatory from the start (Standing
-    Implementation Discipline rule 5) since this is a nationwide table."""
-    user = _get_or_create_user(session, current)
+    Implementation Discipline rule 5) since this is a nationwide table.
+
+    Real gap found while building M2.2's frontend: this endpoint used to
+    require auth unconditionally, but the scope PDF and M2.0's own
+    proxy.ts both treat reading the forum as public — a logged-out
+    visitor landing on the feed must see it, not a 401. Auth is now
+    OPTIONAL here (get_optional_user): a logged-in viewer still gets a
+    real per-viewer isFollowing computed the same way as before; an
+    anonymous request skips user lookup entirely and every item's
+    isFollowing is correctly False (there is no viewer to follow
+    anything), never a per-request User row created just for anonymous
+    reads.
+    """
+    user = _get_or_create_user(session, current) if current else None
 
     statement = select(Inquiry)
     if region:
@@ -218,13 +230,17 @@ def list_inquiries(
                 )
             ).all()
         )
-        following_inquiry_ids = set(
-            session.exec(
-                select(InquiryFollow.inquiry_id).where(
-                    InquiryFollow.inquiry_id.in_(inquiry_ids),
-                    InquiryFollow.user_id == user.id,
-                )
-            ).all()
+        following_inquiry_ids = (
+            set(
+                session.exec(
+                    select(InquiryFollow.inquiry_id).where(
+                        InquiryFollow.inquiry_id.in_(inquiry_ids),
+                        InquiryFollow.user_id == user.id,
+                    )
+                ).all()
+            )
+            if user
+            else set()
         )
     else:
         comment_counts, attachment_inquiry_ids, following_inquiry_ids = {}, set(), set()
@@ -233,7 +249,7 @@ def list_inquiries(
     for inquiry in rows:
         item = _inquiry_out(
             inquiry,
-            viewer_id=user.id,
+            viewer_id=user.id if user else None,
             comment_count=comment_counts.get(inquiry.id, 0),
             has_attachments=inquiry.id in attachment_inquiry_ids,
             truncate=True,
@@ -247,15 +263,19 @@ def list_inquiries(
 @router.get("/inquiries/{inquiry_id}")
 def get_inquiry(
     inquiry_id: str,
-    current: AuthenticatedUser = Depends(get_current_user),
+    current: AuthenticatedUser | None = Depends(get_optional_user),
     session: Session = Depends(get_session),
 ) -> dict:
     """The inquiry's own full detail — a SEPARATE endpoint from
     GET /inquiries/{id}/thread (comments only), resolving the real
     ambiguity in the scope PDF's endpoint list per M1.4's own note.
     Always returns the FULL, untruncated description regardless of tier —
-    this is the direct-view endpoint, not the feed's truncated preview."""
-    user = _get_or_create_user(session, current)
+    this is the direct-view endpoint, not the feed's truncated preview.
+
+    Auth optional, same reasoning as list_inquiries (M2.2): reading a
+    single inquiry's thread page must work for a logged-out visitor too.
+    """
+    user = _get_or_create_user(session, current) if current else None
     not_found = HTTPException(
         status_code=404, detail={"error": "not_found", "message": "Inquiry not found."}
     )
@@ -273,7 +293,8 @@ def get_inquiry(
         is not None
     )
     is_following = (
-        session.exec(
+        user is not None
+        and session.exec(
             select(InquiryFollow.id).where(
                 InquiryFollow.inquiry_id == inquiry.id, InquiryFollow.user_id == user.id
             )
@@ -281,7 +302,11 @@ def get_inquiry(
         is not None
     )
     out = _inquiry_out(
-        inquiry, viewer_id=user.id, comment_count=comment_count, has_attachments=has_attachments, truncate=False
+        inquiry,
+        viewer_id=user.id if user else None,
+        comment_count=comment_count,
+        has_attachments=has_attachments,
+        truncate=False,
     )
     out["isFollowing"] = is_following
     return out
@@ -443,13 +468,21 @@ def get_thread(
     inquiry_id: str,
     limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
     offset: int = Query(default=0, ge=0),
-    current: AuthenticatedUser = Depends(get_current_user),
+    current: AuthenticatedUser | None = Depends(get_optional_user),
     session: Session = Depends(get_session),
 ) -> dict:
     """Comments + timeline for one inquiry — comments ONLY, see
     get_inquiry() above for the inquiry's own fields. Paginated in case a
-    popular inquiry's comment count grows large."""
-    _get_or_create_user(session, current)
+    popular inquiry's comment count grows large.
+
+    Auth optional (M2.2): reading a thread must work for a logged-out
+    visitor. The prior version unconditionally called
+    _get_or_create_user purely for its discarded return value (a real,
+    harmless-but-pointless side effect — creating a User row on every
+    anonymous read would be wrong) — only sync the user when one is
+    actually authenticated."""
+    if current:
+        _get_or_create_user(session, current)
     not_found = HTTPException(
         status_code=404, detail={"error": "not_found", "message": "Inquiry not found."}
     )

@@ -31,6 +31,21 @@
   --color-danger: var(--wp-danger);
   --color-danger-subtle: var(--wp-danger-subtle);
   --color-danger-foreground: var(--wp-danger-foreground);
+  /* New token pair, forum rebuild Milestone 2 Step M2.2
+     (WhyPoliceForum_MasterGuide.md) — proposed per ThemeGuideline §11's
+     own rule (a genuinely new status concept, "Awaiting Police
+     Statement," doesn't map to danger/warning/accent) and confirmed by
+     the user before use, not silently invented. Real WCAG contrast
+     computed (relative-luminance formula, not eyeballed) per §1.4:
+     light mode #1D5FA8 on #E4EEF9 = 5.50:1, on #F9F8F4 (bg) = 6.07:1;
+     dark mode #7EB3E8 on #1A2B3D = 6.52:1 — all clear AA's 4.5:1 body-text
+     threshold with margin. --text-primary on --info-subtle (the actual
+     pill copy, matching the warning/danger pattern already established
+     here) measures 14.85:1 light / ~13:1 dark. --info itself is reserved
+     for icon/border/UI-accent use on this pill, same convention as
+     --warning. */
+  --color-info: var(--wp-info);
+  --color-info-subtle: var(--wp-info-subtle);
 
   /* Real contrast bug found and fixed during a UI audit (plan.md
      "UI audit"): SearchBar's landing-page pill deliberately uses a fixed,
@@ -140,6 +155,10 @@
   --wp-danger: #b23a2e;
   --wp-danger-subtle: #f5e1de;
   --wp-danger-foreground: #ffffff;
+  /* --info: computed contrast 5.50:1 on --info-subtle, 6.07:1 on --bg —
+     see the @theme block's own comment above for the full audit. */
+  --wp-info: #1d5fa8;
+  --wp-info-subtle: #e4eef9;
   /* See --color-search-pill-foreground's definition above for why this
      is deliberately the SAME value in both :root and .dark — the pill's
      fill is a fixed rgba, not a token, so its text color must stay
@@ -186,6 +205,10 @@
   --wp-warning-subtle: #3a2e13;
   --wp-danger: #e2685c;
   --wp-danger-subtle: #3a201c;
+  /* --info dark mode: computed contrast 6.52:1 on --info-subtle — see the
+     @theme block's own comment for the full audit. */
+  --wp-info: #7eb3e8;
+  --wp-info-subtle: #1a2b3d;
   /* Same class of bug as --wp-accent-foreground above: white text on this
      dark-mode danger red is only 3.30:1 (fails AA's 4.5:1). Dark near-black
      passes comfortably (~5.8:1). */

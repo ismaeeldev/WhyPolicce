@@ -17,7 +17,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from app.core.db import get_session
-from app.core.security import AuthenticatedUser, get_current_user
+from app.core.security import AuthenticatedUser, get_current_user, get_optional_user
 from app.main import app
 from app.models.user import Tier, User
 
@@ -51,6 +51,15 @@ def client(session):
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_user] = override_get_user
+    # get_optional_user (M2.2) is a separate FastAPI dependency, not a
+    # thin wrapper resolved through get_current_user's own override —
+    # real test-suite regression found here: overriding only
+    # get_current_user left every route using get_optional_user
+    # (list_inquiries, get_inquiry, get_thread) doing real JWT
+    # verification against a fake test token, breaking 12 existing tests
+    # that assumed TEST_USER's identity everywhere. Overridden
+    # independently, to the same identity, so both dependencies agree.
+    app.dependency_overrides[get_optional_user] = override_get_user
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

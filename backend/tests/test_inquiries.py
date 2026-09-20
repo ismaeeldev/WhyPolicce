@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.core.security import AuthenticatedUser, get_current_user
+from app.core.security import AuthenticatedUser, get_current_user, get_optional_user
 from app.main import app
 from app.models.attorney_request import AttorneyRequest, AttorneyRequestStatus
 from app.models.inquiry import Inquiry, StatusTag
@@ -49,7 +49,17 @@ def _second_user_client(session: Session) -> TestClient:
     """A real, distinct authenticated identity — the existing conftest's
     `client` fixture always authenticates as the single fixed TEST_USER,
     which cannot exercise cross-user ownership tests. Overrides
-    get_current_user with a second, different auth0_sub."""
+    get_current_user with a second, different auth0_sub.
+
+    Also overrides get_optional_user (M2.2) to the same identity — real,
+    latent bug found and fixed proactively while adding M2.2's own
+    anonymous-access tests below: this function previously only
+    overrode get_current_user, so any future test using this helper
+    against a now-optionally-authed endpoint (list_inquiries,
+    get_inquiry, get_thread) would silently fall through to real JWT
+    verification against a fake test token instead of the intended
+    second identity, exactly the same class of bug conftest.py's own
+    `client` fixture had before this milestone's fix."""
     second_identity = AuthenticatedUser(auth0_sub="auth0|second-test-user", email="second@test.example")
 
     def override_get_session():
@@ -62,6 +72,7 @@ def _second_user_client(session: Session) -> TestClient:
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_user] = override_get_user
+    app.dependency_overrides[get_optional_user] = override_get_user
     return TestClient(app)
 
 
@@ -554,3 +565,89 @@ class TestFollowConcurrencySafety:
             ).all()
         )
         assert inquiry.follower_count == real_follow_count == 1
+
+
+class TestAnonymousAccess:
+    """Milestone 2 Step M2.2 (WhyPoliceForum_MasterGuide.md) — real gap
+    found while building the home feed frontend: these read endpoints
+    used to require auth unconditionally (get_current_user), but the
+    scope PDF and M2.0's own proxy.ts both treat reading the forum as
+    public. A logged-out visitor must see the feed, not a 401."""
+
+    def _anonymous_client(self, session: Session) -> TestClient:
+        def override_get_session():
+            yield session
+
+        def override_optional_user():
+            return None
+
+        from app.core.db import get_session
+
+        app.dependency_overrides[get_session] = override_get_session
+        app.dependency_overrides[get_optional_user] = override_optional_user
+        app.dependency_overrides.pop(get_current_user, None)
+        return TestClient(app)
+
+    def test_anonymous_feed_request_succeeds_not_401(self, client: TestClient, session: Session):
+        _create_inquiry(client)
+        anon = self._anonymous_client(session)
+        res = anon.get("/api/v1/inquiries")
+        assert res.status_code == 200, res.text
+        app.dependency_overrides.clear()
+
+    def test_anonymous_feed_isfollowing_is_false_not_crash(self, client: TestClient, session: Session):
+        _create_inquiry(client)
+        anon = self._anonymous_client(session)
+        res = anon.get("/api/v1/inquiries")
+        assert res.status_code == 200, res.text
+        assert all(item["isFollowing"] is False for item in res.json()["items"])
+        app.dependency_overrides.clear()
+
+    def test_anonymous_single_inquiry_request_succeeds(self, client: TestClient, session: Session):
+        created = _create_inquiry(client).json()
+        anon = self._anonymous_client(session)
+        res = anon.get(f"/api/v1/inquiries/{created['id']}")
+        assert res.status_code == 200, res.text
+        assert res.json()["isFollowing"] is False
+        app.dependency_overrides.clear()
+
+    def test_anonymous_thread_request_succeeds(self, client: TestClient, session: Session):
+        created = _create_inquiry(client).json()
+        client.post(f"/api/v1/inquiries/{created['id']}/thread", json={"body": "a real comment"})
+        anon = self._anonymous_client(session)
+        res = anon.get(f"/api/v1/inquiries/{created['id']}/thread")
+        assert res.status_code == 200, res.text
+
+    def test_anonymous_read_does_not_create_a_user_row(self, client: TestClient, session: Session):
+        """A real, deliberate design check: anonymous reads must never
+        create a User row as a side effect (unlike the authenticated
+        sync-on-first-call pattern) — confirmed by counting rows before
+        and after an anonymous request."""
+        from sqlmodel import func, select
+
+        created = _create_inquiry(client).json()
+        before = session.exec(select(func.count()).select_from(User)).one()
+        anon = self._anonymous_client(session)
+        anon.get(f"/api/v1/inquiries/{created['id']}")
+        anon.get(f"/api/v1/inquiries/{created['id']}/thread")
+        after = session.exec(select(func.count()).select_from(User)).one()
+        assert before == after
+        app.dependency_overrides.clear()
+
+    def test_logged_in_viewer_still_sees_real_isfollowing_alongside_anonymous_requests(
+        self, client: TestClient, session: Session
+    ):
+        """Confirms the optional-auth change didn't regress the
+        logged-in case: a real authenticated viewer who has followed an
+        inquiry still sees isFollowing=True, even though the SAME
+        endpoint now also serves anonymous requests."""
+        created = _create_inquiry(client).json()
+        client.post(f"/api/v1/inquiries/{created['id']}/follow")
+
+        res = client.get(f"/api/v1/inquiries/{created['id']}")
+        assert res.json()["isFollowing"] is True
+
+        anon = self._anonymous_client(session)
+        anon_res = anon.get(f"/api/v1/inquiries/{created['id']}")
+        assert anon_res.json()["isFollowing"] is False
+        app.dependency_overrides.clear()

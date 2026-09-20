@@ -161,3 +161,22 @@ async def get_current_user(authorization: str | None = Header(default=None)) -> 
         raise HTTPException(
             status_code=401, detail={"error": "unauthorized", "message": exc.message}
         ) from exc
+
+
+async def get_optional_user(authorization: str | None = Header(default=None)) -> AuthenticatedUser | None:
+    """Forum rebuild, Milestone 2 Step M2.2 (WhyPoliceForum_MasterGuide.md) —
+    real gap found while building the home feed: GET /api/v1/inquiries (and
+    its sibling read endpoints, get_inquiry/get_thread) used get_current_user,
+    which unconditionally 401s a request with no Bearer token. The scope PDF
+    and M2.0's own proxy.ts both treat reading the forum as public — a
+    logged-out visitor landing on the feed should see it, not a 401. This
+    dependency makes auth OPTIONAL for those routes: returns a real
+    AuthenticatedUser when a valid token is present (so isFollowing/other
+    per-viewer fields still work for a logged-in visitor), None when no
+    token is given at all, and still raises 401 for a token that IS present
+    but invalid/expired/malformed — a bad token should never be silently
+    treated the same as "anonymous," since that would mask a real client-side
+    auth bug as if the user were simply logged out."""
+    if not authorization:
+        return None
+    return await get_current_user(authorization)
