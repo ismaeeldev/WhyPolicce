@@ -9,7 +9,26 @@ import { auth0 } from "@/lib/auth0";
  * runtime, and the installed Auth0 SDK's own docs recommend proxy.ts as the
  * current convention. See lib/auth0.ts for the fuller architecture note.
  */
-const PROTECTED_PREFIXES = ["/search", "/history", "/account", "/upgrade"];
+// Forum rebuild, Milestone 2: /search, /history, /upgrade are the old RAG
+// product's own protected routes, kept only because their pages/routes
+// still exist and aren't being deleted this milestone. /inquiries/new
+// (submit) is the new product's protected write action; the feed
+// (/inquiries) and a single inquiry's thread stay public/read-only per
+// the scope PDF, so they're deliberately NOT in this list. /account stays
+// protected since both products still gate it. /attorneys/dashboard is
+// the attorney portal (M2.4) — protected because it requires knowing
+// which authenticated user's role/verification_status to check; the
+// public /attorneys landing page itself is intentionally NOT prefixed
+// here, since a logged-out visitor must be able to read about attorney
+// signup before being forced to authenticate.
+const PROTECTED_PREFIXES = [
+  "/search",
+  "/history",
+  "/account",
+  "/upgrade",
+  "/inquiries/new",
+  "/attorneys/dashboard",
+];
 
 export async function proxy(request: NextRequest) {
   const authResponse = await auth0.middleware(request);

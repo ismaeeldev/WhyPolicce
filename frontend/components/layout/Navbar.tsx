@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@auth0/nextjs-auth0";
-import { BrainCircuit, History, LogOut, Menu, Search, User as UserIcon } from "lucide-react";
+import { LogOut, Menu, Plus, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -24,8 +24,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
+// Forum rebuild, Milestone 2 Step M2.0 (WhyPoliceForum_MasterGuide.md) —
+// replaces the old RAG-search product's nav links/CTA/dropdown content.
+// "Community Forum" is deliberately NOT a separate link here: the wordmark
+// already routes to the home feed, and adding a second link to the same
+// destination would contradict this Navbar's own existing minimal-nav
+// philosophy (previously just About/Pricing) for no real benefit.
 const NAV_LINKS = [
-  { href: "/about", label: "About" },
+  { href: "/attorneys", label: "For Attorneys" },
   { href: "/pricing", label: "Pricing" },
 ];
 
@@ -86,16 +92,19 @@ export function Navbar() {
         </nav>
 
         <div className="hidden md:flex items-center gap-2">
-          {/* Direct shortcut into the product from anywhere on the marketing
-              site — /search is auth-gated already (redirects to /login with
-              a returnTo), so this is a plain, honest link, not a new route
-              or a special-cased "logged out" variant. */}
+          {/* "+ New Inquiry" CTA — visible to everyone, including logged-out
+              visitors (client's own "citizens post for free" positioning:
+              hiding the CTA entirely would make the product's core action
+              invisible to a new visitor). /inquiries/new is auth-gated in
+              proxy.ts, which already redirects to /login?returnTo=..., so
+              this is the same plain-link pattern the old /search shortcut
+              used — intent is preserved through signup, not lost. */}
           <Link
-            href="/search"
-            aria-label="Search"
-            className="flex h-9 w-9 items-center justify-center rounded-sm text-text-secondary hover:bg-bg-subtle hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            href="/inquiries/new"
+            className="flex items-center gap-1.5 rounded-sm bg-accent px-4 py-2 text-body-sm font-medium text-accent-foreground transition-colors hover:bg-accent-hover active:brightness-90 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
           >
-            <Search className="h-4 w-4" />
+            <Plus className="h-4 w-4" />
+            New Inquiry
           </Link>
           <ThemeToggle />
           {isLoading ? (
@@ -123,17 +132,17 @@ export function Navbar() {
                   {user.email ?? user.name}
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem render={<Link href="/history" />} className="flex items-center gap-2">
-                  <History className="h-4 w-4" />
-                  History
-                </DropdownMenuItem>
+                {/* Forum rebuild M2.0: History and Memory dropped from this
+                    menu — both were RAG-search-specific (past search
+                    sessions, saved memory notes) and have no equivalent in
+                    the forum product. Account is kept since citizens and
+                    attorneys both still need basic profile access; the
+                    page's own content will need a follow-up pass once the
+                    client confirms what belongs on it for this product
+                    (flagged in WhyPoliceForum_MasterGuide.md M2.0). */}
                 <DropdownMenuItem render={<Link href="/account" />} className="flex items-center gap-2">
                   <UserIcon className="h-4 w-4" />
                   Account
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link href="/account/memory" />} className="flex items-center gap-2">
-                  <BrainCircuit className="h-4 w-4" />
-                  Memory
                 </DropdownMenuItem>
                 <DropdownMenuItem render={<a href="/auth/logout" />} className="flex items-center gap-2">
                   <LogOut className="h-4 w-4" />
@@ -182,20 +191,15 @@ export function Navbar() {
               <SheetClose
                 render={
                   <Link
-                    href="/search"
-                    aria-current={pathname === "/search" ? "page" : undefined}
+                    href="/inquiries/new"
+                    aria-current={pathname === "/inquiries/new" ? "page" : undefined}
                     className="rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
                   />
                 }
               >
-                <span
-                  className={`flex items-center gap-2 rounded-sm px-2 py-2.5 text-body transition-colors hover:bg-bg-subtle ${
-                    pathname === "/search" ? "text-text-primary font-medium" : "text-text-primary"
-                  }`}
-                >
-                  <Search className="h-4 w-4 text-text-muted" />
-                  Search
-                  {pathname === "/search" && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                <span className="flex items-center gap-2 rounded-sm bg-accent px-2 py-2.5 text-body font-medium text-accent-foreground transition-colors hover:bg-accent-hover">
+                  <Plus className="h-4 w-4" />
+                  New Inquiry
                 </span>
               </SheetClose>
               {NAV_LINKS.map((link) => {
@@ -224,18 +228,9 @@ export function Navbar() {
               })}
               {user ? (
                 <div className="mt-2 flex flex-col gap-2">
-                  <SheetClose
-                    render={
-                      <Link
-                        href="/history"
-                        className="rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-                      />
-                    }
-                  >
-                    <span className="block rounded-sm border border-border-strong px-4 py-2.5 text-center text-body text-text-primary hover:bg-bg-subtle transition-colors">
-                      History
-                    </span>
-                  </SheetClose>
+                  {/* History and Memory dropped here too, matching the
+                      desktop dropdown's own M2.0 change — see that comment
+                      above for why. */}
                   <SheetClose
                     render={
                       <Link
@@ -246,18 +241,6 @@ export function Navbar() {
                   >
                     <span className="block rounded-sm border border-border-strong px-4 py-2.5 text-center text-body text-text-primary hover:bg-bg-subtle transition-colors">
                       Account
-                    </span>
-                  </SheetClose>
-                  <SheetClose
-                    render={
-                      <Link
-                        href="/account/memory"
-                        className="rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-                      />
-                    }
-                  >
-                    <span className="block rounded-sm border border-border-strong px-4 py-2.5 text-center text-body text-text-primary hover:bg-bg-subtle transition-colors">
-                      Memory
                     </span>
                   </SheetClose>
                   <SheetClose
