@@ -31,7 +31,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 // destination would contradict this Navbar's own existing minimal-nav
 // philosophy (previously just About/Pricing) for no real benefit.
 const NAV_LINKS = [
-  { href: "/attorneys", label: "For Attorneys" },
+  { href: "/attorneys/dashboard", label: "For Attorneys" },
   { href: "/pricing", label: "Pricing" },
 ];
 

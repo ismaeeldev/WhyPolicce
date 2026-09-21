@@ -14,8 +14,14 @@ import { useRespondToConsultation } from "@/hooks/useConsultationRequests";
  * instead of leaving disabled buttons implying the action might still
  * be available.
  */
-export function ConsultationRequestRow({ request }: { request: AttorneyRequestOnInquiry }) {
-  const respond = useRespondToConsultation();
+export function ConsultationRequestRow({
+  request,
+  inquiryId,
+}: {
+  request: AttorneyRequestOnInquiry;
+  inquiryId: string;
+}) {
+  const respond = useRespondToConsultation(inquiryId);
 
   const attorneyLabel = request.attorneyBarNo
     ? `Attorney (Bar #${request.attorneyBarNo}${request.attorneyBarJurisdiction ? `, ${request.attorneyBarJurisdiction}` : ""})`

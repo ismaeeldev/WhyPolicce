@@ -10,6 +10,7 @@ import { InquiryEditDeleteControls } from "@/components/inquiries/InquiryEditDel
 import { InquiryEditForm } from "@/components/inquiries/InquiryEditForm";
 import { ReportButton } from "@/components/inquiries/ReportButton";
 import { StatusPill } from "@/components/feed/StatusPill";
+import { ApiError } from "@/lib/api-client";
 import { useFollowInquiry, useUnfollowInquiry } from "@/hooks/useFollowInquiry";
 import {
   useCreateComment,
@@ -53,6 +54,7 @@ export default function ThreadPage() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [editDraft, setEditDraft] = useState("");
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   const followMutation = useFollowInquiry();
   const unfollowMutation = useUnfollowInquiry();
@@ -98,8 +100,12 @@ export default function ThreadPage() {
 
   const handlePostComment = () => {
     if (!commentDraft.trim()) return;
+    setCommentError(null);
     createComment.mutate(commentDraft.trim(), {
       onSuccess: () => setCommentDraft(""),
+      onError: (err) => {
+        setCommentError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      },
     });
   };
 
@@ -182,7 +188,7 @@ export default function ThreadPage() {
           </p>
           <div className="flex flex-col gap-2">
             {inquiry.attorneyRequests.map((request) => (
-              <ConsultationRequestRow key={request.id} request={request} />
+              <ConsultationRequestRow key={request.id} request={request} inquiryId={inquiry.id} />
             ))}
           </div>
         </div>
@@ -270,6 +276,11 @@ export default function ThreadPage() {
             rows={3}
             className="w-full rounded-sm border border-border-default bg-bg-elevated px-3.5 py-2.5 text-body text-text-primary outline-none resize-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
+          {commentError && (
+            <div className="mt-2 rounded-md border border-danger bg-danger-subtle p-3">
+              <p className="text-body-sm text-text-primary">{commentError}</p>
+            </div>
+          )}
           <button
             type="button"
             onClick={handlePostComment}

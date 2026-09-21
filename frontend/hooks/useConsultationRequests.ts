@@ -51,7 +51,7 @@ export function useRequestConsultation() {
   });
 }
 
-export function useRespondToConsultation() {
+export function useRespondToConsultation(inquiryId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ requestId, decision }: { requestId: string; decision: "accepted" | "declined" }) =>
@@ -60,7 +60,13 @@ export function useRespondToConsultation() {
         { method: "PATCH", body: JSON.stringify({ decision }) },
       ),
     onSuccess: () => {
+      // The single-inquiry thread view (useInquiry, key ["inquiry", id])
+      // is what actually renders this row's own attorneyRequests array —
+      // invalidating only the feed's ["inquiries"] key left the author's
+      // own page showing stale pending state until a manual reload.
+      queryClient.invalidateQueries({ queryKey: ["inquiry", inquiryId] });
       queryClient.invalidateQueries({ queryKey: ["inquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["my-consultation-requests"] });
     },
   });
 }

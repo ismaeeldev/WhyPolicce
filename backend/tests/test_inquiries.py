@@ -799,6 +799,28 @@ class TestRateLimiting:
         assert body["error"] == "rate_limited"
         assert "retryAfterSeconds" in body
 
+    def test_rate_limit_engages_on_repeated_comment_posting(self, client: TestClient):
+        """M2.4's own Milestone 2 Final Testing checklist item 16 (rapid
+        comment submission through the real UI) is what surfaced that this
+        specific endpoint's rate limit had never been directly tested —
+        only inquiry creation had a dedicated test above, even though
+        _rate_limit_or_429("comments", user.id) is called identically.
+        Confirms the per-action key prefix genuinely isolates comments
+        from inquiries (a single real inquiry is created once, outside the
+        loop, so this only exercises the comment bucket)."""
+        from app.core.config import settings
+
+        created = _create_inquiry(client).json()
+        last_status = None
+        res = None
+        for _ in range(settings.RATE_LIMIT_PER_MINUTE + 5):
+            res = client.post(f"/api/v1/inquiries/{created['id']}/thread", json={"body": "rate limit test comment"})
+            last_status = res.status_code
+            if last_status == 429:
+                break
+        assert last_status == 429, "comment rate limiter never engaged after exceeding the documented limit"
+        assert res.json()["error"] == "rate_limited"
+
 
 class TestFollowConcurrencySafety:
     def test_follower_count_matches_real_inquiry_follows_rows(self, client: TestClient, session: Session):
