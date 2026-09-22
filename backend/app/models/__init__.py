@@ -16,6 +16,7 @@ from app.models.evidence_attachment import *  # noqa: F401,F403
 from app.models.inquiry import *  # noqa: F401,F403
 from app.models.inquiry_follow import *  # noqa: F401,F403
 from app.models.memory import *  # noqa: F401,F403
+from app.models.processed_stripe_event import *  # noqa: F401,F403
 from app.models.public_record import *  # noqa: F401,F403
 from app.models.report import *  # noqa: F401,F403
 from app.models.search import *  # noqa: F401,F403

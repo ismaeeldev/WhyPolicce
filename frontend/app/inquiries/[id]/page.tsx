@@ -1,17 +1,22 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
+import { AttachmentList } from "@/components/inquiries/AttachmentList";
 import { CommentEditDeleteControls } from "@/components/inquiries/CommentEditDeleteControls";
 import { ConsultationRequestRow } from "@/components/inquiries/ConsultationRequestRow";
+import { EvidenceUploadField } from "@/components/inquiries/EvidenceUploadField";
 import { InquiryEditDeleteControls } from "@/components/inquiries/InquiryEditDeleteControls";
 import { InquiryEditForm } from "@/components/inquiries/InquiryEditForm";
 import { ReportButton } from "@/components/inquiries/ReportButton";
+import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
 import { StatusPill } from "@/components/feed/StatusPill";
 import { ApiError } from "@/lib/api-client";
 import { useFollowInquiry, useUnfollowInquiry } from "@/hooks/useFollowInquiry";
+import { useInquiryUpgradeCheckout } from "@/hooks/useForumBilling";
+import { useToastStore } from "@/stores/useToastStore";
 import {
   useCreateComment,
   useInquiry,
@@ -44,6 +49,8 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 export default function ThreadPage() {
   const params = useParams<{ id: string }>();
   const inquiryId = params.id;
+  const searchParams = useSearchParams();
+  const showToast = useToastStore((s) => s.show);
 
   const { data: inquiry, isLoading: inquiryLoading, isError: inquiryError, refetch: refetchInquiry } =
     useInquiry(inquiryId);
@@ -55,6 +62,18 @@ export default function ThreadPage() {
   const [commentDraft, setCommentDraft] = useState("");
   const [editDraft, setEditDraft] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const inquiryUpgradeCheckout = useInquiryUpgradeCheckout();
+
+  // Real M3.2 post-checkout return handling — same ?upgraded=1 + refetch +
+  // toast + clean-URL pattern already established by the old AccountPage's
+  // own post-checkout handling, not a new convention for this one screen.
+  useEffect(() => {
+    if (searchParams.get("upgraded") !== "1") return;
+    void refetchInquiry();
+    showToast("Upgrade complete — your post is now unlocked.");
+    window.history.replaceState({}, "", `/inquiries/${inquiryId}`);
+  }, [searchParams, refetchInquiry, showToast, inquiryId]);
 
   const followMutation = useFollowInquiry();
   const unfollowMutation = useUnfollowInquiry();
@@ -160,6 +179,18 @@ export default function ThreadPage() {
             {inquiry.precinct ? ` · ${inquiry.precinct}` : ""}
           </p>
 
+          {inquiry.isAuthor ? (
+            <div className="mt-4">
+              <EvidenceUploadField inquiryId={inquiry.id} attachments={inquiry.attachments ?? []} />
+            </div>
+          ) : (
+            inquiry.attachments && inquiry.attachments.length > 0 && (
+              <div className="mt-4">
+                <AttachmentList attachments={inquiry.attachments} />
+              </div>
+            )
+          )}
+
           <div className="mt-4 flex items-center gap-3">
             <button
               type="button"
@@ -177,8 +208,31 @@ export default function ThreadPage() {
               </span>
             </button>
             <ReportButton targetType="inquiry" targetId={inquiry.id} />
+            {inquiry.isAuthor && inquiry.tier === "free" && (
+              <button
+                type="button"
+                onClick={() => setUpgradeModalOpen(true)}
+                className="rounded-sm border border-border-strong px-3.5 py-1.5 text-body-sm font-medium text-text-primary transition-colors hover:bg-bg-subtle focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+              >
+                Upgrade this post
+              </button>
+            )}
           </div>
         </motion.div>
+      )}
+
+      {inquiry.isAuthor && inquiry.tier === "free" && (
+        <UpgradeModal
+          open={upgradeModalOpen}
+          onOpenChange={setUpgradeModalOpen}
+          title="Upgrade this post for $2.99"
+          description="Unlock the full 250+ character length for this inquiry with a one-time $2.99 payment."
+          primaryAction={{
+            label: "Upgrade for $2.99",
+            onClick: () => inquiryUpgradeCheckout.mutate(inquiry.id),
+            isPending: inquiryUpgradeCheckout.isPending,
+          }}
+        />
       )}
 
       {inquiry.isAuthor && inquiry.attorneyRequests && inquiry.attorneyRequests.length > 0 && (

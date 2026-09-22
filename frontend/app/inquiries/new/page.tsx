@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { EvidenceUploadField } from "@/components/inquiries/EvidenceUploadField";
 import { StatusTagSelector } from "@/components/inquiries/StatusTagSelector";
 import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
 import type { StatusTag } from "@/components/feed/StatusPill";
@@ -242,8 +241,6 @@ export default function NewInquiryPage() {
           <StatusTagSelector value={statusTag} onChange={setStatusTag} />
           <p className="mt-1 min-h-[1.25rem] text-caption text-danger">{fieldErrors.statusTag}</p>
         </div>
-
-        <EvidenceUploadField />
 
         {submitError && (
           <div className="rounded-md border border-danger bg-danger-subtle p-4">

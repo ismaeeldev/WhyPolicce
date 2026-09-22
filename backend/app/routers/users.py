@@ -70,6 +70,11 @@ def get_me(
         # "it rides the same request" UI requirement).
         "role": user.role.value,
         "verificationStatus": user.verification_status.value if user.verification_status else None,
+        # Forum rebuild, Milestone 3 Step M3.2 — real, webhook-confirmed
+        # attorney subscription state, replacing the frontend's
+        # ATTORNEY_SUBSCRIPTION_ACTIVE_STUB placeholder now that this
+        # field actually means something.
+        "attorneySubscriptionActive": user.attorney_subscription_active,
     }
 
 

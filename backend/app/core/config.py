@@ -62,6 +62,40 @@ class Settings(BaseSettings):
     # be migrated too, not just this value.
     EMBEDDING_MODEL: str = "text-embedding-3-small"
 
+    # Forum rebuild, Milestone 3 Step M3.1 (WhyPoliceForum_MasterGuide.md).
+    # GCS signed-URL uploads for evidence attachments. Empty by default —
+    # POST /api/v1/media/upload-url returns a real, honest 501 (not a mock
+    # signed URL) until the client's real bucket/service-account credentials
+    # are configured, matching this project's established Stripe/OpenAI
+    # "client-provided-access pending" pattern rather than faking success.
+    GCS_BUCKET_NAME: str = ""
+    # Path to a service account JSON key file (Google Cloud Storage ->
+    # IAM & Admin -> Service Accounts -> Keys). Never commit the file
+    # itself; only its path lives here.
+    GCS_SERVICE_ACCOUNT_JSON_PATH: str = ""
+
+    # Forum rebuild, Milestone 3 Step M3.2. A brand-new Stripe account per
+    # the Manual Step's explicit instruction — deliberately NOT the same
+    # STRIPE_SECRET_KEY/STRIPE_PRICE_ID above, which belong to the OLD
+    # product's single Pro-plan subscription on a different Stripe account.
+    # Reusing those here would silently charge against the wrong account/
+    # product for this entirely different two-billing-shape setup.
+    FORUM_STRIPE_SECRET_KEY: str = ""
+    FORUM_STRIPE_WEBHOOK_SECRET: str = ""
+    # One-time $2.99 citizen inquiry-upgrade price id.
+    FORUM_STRIPE_INQUIRY_UPGRADE_PRICE_ID: str = ""
+    # Recurring $149/month attorney-subscription price id.
+    FORUM_STRIPE_ATTORNEY_SUBSCRIPTION_PRICE_ID: str = ""
+
+    # Forum rebuild, Milestone 3 Step M3.3 (WhyPoliceForum_MasterGuide.md).
+    # Resend (developer's own choice, per the Manual Step's "agent's/
+    # developer's choice" instruction). Empty by default — email sending
+    # is skipped with an honest log line, matching this project's
+    # established GCS/Stripe "client-provided-access pending" pattern,
+    # never a fake "sent" response.
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "WhyPolice <notifications@whypolice.com>"
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]

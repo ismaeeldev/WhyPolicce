@@ -3,7 +3,8 @@
 import { motion } from "framer-motion";
 import { Scale } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { AttorneyStatusBanner } from "@/components/account/AttorneyStatusBanner";
 import { MyRequestsList } from "@/components/attorneys/MyRequestsList";
@@ -11,9 +12,10 @@ import { RequestConsultationButton } from "@/components/attorneys/RequestConsult
 import { InquiryCard } from "@/components/feed/InquiryCard";
 import { FeedEmptyStateNoInquiries } from "@/components/feed/FeedEmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ATTORNEY_SUBSCRIPTION_ACTIVE_STUB } from "@/lib/attorneySubscription";
+import { useAttorneySubscriptionCheckout } from "@/hooks/useForumBilling";
 import { useInquiries, type Inquiry } from "@/hooks/useInquiries";
 import { useUser } from "@/hooks/useUser";
+import { useToastStore } from "@/stores/useToastStore";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const DEFAULT_FEED_FILTERS = { region: "", status: "", sort: "newest" as const, q: "" };
@@ -29,13 +31,26 @@ const DEFAULT_FEED_FILTERS = { region: "", status: "", sort: "newest" as const, 
  * Manual Step decision (M2.4, user-confirmed): an approved-but-not-yet-
  * subscribed attorney sees a real preview-then-paywall pattern — the
  * real feed, blurred, with a centered "$149/month" CTA — rather than a
- * hard redirect with zero preview. ATTORNEY_SUBSCRIPTION_ACTIVE_STUB is
- * a deliberately named, always-false placeholder (see
- * lib/attorneySubscription.ts's own docstring) pending Milestone 3's
- * real Stripe subscription wiring — never a fake always-true value.
+ * hard redirect with zero preview. `subscribed` now reads the real,
+ * webhook-confirmed `attorneySubscriptionActive` field from GET /api/me
+ * (Milestone 3 Step M3.2), replacing the M2.4-era
+ * ATTORNEY_SUBSCRIPTION_ACTIVE_STUB placeholder now that real payment
+ * exists to back it.
  */
 export default function AttorneyDashboardPage() {
-  const { data: me, isLoading } = useUser();
+  const { data: me, isLoading, refetch } = useUser();
+  const searchParams = useSearchParams();
+  const showToast = useToastStore((s) => s.show);
+
+  // Real M3.2 post-checkout return handling — same ?param=1 + refetch +
+  // toast + clean-URL pattern established by the old AccountPage's own
+  // post-checkout handling and the thread page's ?upgraded=1 above.
+  useEffect(() => {
+    if (searchParams.get("subscribed") !== "1") return;
+    void refetch();
+    showToast("Subscription active — you now have full portal access.");
+    window.history.replaceState({}, "", "/attorneys/dashboard");
+  }, [searchParams, refetch, showToast]);
 
   if (isLoading) {
     return (
@@ -81,10 +96,10 @@ export default function AttorneyDashboardPage() {
     );
   }
 
-  return <ApprovedAttorneyPortal />;
+  return <ApprovedAttorneyPortal subscribed={me.attorneySubscriptionActive} />;
 }
 
-function ApprovedAttorneyPortal() {
+function ApprovedAttorneyPortal({ subscribed }: { subscribed: boolean }) {
   const [showingRequests, setShowingRequests] = useState(false);
   const feedQuery = useInquiries(DEFAULT_FEED_FILTERS);
   const items = feedQuery.data?.pages.flatMap((page) => page.items) ?? [];
@@ -113,7 +128,7 @@ function ApprovedAttorneyPortal() {
         {showingRequests ? (
           <MyRequestsList />
         ) : (
-          <AttorneyCaseFeed subscribed={ATTORNEY_SUBSCRIPTION_ACTIVE_STUB} items={items} isLoading={feedQuery.isLoading} />
+          <AttorneyCaseFeed subscribed={subscribed} items={items} isLoading={feedQuery.isLoading} />
         )}
       </div>
     </div>
@@ -157,16 +172,7 @@ function AttorneyCaseFeed({
               A $149/month subscription gives you full access to every inquiry and lets you
               request consultations directly.
             </p>
-            {/* TODO (Milestone 3, Step M3.x): wire to a real Stripe
-                Checkout session for the $149/month attorney
-                subscription. Deliberately a placeholder, not a fake
-                success state. */}
-            <button
-              type="button"
-              className="mt-1 rounded-sm bg-accent px-5 py-2.5 text-body-sm font-medium text-accent-foreground hover:bg-accent-hover transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-            >
-              Subscribe for $149/month
-            </button>
+            <SubscribeButton />
           </div>
         </div>
       </div>
@@ -187,5 +193,19 @@ function AttorneyCaseFeed({
         />
       ))}
     </div>
+  );
+}
+
+function SubscribeButton() {
+  const checkout = useAttorneySubscriptionCheckout();
+  return (
+    <button
+      type="button"
+      onClick={() => checkout.mutate()}
+      disabled={checkout.isPending}
+      className="mt-1 rounded-sm bg-accent px-5 py-2.5 text-body-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+    >
+      {checkout.isPending ? "Redirecting…" : "Subscribe for $149/month"}
+    </button>
   );
 }

@@ -6,12 +6,14 @@ inventing new ones: {"error", "message"} HTTPException detail shape
 duplicated _get_or_create_user, _parse_*_id 404-not-500 UUID parsing.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 
+from app.core.config import settings
 from app.core.db import get_session
 from app.core.security import AuthenticatedUser, get_current_user, get_optional_user
 from app.core.timeutil import to_utc_iso
@@ -29,9 +31,11 @@ from app.schemas.inquiry import (
     ThreadCommentCreate,
     ThreadCommentUpdate,
 )
+from app.services import email_service
 from app.services.rate_limit import RateLimitExceeded, check_rate_limit
 
 router = APIRouter(prefix="/api/v1")
+logger = logging.getLogger("whypolice.inquiries")
 
 # 250-character free-tier soft cap — client's own explicit answer
 # (WhyPolice-Scope-Realignment.pdf). A soft cap at PUBLISH time, not a
@@ -361,6 +365,24 @@ def get_inquiry(
     else:
         out["attorneyRequests"] = []
 
+    # M3.1 — real evidence attachments, visible to every viewer (unlike
+    # attorneyRequests above): evidence is meant to be seen by anyone
+    # reading the inquiry, not a private author/attorney negotiation.
+    attachments = session.exec(
+        select(EvidenceAttachment)
+        .where(EvidenceAttachment.inquiry_id == inquiry.id)
+        .order_by(EvidenceAttachment.created_at.asc())
+    ).all()
+    out["attachments"] = [
+        {
+            "id": str(a.id),
+            "fileUrl": a.file_url,
+            "fileType": a.file_type.value,
+            "sizeBytes": a.size_bytes,
+        }
+        for a in attachments
+    ]
+
     return out
 
 
@@ -373,13 +395,15 @@ def create_inquiry(
     user = _get_or_create_user(session, current)
     _rate_limit_or_429("inquiries", user.id)
 
-    requested_tier = InquiryTier.expanded if body.tier == "expanded" else InquiryTier.free
-
-    # Real, canonical upgrade_required rejection — this codebase's own
-    # existing pattern (app/routers/search.py's deep-search-requires-Pro
-    # check), not a 402 or any other ad-hoc shape (Standing Implementation
-    # Discipline rule 9). Never silently truncate the text.
-    if requested_tier == InquiryTier.free and len(body.description) > _FREE_TIER_CHAR_LIMIT:
+    # M3.2 real fix: every inquiry is created at tier=free, full stop — a
+    # client-supplied body.tier is never trusted (the old M1.4 TODO this
+    # replaces explicitly flagged accepting tier="expanded" at face value
+    # as a real, deliberate gap pending this exact milestone). The ONLY
+    # path that is ever allowed to set tier=expanded in production is
+    # app/routers/forum_billing.py's Stripe webhook, after a real,
+    # verified $2.99 payment — never this endpoint, and never based on
+    # anything the client claims in the request body.
+    if len(body.description) > _FREE_TIER_CHAR_LIMIT:
         raise HTTPException(
             status_code=403,
             detail={
@@ -391,15 +415,6 @@ def create_inquiry(
             },
         )
 
-    # TODO (M3.2): requested_tier == InquiryTier.expanded is currently
-    # accepted at face value with no real payment check — this endpoint
-    # does not itself process payment. A deliberately sequenced gap, not
-    # a security oversight right now: M3.2's Stripe webhook is the only
-    # path that is EVER supposed to set tier=expanded in production, but
-    # until that milestone ships, this endpoint has no way to verify a
-    # client's "expanded" claim is backed by a real charge. Revisit this
-    # exact line when M3.2 lands — an already-verified-elsewhere flag
-    # should gate this, not a raw request body field.
     inquiry = Inquiry(
         author_id=user.id,
         title=body.title,
@@ -408,7 +423,7 @@ def create_inquiry(
         city=body.city,
         precinct=body.precinct,
         status_tag=body.status_tag,
-        tier=requested_tier,
+        tier=InquiryTier.free,
     )
     session.add(inquiry)
     session.commit()
@@ -560,10 +575,66 @@ def get_thread(
     }
 
 
+def _notify_followers_of_new_comment(session: Session, inquiry_id: uuid.UUID, comment_author_id: uuid.UUID) -> None:
+    """Runs as a FastAPI BackgroundTasks job — a side effect, never a
+    dependency of the comment-post response the user is waiting on
+    (M3.3's own explicit "the response should return promptly" Test
+    requirement). Reuses the SAME request-scoped session the endpoint
+    already has: FastAPI runs BackgroundTasks after the response is
+    sent but before the request's own dependency (get_session) is torn
+    down, so the session is still open and valid here. Opening a
+    brand-new session via a bare get_session() call instead would
+    connect to whatever DATABASE_URL is actually configured, bypassing
+    a test's app.dependency_overrides entirely — a real bug found while
+    building this exact feature, caught by the existing test suite.
+
+    Bug Fix decision (user-confirmed): ONE email per comment per
+    follower, no batching/digest window. The comment rate limit
+    (settings.RATE_LIMIT_PER_MINUTE, 20/min per commenting user) already
+    bounds how fast a single inquiry can generate new comments, so this
+    is a real but bounded scenario, not unbounded spam risk — a real
+    debounced/windowed digest would need a delay mechanism FastAPI's
+    plain BackgroundTasks can't provide on its own, which is more
+    complexity than this milestone's scope calls for. Revisit only if
+    real usage shows this is genuinely annoying to followers."""
+    inquiry = session.get(Inquiry, inquiry_id)
+    if inquiry is None:
+        return
+    followers = session.exec(
+        select(User)
+        .join(InquiryFollow, InquiryFollow.user_id == User.id)
+        .where(InquiryFollow.inquiry_id == inquiry_id, InquiryFollow.user_id != comment_author_id)
+    ).all()
+    inquiry_url = f"{settings.FRONTEND_URL}/inquiries/{inquiry_id}"
+    for follower in followers:
+        if not follower.email:
+            continue
+        try:
+            email_service.send_new_comment_email(
+                to=follower.email, inquiry_title=inquiry.title, inquiry_url=inquiry_url
+            )
+        except Exception:
+            # Real bug found while testing this exact feature: an
+            # uncaught exception inside a BackgroundTasks job can
+            # propagate up through Starlette's response-sending path and
+            # break the request/response cycle for the user, even though
+            # they already received their 200/201 response body — email
+            # sending must never be able to do that. send_email() itself
+            # already catches provider errors; this is a second,
+            # independent guard around the whole per-follower loop so a
+            # bug in ANY future notification helper can't take down
+            # comment-posting for every user on a heavily-followed
+            # inquiry.
+            logger.exception(
+                "Failed to notify follower %s of new comment on inquiry %s", follower.id, inquiry_id
+            )
+
+
 @router.post("/inquiries/{inquiry_id}/thread", status_code=201)
 def create_comment(
     inquiry_id: str,
     body: ThreadCommentCreate,
+    background_tasks: BackgroundTasks,
     current: AuthenticatedUser = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
@@ -580,6 +651,12 @@ def create_comment(
     session.add(comment)
     session.commit()
     session.refresh(comment)
+
+    # M3.3 — email every follower except the comment's own author. A
+    # background task, not awaited inline: this response must return
+    # promptly regardless of email-provider latency/errors.
+    background_tasks.add_task(_notify_followers_of_new_comment, session, inquiry.id, user.id)
+
     return _comment_out(comment)
 
 
@@ -711,9 +788,36 @@ def unfollow_inquiry(
     return {"following": False, "followerCount": inquiry.follower_count}
 
 
+def _notify_author_of_consultation_request(session: Session, inquiry_id: uuid.UUID) -> None:
+    """Same BackgroundTasks-job pattern as
+    _notify_followers_of_new_comment — reuses the request's own
+    session, never opens a bare get_session() (see that function's own
+    docstring for the real test-isolation bug that caused). Never
+    includes the attorney's direct contact info (Milestone 1's privacy
+    rule) — the real "connect" mechanism stays inside the product's own
+    gated accept/decline flow."""
+    inquiry = session.get(Inquiry, inquiry_id)
+    if inquiry is None:
+        return
+    author = session.get(User, inquiry.author_id)
+    if author is None or not author.email:
+        return
+    try:
+        email_service.send_consultation_requested_email(
+            to=author.email,
+            inquiry_title=inquiry.title,
+            inquiry_url=f"{settings.FRONTEND_URL}/inquiries/{inquiry_id}",
+        )
+    except Exception:
+        # Same independent guard as _notify_followers_of_new_comment's
+        # own try/except — see that function's docstring.
+        logger.exception("Failed to notify author %s of consultation request on inquiry %s", author.id, inquiry_id)
+
+
 @router.post("/attorneys/request-consultation", status_code=201)
 def request_consultation(
     inquiry_id: str,
+    background_tasks: BackgroundTasks,
     current: AuthenticatedUser = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
@@ -771,6 +875,12 @@ def request_consultation(
     session.add(request)
     session.commit()
     session.refresh(request)
+
+    # M3.3 — email the inquiry's author. A background task, not awaited
+    # inline: this response must return promptly regardless of
+    # email-provider latency/errors.
+    background_tasks.add_task(_notify_author_of_consultation_request, session, inquiry.id)
+
     return {
         "id": str(request.id),
         "inquiryId": str(request.inquiry_id),

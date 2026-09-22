@@ -154,10 +154,25 @@ class TestCharacterLimitSoftCap:
         body = res.json()
         assert body["error"] == "upgrade_required"
 
-    def test_251_chars_expanded_tier_succeeds(self, client: TestClient):
+    def test_client_claimed_expanded_tier_is_never_trusted(self, client: TestClient):
+        """M3.2 real security fix: a client claiming tier="expanded" in
+        the request body must NOT bypass the character limit or be
+        honored at all — every inquiry is created at tier=free,
+        regardless of what the client claims. The ONLY path that may
+        ever set tier=expanded is forum_billing.py's Stripe webhook,
+        after a real, verified $2.99 payment (see that router's own
+        tests). This replaces the old, insecure
+        test_251_chars_expanded_tier_succeeds, which asserted the exact
+        client-controlled-tier behavior this fix closes."""
         res = _create_inquiry(client, description="x" * 251, tier="expanded")
-        assert res.status_code == 201, res.text
-        assert res.json()["tier"] == "expanded"
+        assert res.status_code == 403
+        assert res.json()["error"] == "upgrade_required"
+
+        # Even a genuinely accepted (short) inquiry ignores a claimed
+        # tier="expanded" and is created as free.
+        accepted = _create_inquiry(client, description="short", tier="expanded")
+        assert accepted.status_code == 201, accepted.text
+        assert accepted.json()["tier"] == "free"
 
 
 class TestOwnership:

@@ -45,6 +45,16 @@ export type Inquiry = {
   // backend fix — every other viewer (including the requesting
   // attorney) always gets an empty array here.
   attorneyRequests?: AttorneyRequestOnInquiry[];
+  // M3.1 — real uploaded evidence, visible to every viewer (unlike
+  // attorneyRequests above); only present on the single-inquiry fetch.
+  attachments?: EvidenceAttachment[];
+};
+
+export type EvidenceAttachment = {
+  id: string;
+  fileUrl: string;
+  fileType: "image" | "video" | "document";
+  sizeBytes: number;
 };
 
 export type InquiriesPage = {

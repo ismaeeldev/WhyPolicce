@@ -16,6 +16,10 @@ export type MeResponse = {
   // an attorney row that hasn't started the "Become an Attorney" flow yet.
   role: "citizen" | "attorney";
   verificationStatus: "pending" | "approved" | "rejected" | null;
+  // Forum rebuild, Milestone 3 Step M3.2 — real, webhook-confirmed state,
+  // replacing lib/attorneySubscription.ts's ATTORNEY_SUBSCRIPTION_ACTIVE_STUB
+  // placeholder. False for every citizen row by construction.
+  attorneySubscriptionActive: boolean;
 };
 
 /**

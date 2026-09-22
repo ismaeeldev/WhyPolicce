@@ -62,6 +62,19 @@ class User(SQLModel, table=True):
     # the first time; it is never set at row-creation time for a plain
     # citizen signup.
     verification_status: VerificationStatus | None = Field(default=None)
+    # Forum rebuild, Milestone 3 Step M3.2 (WhyPoliceForum_MasterGuide.md).
+    # True once the Stripe webhook confirms a real, active $149/month
+    # recurring payment; flipped back to False by
+    # customer.subscription.deleted / invoice.payment_failed, which
+    # actually re-locks M2.4's attorney-portal paywall (previously always
+    # False via ATTORNEY_SUBSCRIPTION_ACTIVE_STUB). Deliberately NOT
+    # reusing the existing stripe_customer_id/Tier fields above — those
+    # belong to the OLD product's separate Stripe account/subscription
+    # concept (see app/routers/forum_billing.py's own docstring for why
+    # this milestone uses a brand-new Stripe account, per the guide's own
+    # explicit Manual Step instruction).
+    attorney_subscription_active: bool = Field(default=False)
+    forum_stripe_customer_id: str | None = Field(default=None)
     # sa_column=Column(DateTime(timezone=True)) — found the hard way (a real
     # live user's session showed "5 hours ago" moments after creation): the
     # default SQLModel datetime column maps to Postgres's TIMESTAMP WITHOUT

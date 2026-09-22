@@ -36,11 +36,32 @@ export function UpgradeModal({
   onOpenChange,
   onTrimInstead,
   descriptionTextareaRef,
+  title = "This post needs the $2.99 upgrade",
+  description = `Free posts are capped at ${FREE_TIER_CHAR_LIMIT} characters. Trim it down to keep posting for free — you can upgrade to publish the full text once it's posted.`,
+  secondaryAction,
+  primaryAction,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onTrimInstead: () => void;
-  descriptionTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  onTrimInstead?: () => void;
+  descriptionTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  title?: string;
+  description?: string;
+  // M3.1: the attachment-limit trigger has no "trim it down" equivalent
+  // (there's no partial file to shrink), so the secondary action's label
+  // is overridable — same modal shell/interaction pattern per the guide's
+  // own "should feel like the same product mechanism" requirement,
+  // without forcing copy that doesn't make sense for this trigger.
+  secondaryAction?: { label: string; onClick: () => void };
+  // M3.2 real fix: the create-inquiry flow has no real inquiry_id yet to
+  // check out against (payment only ever applies to an inquiry that
+  // already exists — see the backend's own tier=free-only enforcement),
+  // so that specific modal instance has no real "Upgrade for $2.99"
+  // action to offer. Only a caller with a real, already-created inquiry
+  // (the post-creation upgrade path) passes this to wire the real
+  // Stripe Checkout call; omitting it hides the primary button entirely
+  // rather than showing a dead placeholder.
+  primaryAction?: { label: string; onClick: () => void; isPending?: boolean };
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,40 +70,39 @@ export function UpgradeModal({
         finalFocus={descriptionTextareaRef}
       >
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl">
-            This post needs the $2.99 upgrade
-          </DialogTitle>
+          <DialogTitle className="font-display text-2xl">{title}</DialogTitle>
           <DialogDescription className="text-body-sm text-text-secondary">
-            Free posts are capped at {FREE_TIER_CHAR_LIMIT} characters. Upgrade this post to
-            publish the full text, or trim it down and keep posting for free.
+            {description}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-2 mt-4">
-          <button
-            type="button"
-            onClick={() => {
-              // TODO (Milestone 3, Step M3.2): wire this to a real Stripe
-              // Checkout session for the $2.99 one-time upgrade. This is
-              // deliberately a placeholder, not a fake success state —
-              // per M2.3's own explicit requirement not to build
-              // something that could be mistaken for real payment
-              // integration.
-            }}
-            className="rounded-sm bg-accent px-4 py-2.5 text-center text-body-sm font-medium text-accent-foreground transition-all hover:bg-accent-hover active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-          >
-            Upgrade for $2.99
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onTrimInstead();
-              onOpenChange(false);
-            }}
-            className="rounded-sm px-4 py-2.5 text-body-sm text-text-secondary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-          >
-            Trim my post instead
-          </button>
+          {primaryAction && (
+            <button
+              type="button"
+              onClick={primaryAction.onClick}
+              disabled={primaryAction.isPending}
+              className="rounded-sm bg-accent px-4 py-2.5 text-center text-body-sm font-medium text-accent-foreground transition-all hover:bg-accent-hover active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            >
+              {primaryAction.isPending ? "Redirecting…" : primaryAction.label}
+            </button>
+          )}
+          {(secondaryAction ?? onTrimInstead) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (secondaryAction) {
+                  secondaryAction.onClick();
+                } else {
+                  onTrimInstead?.();
+                }
+                onOpenChange(false);
+              }}
+              className="rounded-sm px-4 py-2.5 text-body-sm text-text-secondary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            >
+              {secondaryAction?.label ?? "Trim my post instead"}
+            </button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

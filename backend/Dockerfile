@@ -29,6 +29,12 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.t
   && rm -rf /wheels
 
 COPY app ./app
+# M3.4: a fresh/staging deploy needs to run `alembic upgrade head` against
+# the real database (see the Milestone 3 Final Master Testing migration-
+# integrity requirement) — a real, previously-missing gap, since neither
+# alembic/ nor alembic.ini were ever copied into the image before this.
+COPY alembic ./alembic
+COPY alembic.ini .
 
 RUN chown -R app:app /app
 USER app
