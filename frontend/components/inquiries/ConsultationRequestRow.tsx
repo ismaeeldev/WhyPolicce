@@ -4,6 +4,8 @@ import { CheckCircle2, XCircle } from "lucide-react";
 
 import type { AttorneyRequestOnInquiry } from "@/hooks/useConsultationRequests";
 import { useRespondToConsultation } from "@/hooks/useConsultationRequests";
+import { ApiError } from "@/lib/api-client";
+import { useToastStore } from "@/stores/useToastStore";
 
 /**
  * A single consultation-request row on the inquiry author's own thread
@@ -22,6 +24,9 @@ export function ConsultationRequestRow({
   inquiryId: string;
 }) {
   const respond = useRespondToConsultation(inquiryId);
+  const showToast = useToastStore((s) => s.show);
+  const onRespondError = (err: unknown) =>
+    showToast(err instanceof ApiError ? err.message : "Couldn't save your response. Try again.");
 
   const attorneyLabel = request.attorneyBarNo
     ? `Attorney (Bar #${request.attorneyBarNo}${request.attorneyBarJurisdiction ? `, ${request.attorneyBarJurisdiction}` : ""})`
@@ -35,7 +40,12 @@ export function ConsultationRequestRow({
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={() => respond.mutate({ requestId: request.id, decision: "accepted" })}
+            onClick={() =>
+              respond.mutate(
+                { requestId: request.id, decision: "accepted" },
+                { onError: onRespondError },
+              )
+            }
             disabled={respond.isPending}
             className="rounded-sm bg-accent px-3 py-1.5 text-caption font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
           >
@@ -43,7 +53,12 @@ export function ConsultationRequestRow({
           </button>
           <button
             type="button"
-            onClick={() => respond.mutate({ requestId: request.id, decision: "declined" })}
+            onClick={() =>
+              respond.mutate(
+                { requestId: request.id, decision: "declined" },
+                { onError: onRespondError },
+              )
+            }
             disabled={respond.isPending}
             className="rounded-sm px-3 py-1.5 text-caption text-text-secondary hover:bg-bg-subtle disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
           >

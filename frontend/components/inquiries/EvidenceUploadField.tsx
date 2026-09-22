@@ -78,7 +78,13 @@ export function EvidenceUploadField({
                 <button
                   type="button"
                   aria-label="Remove attachment"
-                  onClick={() => deleteAttachment.mutate(a.id)}
+                  onClick={() =>
+                    deleteAttachment.mutate(a.id, {
+                      onError: (err) => {
+                        setError(err instanceof ApiError ? err.message : "Couldn't remove that attachment. Try again.");
+                      },
+                    })
+                  }
                   disabled={deleteAttachment.isPending}
                   className="shrink-0 rounded-sm p-1 text-text-muted transition-colors hover:text-danger disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
                 >
