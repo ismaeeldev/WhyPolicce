@@ -86,26 +86,50 @@ def _event_object(event: object) -> dict | None:
     return json.loads(json.dumps(obj, default=str))
 
 
-def _mark_processed_if_new(session: Session, event_id: str) -> bool:
+def _already_processed(session: Session, event_id: str) -> bool:
     """Real, DB-backed idempotency guard (Bug Fix's own explicit "replay
     the same webhook event twice" adversarial requirement) — Stripe's own
-    docs warn the same event can be delivered more than once. Returns
-    True if this is the first time this event_id has been seen (caller
-    should process it), False if already processed (caller should skip).
-    The unique index on stripe_event_id is the real enforcement — a
-    concurrent duplicate delivery racing this check still can't double-
-    process, since the second insert would violate the unique constraint."""
+    docs warn the same event can be delivered more than once.
+
+    Real bug found during a full-scope re-audit: this used to insert AND
+    commit the marker row up front, before the handler did its own real
+    work (flipping tier/subscription state) in a SEPARATE, later commit.
+    If that second commit failed for any reason (a dropped Neon
+    connection, a lock timeout — this app's own db.py already documents
+    Neon silently dropping connections), the marker row was already
+    durable, so Stripe's automatic retry of the same event would be
+    skipped as a "duplicate" forever — a customer could pay and the
+    inquiry/subscription would never actually update, with no recovery
+    path. Now this only checks; the marker insert and the handler's own
+    writes are staged together and committed exactly once, atomically,
+    by the caller — so a mid-handler failure rolls back the marker too
+    and Stripe's retry gets a genuine second attempt."""
     existing = session.exec(
         select(ProcessedStripeEvent).where(ProcessedStripeEvent.stripe_event_id == event_id)
     ).first()
-    if existing is not None:
-        return False
-    session.add(ProcessedStripeEvent(stripe_event_id=event_id))
-    session.commit()
-    return True
+    return existing is not None
 
 
 def _handle_inquiry_upgrade_completed(session: Session, checkout_object: dict) -> None:
+    # Real gap found during a full-scope re-audit: Stripe fires
+    # checkout.session.completed for delayed-notification payment
+    # methods (ACH, Bacs, some bank redirects) BEFORE the payment has
+    # actually settled — payment_status is "unpaid" at that point, only
+    # becoming "paid" later via a separate checkout.session.async_
+    # payment_succeeded event this app doesn't listen for. Without this
+    # check, a user starting (but not yet completing) an ACH payment got
+    # the unlimited-length/5-file upgrade immediately, permanently, with
+    # no automated path to revert it if the ACH debit later bounced.
+    # "no_payment_required" (e.g. a 100%-off coupon) is also legitimate
+    # and should still upgrade.
+    payment_status = checkout_object.get("payment_status")
+    if payment_status not in ("paid", "no_payment_required"):
+        logger.info(
+            "checkout.session.completed (inquiry upgrade) payment_status=%s — not yet paid, ignoring until a real payment-succeeded event",
+            payment_status,
+        )
+        return
+
     metadata = checkout_object.get("metadata") or {}
     inquiry_id_raw = metadata.get("inquiry_id")
     if not inquiry_id_raw:
@@ -124,7 +148,6 @@ def _handle_inquiry_upgrade_completed(session: Session, checkout_object: dict) -
 
     inquiry.tier = InquiryTier.expanded
     session.add(inquiry)
-    session.commit()
     logger.info("Inquiry %s upgraded to expanded via Stripe checkout", inquiry_id)
 
 
@@ -150,7 +173,6 @@ def _handle_attorney_subscription_completed(session: Session, checkout_object: d
     if customer_id:
         user.forum_stripe_customer_id = str(customer_id)
     session.add(user)
-    session.commit()
     logger.info("Attorney %s subscription activated via Stripe checkout", user_id)
 
 
@@ -174,7 +196,6 @@ def _handle_attorney_subscription_lapsed(session: Session, object_body: dict) ->
 
     user.attorney_subscription_active = False
     session.add(user)
-    session.commit()
     logger.info("Attorney %s subscription lapsed — portal re-locked", user.id)
 
 
@@ -301,7 +322,7 @@ async def forum_stripe_webhook(
         ) from exc
 
     event_id = _event_id(event)
-    if not _mark_processed_if_new(session, event_id):
+    if _already_processed(session, event_id):
         logger.info("Stripe event %s already processed — skipping duplicate delivery", event_id)
         return {"received": True, "duplicate": True}
 
@@ -316,5 +337,17 @@ async def forum_stripe_webhook(
             _handle_attorney_subscription_completed(session, object_body)
     elif event_type in ("customer.subscription.deleted", "invoice.payment_failed") and object_body:
         _handle_attorney_subscription_lapsed(session, object_body)
+
+    # Real gap found during a full-scope re-audit: the marker row used
+    # to be inserted AND committed up front, before any handler's own
+    # work. If the handler's write then failed to commit (a dropped
+    # Neon connection, a lock timeout), the marker was already durable
+    # and Stripe's retry of the same event would be silently skipped as
+    # a "duplicate" forever, with the real state change never applied.
+    # Staging the marker here and committing everything together means
+    # a failure anywhere rolls back the whole event — marker included —
+    # so Stripe's automatic retry gets a genuine second attempt.
+    session.add(ProcessedStripeEvent(stripe_event_id=event_id))
+    session.commit()
 
     return {"received": True}

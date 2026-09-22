@@ -188,6 +188,7 @@ class TestForumWebhook:
                 "object": {
                     "id": "cs_test_inquiry_upgrade",
                     "customer": "cus_forum_test",
+                    "payment_status": "paid",
                     "metadata": {"inquiry_id": created["id"], "user_id": "irrelevant"},
                 }
             },
@@ -207,6 +208,54 @@ class TestForumWebhook:
 
         follow_up = client.get(f"/api/v1/inquiries/{created['id']}")
         assert follow_up.json()["tier"] == "expanded"
+
+    def test_unpaid_checkout_session_does_not_flip_tier(
+        self, client: TestClient, session, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Real gap found during a full-scope re-audit: Stripe fires
+        checkout.session.completed for delayed-notification payment
+        methods (ACH, Bacs, some bank redirects) BEFORE the payment has
+        actually settled — payment_status is "unpaid" at that point.
+        Without checking it, a user starting (but not completing) an ACH
+        checkout got the unlimited-length/5-file upgrade immediately,
+        with no automated path to revert it if the payment later
+        bounced."""
+        import stripe
+
+        webhook_secret = "whsec_forum_test_unpaid"
+        monkeypatch.setattr("app.routers.forum_billing.settings.FORUM_STRIPE_WEBHOOK_SECRET", webhook_secret)
+
+        created = _create_inquiry(client).json()
+        assert created["tier"] == "free"
+
+        payload = {
+            "id": "evt_forum_inquiry_upgrade_unpaid",
+            "object": "event",
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": "cs_test_inquiry_upgrade_unpaid",
+                    "customer": "cus_forum_test",
+                    "payment_status": "unpaid",
+                    "metadata": {"inquiry_id": created["id"]},
+                }
+            },
+        }
+        payload_str = json.dumps(payload)
+        sig_header = _sign(webhook_secret, payload_str)
+
+        real_event = stripe.Webhook.construct_event(payload_str.encode("utf-8"), sig_header, webhook_secret)
+        assert not isinstance(real_event.data.object, dict)
+
+        res = client.post(
+            "/api/v1/billing/webhook",
+            content=payload_str.encode("utf-8"),
+            headers={"stripe-signature": sig_header, "content-type": "application/json"},
+        )
+        assert res.status_code == 200
+
+        follow_up = client.get(f"/api/v1/inquiries/{created['id']}")
+        assert follow_up.json()["tier"] == "free"
 
     def test_real_signed_attorney_subscription_event_activates_flag(
         self, client: TestClient, session, monkeypatch: pytest.MonkeyPatch
@@ -342,6 +391,7 @@ class TestForumWebhook:
                 "object": {
                     "id": "cs_test_idem",
                     "customer": "cus_idem",
+                    "payment_status": "paid",
                     "metadata": {"inquiry_id": created["id"]},
                 }
             },

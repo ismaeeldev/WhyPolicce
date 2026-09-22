@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
 from app.core.config import settings
@@ -768,7 +769,20 @@ def follow_inquiry(
             .where(Inquiry.id == inquiry.id)
             .values(follower_count=Inquiry.follower_count + 1)
         )
-        session.commit()
+        # Real gap found during a full-scope re-audit: the docstring
+        # above claims the atomic UPDATE makes concurrent follows safe,
+        # but that only protects the counter increment — the earlier
+        # SELECT-then-INSERT above is not atomic. Two concurrent follow
+        # requests from the same user can both pass that SELECT and both
+        # reach here; the second commit then violates the real unique
+        # constraint on (inquiry_id, user_id) and raised an unhandled
+        # IntegrityError (an ugly 500) with the counter already bumped
+        # twice. Same catch-rollback-recover shape as users.py's own
+        # _get_or_create_user for the identical class of race.
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
         session.refresh(inquiry)
     return {"following": True, "followerCount": inquiry.follower_count}
 
@@ -796,9 +810,20 @@ def unfollow_inquiry(
     ).first()
     if existing is not None:
         session.delete(existing)
+        # Real gap found during a full-scope re-audit: two concurrent
+        # unfollow requests for the same user can both pass the SELECT
+        # above before either commits, so both would decrement — there
+        # was no floor, and no CHECK (follower_count >= 0) constraint on
+        # the column, so this could drive the counter negative (a
+        # negative count then renders in the feed and sorts
+        # "most_followed" wrong). The delete's own unique-row match
+        # still only ever removes one real InquiryFollow row even if
+        # this races, so gating the decrement on follower_count > 0
+        # keeps the displayed counter honest without needing a DB-level
+        # CHECK migration.
         session.exec(
             Inquiry.__table__.update()
-            .where(Inquiry.id == inquiry.id)
+            .where(Inquiry.id == inquiry.id, Inquiry.follower_count > 0)
             .values(follower_count=Inquiry.follower_count - 1)
         )
         session.commit()
@@ -859,6 +884,21 @@ def request_consultation(
             detail={
                 "error": "not_verified",
                 "message": "Your attorney account is not yet approved.",
+            },
+        )
+    # Real gap found during a full-scope re-audit: attorney_subscription_
+    # active is set/cleared by the real Stripe webhook (forum_billing.py)
+    # but was only ever READ by GET /api/me for the frontend's own
+    # paywall display — nothing on the server actually gated this
+    # endpoint on it. An approved attorney who cancelled their $149/mo
+    # subscription (or never subscribed) could still call this directly
+    # forever; the paywall was purely cosmetic. Enforced here for real.
+    if not user.attorney_subscription_active:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "subscription_required",
+                "message": "An active attorney subscription is required to request a consultation.",
             },
         )
     _rate_limit_or_429("consultations", user.id)

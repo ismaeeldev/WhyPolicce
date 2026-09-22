@@ -178,13 +178,22 @@ def delete_attachment(
     session: Session = Depends(get_session),
 ) -> dict:
     """Owner-only removal of one of their own inquiry's attachments — the
-    UI Details' own "remove/delete action" on each uploaded file. Does
-    NOT delete the underlying GCS object (a real, deliberate scope
-    decision for this milestone: garbage-collecting orphaned blobs is a
-    separate lifecycle/cost concern, not a functional requirement for
-    the citizen-facing product, and safer to add later as a real
-    background job than to risk deleting a blob a retry/race still
-    needs)."""
+    UI Details' own "remove/delete action" on each uploaded file.
+
+    Real gap found during a full-scope re-audit: this used to only
+    remove the DB row and deliberately leave the GCS object in place —
+    but with no background GC job anywhere in this codebase, that meant
+    a "deleted" attachment's file stayed publicly fetchable at its
+    storage.googleapis.com URL forever. For a police-incident forum
+    where an upload may show a citizen's own face/plate/location, that's
+    a real privacy failure, not just a cost concern — so this now
+    deletes the real GCS object too. Also closes an inconsistency with
+    create_upload_url/register_attachment: those both honestly 501 when
+    GCS isn't configured, this endpoint previously had no such check at
+    all and would delete the DB row regardless."""
+    if not media_service.is_configured():
+        raise _NOT_CONFIGURED
+
     user = _get_or_create_user(session, current)
     _load_owned_inquiry(session, inquiry_id, user)
 
@@ -195,6 +204,7 @@ def delete_attachment(
     if attachment is None or str(attachment.inquiry_id) != inquiry_id:
         raise not_found
 
+    media_service.delete_blob(attachment.file_url)
     session.delete(attachment)
     session.commit()
     return {"deleted": True}

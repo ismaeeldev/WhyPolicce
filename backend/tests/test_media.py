@@ -341,9 +341,21 @@ class TestDeleteAttachment:
                 f"/api/v1/inquiries/{created['id']}/attachments",
                 json={"file_url": "https://storage.googleapis.com/bucket/to-delete", "file_type": "image", "size_bytes": 1024},
             ).json()
-        res = client.delete(f"/api/v1/inquiries/{created['id']}/attachments/{reg['id']}")
+
+        # Real gap found during a full-scope re-audit: delete_attachment
+        # used to have no is_configured() gate at all (inconsistent with
+        # create_upload_url/register_attachment) and never touched GCS,
+        # leaving "deleted" evidence publicly fetchable forever. Now
+        # gated + calls media_service.delete_blob for real, so the
+        # delete call needs the same configured/mocked context as the
+        # registration above.
+        with patch("app.routers.media.media_service.is_configured", return_value=True), patch(
+            "app.routers.media.media_service.delete_blob"
+        ) as mock_delete_blob:
+            res = client.delete(f"/api/v1/inquiries/{created['id']}/attachments/{reg['id']}")
         assert res.status_code == 200
         assert res.json()["deleted"] is True
+        mock_delete_blob.assert_called_once_with("https://storage.googleapis.com/bucket/to-delete")
 
         follow_up = client.get(f"/api/v1/inquiries/{created['id']}")
         assert follow_up.json()["attachments"] == []
@@ -359,11 +371,24 @@ class TestDeleteAttachment:
             ).json()
 
         other_client = _second_user_client(session)
-        res = other_client.delete(f"/api/v1/inquiries/{created['id']}/attachments/{reg['id']}")
+        with patch("app.routers.media.media_service.is_configured", return_value=True), patch(
+            "app.routers.media.media_service.delete_blob"
+        ):
+            res = other_client.delete(f"/api/v1/inquiries/{created['id']}/attachments/{reg['id']}")
         assert res.status_code == 403
         app.dependency_overrides.clear()
 
     def test_deleting_nonexistent_attachment_404s(self, client: TestClient):
         created = _create_inquiry(client).json()
-        res = client.delete(f"/api/v1/inquiries/{created['id']}/attachments/{uuid.uuid4()}")
+        with patch("app.routers.media.media_service.is_configured", return_value=True):
+            res = client.delete(f"/api/v1/inquiries/{created['id']}/attachments/{uuid.uuid4()}")
         assert res.status_code == 404
+
+    def test_delete_returns_501_when_gcs_not_configured(self, client: TestClient):
+        """Real gap found during a full-scope re-audit: this endpoint
+        used to have no is_configured() gate at all, inconsistent with
+        every other GCS-touching endpoint in this router."""
+        created = _create_inquiry(client).json()
+        res = client.delete(f"/api/v1/inquiries/{created['id']}/attachments/{uuid.uuid4()}")
+        assert res.status_code == 501
+        assert res.json()["error"] == "not_implemented"

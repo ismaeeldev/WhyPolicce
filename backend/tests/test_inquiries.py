@@ -355,6 +355,41 @@ class TestAttorneyGating:
         assert res.json()["error"] == "not_verified"
         app.dependency_overrides.clear()
 
+    def test_approved_attorney_without_active_subscription_cannot_request_consultation(
+        self, client: TestClient, session: Session
+    ):
+        """Real gap found during a full-scope re-audit: role=attorney and
+        verification_status=approved were the only server-side checks
+        here — attorney_subscription_active (set/cleared by the real
+        Stripe webhook) was written but never read by this endpoint, so
+        an attorney who cancelled their $149/mo subscription (or never
+        subscribed) could still request consultations forever. The
+        frontend paywall was purely cosmetic without this."""
+        created = _create_inquiry(client).json()
+        attorney = User(
+            auth0_sub="auth0|unsubscribed-attorney",
+            email="unsubscribed@test.example",
+            role=Role.attorney,
+            verification_status=VerificationStatus.approved,
+            attorney_subscription_active=False,
+        )
+        session.add(attorney)
+        session.commit()
+
+        attorney_identity = AuthenticatedUser(
+            auth0_sub="auth0|unsubscribed-attorney", email="unsubscribed@test.example"
+        )
+        from app.core.db import get_session
+
+        app.dependency_overrides[get_session] = lambda: (yield session)
+        app.dependency_overrides[get_current_user] = lambda: attorney_identity
+        attorney_client = TestClient(app)
+
+        res = attorney_client.post(f"/api/v1/attorneys/request-consultation?inquiry_id={created['id']}")
+        assert res.status_code == 403
+        assert res.json()["error"] == "subscription_required"
+        app.dependency_overrides.clear()
+
     def test_approved_attorney_can_request_consultation(self, client: TestClient, session: Session):
         created = _create_inquiry(client).json()
         attorney = User(
@@ -362,6 +397,7 @@ class TestAttorneyGating:
             email="approved@test.example",
             role=Role.attorney,
             verification_status=VerificationStatus.approved,
+            attorney_subscription_active=True,
         )
         session.add(attorney)
         session.commit()
@@ -385,6 +421,7 @@ class TestAttorneyGating:
             email="dup@test.example",
             role=Role.attorney,
             verification_status=VerificationStatus.approved,
+            attorney_subscription_active=True,
         )
         session.add(attorney)
         session.commit()
@@ -415,6 +452,7 @@ class TestAttorneyGating:
             email="redecline@test.example",
             role=Role.attorney,
             verification_status=VerificationStatus.approved,
+            attorney_subscription_active=True,
         )
         session.add(attorney)
         session.commit()
@@ -650,6 +688,7 @@ class TestMyConsultationRequests:
             attorney_row = session.exec(select(User).where(User.auth0_sub == "auth0|myreq-attorney")).first()
         attorney_row.role = Role.attorney
         attorney_row.verification_status = VerificationStatus.approved
+        attorney_row.attorney_subscription_active = True
         session.add(attorney_row)
         session.commit()
 
@@ -687,6 +726,7 @@ class TestMyConsultationRequests:
         attorney_row = session.exec(select(User).where(User.auth0_sub == "auth0|myreq2-attorney")).first()
         attorney_row.role = Role.attorney
         attorney_row.verification_status = VerificationStatus.approved
+        attorney_row.attorney_subscription_active = True
         session.add(attorney_row)
         session.commit()
 

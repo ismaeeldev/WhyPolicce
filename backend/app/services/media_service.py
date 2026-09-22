@@ -72,6 +72,40 @@ def blob_exists_for_bucket(file_url: str) -> bool:
     return bucket.blob(object_name).exists()
 
 
+def delete_blob(file_url: str) -> None:
+    """Real gap found during a full-scope re-audit: the attachments-
+    delete endpoint used to only remove the DB row, deliberately leaving
+    the GCS object in place (a documented, intentional scope decision at
+    the time). The real consequence of that decision was never actually
+    fully worked through: there is no background GC job anywhere in this
+    codebase, so a "deleted" attachment's file stays publicly fetchable
+    at its storage.googleapis.com URL forever. For a police-incident
+    forum, where an uploaded file may show a citizen's own face, plate,
+    or location, a "delete" that shows success while the file stays
+    public is a real privacy failure, not just an unbounded storage-cost
+    concern. Same file_url-shape validation as blob_exists_for_bucket —
+    never accepts a URL that isn't shaped like our own bucket's object,
+    and deleting a blob that's already gone (a retried request, a race
+    with a previous delete) is treated as success, not an error."""
+    if not is_configured():
+        raise RuntimeError("GCS is not configured — call is_configured() first")
+
+    prefix = f"https://storage.googleapis.com/{settings.GCS_BUCKET_NAME}/"
+    if not file_url.startswith(prefix):
+        return
+    object_name = file_url[len(prefix):]
+
+    client = storage.Client.from_service_account_json(settings.GCS_SERVICE_ACCOUNT_JSON_PATH)
+    bucket = client.bucket(settings.GCS_BUCKET_NAME)
+    blob = bucket.blob(object_name)
+    try:
+        blob.delete()
+    except Exception as exc:
+        if getattr(exc, "code", None) == 404:
+            return
+        raise
+
+
 # M3.1 Bug Fix decision (user-confirmed, in scope): verify the uploaded
 # file's REAL bytes match the claimed file_type before trusting it, not
 # just the client-declared value — catches a spoofed upload (e.g.

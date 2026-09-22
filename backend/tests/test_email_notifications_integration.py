@@ -103,6 +103,7 @@ class TestConsultationRequestedEmailNotification:
             email="attorney@test.example",
             role=Role.attorney,
             verification_status=VerificationStatus.approved,
+            attorney_subscription_active=True,
         )
         session.add(attorney)
         session.commit()
