@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Lock } from "lucide-react";
+import { Check } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
@@ -16,13 +16,18 @@ const cardVariants = {
 };
 
 /**
- * Free vs Pro comparison — AgentGuide/01_ThemeGuideline.md §4.5.
- * Reused as-is on /pricing (Step 2, public, no props) and, contextually, on
- * /upgrade (Step 7, authenticated — `currentTier`/`onUpgradeClick` switch
- * the CTAs from "go to signup" to "you're already here"/"start checkout").
+ * Citizen vs. attorney pricing — forum rebuild. Replaces the old
+ * RAG-search product's Free/Pro subscription-tier comparison (retired
+ * per the scope PDF's "What We Are No Longer Building On" section)
+ * with the forum's own two, genuinely separate billing shapes: a
+ * one-time $2.99 citizen inquiry upgrade (M2.3/M3.2) and a recurring
+ * $149/month attorney subscription (M2.4/M3.2) — not a tiered
+ * account-wide plan, since these apply to different things (a single
+ * post vs. an attorney's whole account) for different audiences.
  */
 
 type Plan = {
+  audience: string;
   name: string;
   price: string;
   cadence: string;
@@ -30,64 +35,62 @@ type Plan = {
   cta: string;
   href: string;
   featured?: boolean;
-  features: { label: string; included: boolean }[];
+  features: string[];
 };
 
 const PLANS: Plan[] = [
   {
-    name: "Free",
+    audience: "For citizens",
+    name: "Post an inquiry",
     price: "$0",
-    cadence: "forever",
-    description: "Everything you need for everyday search.",
-    cta: "Start for free",
-    href: "/signup",
+    cadence: "to start",
+    description: "Share what happened and ask your community for help — free, no time limit.",
+    cta: "Post for free",
+    href: "/inquiries/new",
     features: [
-      { label: "Unlimited standard search, streamed live", included: true },
-      { label: "Full session history", included: true },
-      { label: "Export any session as JSON, anytime", included: true },
-      { label: "Personal memory notes", included: true },
-      { label: "Deep search — up to 50 intensive queries/day", included: false },
-      { label: "Advanced export — PDF, Markdown, bulk history", included: false },
+      "Publish an inquiry up to 250 characters",
+      "Edit or delete your own posts anytime",
+      "Follow other inquiries and get replies",
+      "Attach 1 photo or document up to 5MB",
     ],
   },
   {
-    name: "Pro",
-    price: "$12",
-    cadence: "/month",
-    description: "For research, deadlines, and heavier days.",
-    cta: "Upgrade to Pro",
-    href: "/signup",
+    audience: "For citizens",
+    name: "Upgrade a post",
+    price: "$2.99",
+    cadence: "one-time, per inquiry",
+    description: "Need more room to explain, or more evidence attached? Unlock it for that one post.",
+    cta: "Available from your inquiry",
+    href: "/inquiries/new",
     featured: true,
     features: [
-      { label: "Everything in Free", included: true },
-      { label: "Deep search — up to 50 intensive queries/day", included: true },
-      { label: "Advanced export — PDF, Markdown, bulk history", included: true },
-      { label: "Priority streaming during peak hours", included: true },
-      { label: "Personal memory notes", included: true },
-      { label: "Full session history", included: true },
+      "Publish past the 250-character limit",
+      "Attach up to 5 files, 50MB total",
+      "Applies once, to the specific inquiry you upgrade",
+      "No subscription — pay only when you need it",
+    ],
+  },
+  {
+    audience: "For attorneys",
+    name: "Attorney subscription",
+    price: "$149",
+    cadence: "/month",
+    description: "Full access to the case feed and the ability to reach out directly to citizens who need help.",
+    cta: "Apply as an attorney",
+    href: "/account",
+    features: [
+      "See every real case in the feed, not a preview",
+      "Request a consultation directly on any inquiry",
+      "Track your requests and their status in one place",
+      "Requires a verified bar number and jurisdiction",
     ],
   },
 ];
 
-type AuthenticatedProps = {
-  /** When set, CTAs switch from "go to signup" links to tier-aware actions:
-   * a disabled "Current plan" state for the plan the user is already on,
-   * and a real checkout-triggering button for the Pro upgrade path. */
-  currentTier?: "free" | "pro";
-  onUpgradeClick?: () => void;
-  upgradePending?: boolean;
-};
-
-export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: AuthenticatedProps = {}) {
-  const authenticated = currentTier !== undefined;
-
+export function PricingCards() {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 max-w-[880px] mx-auto">
-      {PLANS.map((plan, i) => {
-        const planTier = plan.name === "Pro" ? "pro" : "free";
-        const isCurrentPlan = authenticated && currentTier === planTier;
-
-        return (
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-[1100px] mx-auto">
+      {PLANS.map((plan, i) => (
         <motion.div
           key={plan.name}
           custom={i}
@@ -101,20 +104,6 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
               : "border border-border-default"
           }`}
         >
-          {/* Free card previously read as a plain afterthought next to
-              Pro's border/shadow/badge — UI polish pass gives it its own
-              quiet visual identity (a soft corner texture) instead of
-              just "the un-highlighted one."
-
-              Revision 3 fix: this decoration used to be clipped via
-              `overflow-hidden` on the OUTER card div — found via a fresh
-              screenshot review that this also clipped the Pro card's
-              "Most popular" badge, which intentionally pokes above the
-              card's top edge (`-top-3`), making it render half-cut-off
-              and unreadable. Moved overflow-hidden onto a dedicated inner
-              wrapper around just the decorative glow instead, so it still
-              clips correctly without affecting anything that needs to
-              extend past the card's own bounds. */}
           {!plan.featured && (
             <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
               <div
@@ -127,11 +116,14 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
 
           {plan.featured && (
             <span className="absolute -top-3 left-6 rounded-full bg-accent-subtle px-2.5 py-0.5 text-caption font-medium text-text-primary">
-              Most popular
+              Most useful
             </span>
           )}
 
-          <h2 className="text-h2 font-semibold">{plan.name}</h2>
+          <p className="text-caption font-medium uppercase tracking-wide text-text-muted">
+            {plan.audience}
+          </p>
+          <h2 className="mt-1.5 text-h2 font-semibold">{plan.name}</h2>
           <p className="mt-1 text-body-sm text-text-secondary">{plan.description}</p>
 
           <div className="mt-7 flex items-baseline gap-2">
@@ -139,53 +131,27 @@ export function PricingCards({ currentTier, onUpgradeClick, upgradePending }: Au
             <span className="text-body-sm text-text-muted">{plan.cadence}</span>
           </div>
 
-          {isCurrentPlan ? (
-            <button
-              type="button"
-              disabled
-              className="mt-6 block w-full rounded-sm border border-border-strong px-4 py-2.5 text-center text-body-sm font-medium text-text-muted cursor-default"
-            >
-              Current plan
-            </button>
-          ) : authenticated && plan.featured ? (
-            <button
-              type="button"
-              onClick={onUpgradeClick}
-              disabled={upgradePending}
-              className="mt-6 block w-full rounded-sm bg-accent px-4 py-2.5 text-center text-body-sm font-medium text-accent-foreground transition-all hover:bg-accent-hover active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
-            >
-              {upgradePending ? "Starting checkout…" : plan.cta}
-            </button>
-          ) : authenticated ? null : (
-            <Link
-              href={plan.href}
-              className={`mt-6 block rounded-sm px-4 py-2.5 text-center text-body-sm font-medium transition-all active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
-                plan.featured
-                  ? "bg-accent text-accent-foreground hover:bg-accent-hover"
-                  : "border border-border-strong text-text-primary hover:bg-bg-subtle"
-              }`}
-            >
-              {plan.cta}
-            </Link>
-          )}
+          <Link
+            href={plan.href}
+            className={`mt-6 block rounded-sm px-4 py-2.5 text-center text-body-sm font-medium transition-all active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+              plan.featured
+                ? "bg-accent text-accent-foreground hover:bg-accent-hover"
+                : "border border-border-strong text-text-primary hover:bg-bg-subtle"
+            }`}
+          >
+            {plan.cta}
+          </Link>
 
           <ul className="mt-7 flex flex-col gap-4 border-t border-border-default pt-6">
-            {plan.features.map((f) => (
-              <li key={f.label} className="flex items-start gap-2.5 text-body-sm">
-                {f.included ? (
-                  <Check className="h-4 w-4 shrink-0 mt-0.5 text-accent-bright" />
-                ) : (
-                  <Lock className="h-4 w-4 shrink-0 mt-0.5 text-text-muted" />
-                )}
-                <span className={f.included ? "text-text-primary" : "text-text-muted"}>
-                  {f.label}
-                </span>
+            {plan.features.map((label) => (
+              <li key={label} className="flex items-start gap-2.5 text-body-sm">
+                <Check className="h-4 w-4 shrink-0 mt-0.5 text-accent-bright" />
+                <span className="text-text-primary">{label}</span>
               </li>
             ))}
           </ul>
         </motion.div>
-        );
-      })}
+      ))}
     </div>
   );
 }

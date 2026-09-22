@@ -5,7 +5,7 @@ import { Auth0Provider } from "@auth0/nextjs-auth0";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Search from "@/app/(protected)/search/page";
 import History from "@/app/(protected)/history/page";
-import Account from "@/app/(protected)/account/page";
+import Account from "@/app/account/page";
 import Memory from "@/app/(protected)/account/memory/page";
 import Billing from "@/app/(protected)/account/billing/page";
 import Upgrade from "@/app/(protected)/upgrade/page";

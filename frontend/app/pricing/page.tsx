@@ -5,11 +5,11 @@ import { PricingCards } from "@/components/pricing/PricingCards";
 export const metadata: Metadata = {
   title: "Pricing — WhyPolice",
   description:
-    "Free for everyday search. Upgrade to Pro for deep search, advanced export, and priority streaming — $12/month.",
+    "Posting is free. Upgrade a single inquiry for $2.99 to unlock more length and evidence, or subscribe as a verified attorney for $149/month to reach real cases.",
   openGraph: {
     title: "Pricing — WhyPolice",
     description:
-      "Free for everyday search. Upgrade to Pro for deep search, advanced export, and priority streaming — $12/month.",
+      "Posting is free. Upgrade a single inquiry for $2.99 to unlock more length and evidence, or subscribe as a verified attorney for $149/month to reach real cases.",
     type: "website",
   },
 };
@@ -29,14 +29,14 @@ export default function PricingPage() {
         }}
       />
       <div className="wp-page-intro relative mx-auto max-w-[680px] text-center mb-12">
-        <p className="wp-eyebrow justify-center mb-4">Room to go deeper</p>
+        <p className="wp-eyebrow justify-center mb-4">Simple, no surprises</p>
         <div>
           <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-4">
-            Simple pricing, no surprises.
+            Free to post. Pay only for what you need.
           </h1>
           <p className="text-body-lg text-text-secondary">
-            Start free. Upgrade only when you&apos;re actually searching harder
-            than most people do.
+            Citizens post for free, always. Upgrade a single post when you need more
+            room to explain. Attorneys subscribe to reach the cases that need them.
           </p>
         </div>
       </div>

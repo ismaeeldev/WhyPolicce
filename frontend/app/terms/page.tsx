@@ -22,16 +22,18 @@ export default function TermsPage() {
       </div>
       <ScrollReveal className="flex flex-col gap-6 text-body text-text-secondary leading-relaxed">
         <p>
-          By creating a WhyPolice account, you agree to use the service for
-          legitimate search purposes and not to abuse, scrape, or attempt to
-          circumvent the platform&apos;s rate limits or subscription tiers.
+          By creating a WhyPolice account, you agree to use the forum for
+          legitimate purposes — posting real inquiries, real replies, and
+          real evidence — and not to abuse, scrape, or attempt to circumvent
+          the platform&apos;s rate limits.
         </p>
         <p>
-          Free and Pro plans are described on our{" "}
+          The $2.99 inquiry upgrade and the $149/month attorney subscription
+          are described on our{" "}
           <Link href="/pricing" className="text-accent underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
             pricing page
           </Link>
-          . We may adjust plan limits or pricing with reasonable notice.
+          . We may adjust pricing with reasonable notice.
         </p>
         {/* Same treatment as Privacy's matching caveat — a real bordered
             callout instead of muted text drifting off the paragraph list. */}

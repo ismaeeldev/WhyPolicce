@@ -6,10 +6,10 @@ import { AuthPageShell } from "@/components/auth/AuthPageShell";
 
 export const metadata: Metadata = {
   title: "Log in — WhyPolice",
-  description: "Log in to WhyPolice to start searching.",
+  description: "Log in to WhyPolice to post, follow, and reply on the forum.",
   openGraph: {
     title: "Log in — WhyPolice",
-    description: "Log in to WhyPolice to start searching.",
+    description: "Log in to WhyPolice to post, follow, and reply on the forum.",
     type: "website",
   },
 };

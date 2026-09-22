@@ -5,11 +5,11 @@ import { ScrollReveal } from "@/components/marketing/ScrollReveal";
 export const metadata: Metadata = {
   title: "About — WhyPolice",
   description:
-    "Why we built an AI search product for police reports, municipal logs, and public safety data that streams answers in real time and never turns your questions into a product.",
+    "WhyPolice is a public forum where anyone can post about a police interaction or local incident, get real replies from their community, and connect with a verified attorney if they need one.",
   openGraph: {
     title: "About — WhyPolice",
     description:
-      "Why we built an AI search product for police reports, municipal logs, and public safety data that streams answers in real time and never turns your questions into a product.",
+      "WhyPolice is a public forum where anyone can post about a police interaction or local incident, get real replies from their community, and connect with a verified attorney if they need one.",
     type: "website",
   },
 };
@@ -26,11 +26,12 @@ const SECTIONS = [
     title: "The problem",
     body: (
       <>
-        Public safety information is scattered across police department
-        sites, municipal logs, and records requests that take days to
-        answer a question you needed today. We wanted the opposite: ask a
-        real question about a case, a curfew, or a local incident, and
-        watch the answer arrive as it&apos;s formed.
+        When something happens with police, or you&apos;re trying to make sense of
+        a local incident, there&apos;s rarely one place to ask about it. Police
+        department sites, municipal logs, and records requests all take time —
+        time you don&apos;t have when you need to know what to do next. We wanted
+        somewhere you could post what happened and actually hear back, from
+        real people and, when it matters, from a real attorney.
       </>
     ),
   },
@@ -39,36 +40,34 @@ const SECTIONS = [
     title: "How it works",
     body: (
       <>
-        You type a question the way you&apos;d ask a person. The answer
-        streams back in real time — no spinner, no waiting for a page to
-        finish loading, just the response building itself in front of
-        you. When something needs a live, official record rather than a
-        general answer, we say so plainly and point you to the right
-        source instead of guessing.
+        You post an inquiry — what happened, where, and what kind of situation
+        it is — and it&apos;s visible to everyone, no sign-in required just to
+        read. Other people can follow it and reply. If your case needs legal
+        help, a verified attorney can request a consultation directly on your
+        post; you decide whether to accept.
       </>
     ),
   },
   {
     n: "03",
-    title: "Why we ask you to sign in",
+    title: "Why we ask you to sign in to post",
     body: (
       <>
-        We know that&apos;s a small bit of friction. It&apos;s there for one
-        reason: to keep the platform free of bots and spam, not to build
-        a profile on you. Your searches stay yours — we don&apos;t sell
-        them, share them, or hand them to anyone else.
+        Reading the forum is open to anyone. Posting, following, and
+        commenting need an account — that&apos;s there for one reason: to keep
+        the forum free of bots and spam, not to build a profile on you.
       </>
     ),
   },
   {
     n: "04",
-    title: "What we keep",
+    title: "What attorneys can and can't see",
     body: (
       <>
-        Every search you run is saved to your own history so you can come
-        back to it, export it, or clear it whenever you want. That&apos;s
-        the extent of what we keep, and it&apos;s entirely under your
-        control.
+        Attorneys never see your email or contact details — only your public
+        post, same as everyone else. A consultation request only ever reaches
+        you through your own inquiry page; nothing is shared until you decide
+        to respond.
       </>
     ),
   },
@@ -80,7 +79,7 @@ export default function AboutPage() {
       <div className="wp-page-intro">
         <p className="wp-eyebrow mb-4">Our perspective</p>
         <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-14">
-          Public safety information shouldn&apos;t take a records request.
+          Nobody should have to figure this out alone.
         </h1>
       </div>
 
@@ -104,8 +103,9 @@ export default function AboutPage() {
 
       <ScrollReveal className="mt-14 border-t border-border-default pt-8">
         <p className="font-display text-xl sm:text-2xl leading-snug text-text-primary text-balance">
-          We&apos;re building the search we wanted to use ourselves — calm,
-          fast, and honest about what it does with your questions.
+          We&apos;re building the forum we wished existed the first time we
+          needed it — public, honest, and never harder to use than it has
+          to be.
         </p>
       </ScrollReveal>
     </div>

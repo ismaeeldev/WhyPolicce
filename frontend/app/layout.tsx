@@ -25,7 +25,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: "WhyPolice",
-  description: "Ask. Stream the answer in real time.",
+  description: "A public forum for police interactions and local incidents. Post, get real replies, connect with a verified attorney.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
