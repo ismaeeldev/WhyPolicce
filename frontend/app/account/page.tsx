@@ -56,7 +56,15 @@ export default function AccountPage() {
           <p className="text-body font-medium text-text-primary truncate">
             {auth0User?.name ?? auth0User?.email}
           </p>
-          <p className="text-body-sm text-text-muted truncate">{auth0User?.email}</p>
+          {/* Real bug found during a UI audit: Auth0 defaults `name` to
+              the email itself when a user never sets a separate display
+              name (true for most real accounts, which just sign up with
+              email/password) — showing the muted email line unconditionally
+              then just repeated the exact same truncated string twice.
+              Only show it when it's genuinely a distinct value. */}
+          {auth0User?.email && auth0User.email !== auth0User?.name && (
+            <p className="text-body-sm text-text-muted truncate">{auth0User.email}</p>
+          )}
         </div>
       </motion.div>
 

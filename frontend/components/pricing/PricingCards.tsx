@@ -35,6 +35,14 @@ type Plan = {
   cta: string;
   href: string;
   featured?: boolean;
+  // Real UX bug found during a UI audit: the "Upgrade a post" card's CTA
+  // never starts the $2.99 upgrade directly (there's no inquiry_id to
+  // upgrade until one exists) — it just links to the new-inquiry form,
+  // same as "Post for free". Styling it as the solid-fill primary button
+  // purely because the card is `featured` made the most misleading CTA
+  // on the page look like the most actionable one. This flag decouples
+  // "is the highlighted card" from "is this CTA a direct purchase action".
+  ctaIsDirectAction?: boolean;
   features: string[];
 };
 
@@ -47,6 +55,7 @@ const PLANS: Plan[] = [
     description: "Share what happened and ask your community for help — free, no time limit.",
     cta: "Post for free",
     href: "/inquiries/new",
+    ctaIsDirectAction: true,
     features: [
       "Publish an inquiry up to 250 characters",
       "Edit or delete your own posts anytime",
@@ -78,6 +87,7 @@ const PLANS: Plan[] = [
     description: "Full access to the case feed and the ability to reach out directly to citizens who need help.",
     cta: "Apply as an attorney",
     href: "/account",
+    ctaIsDirectAction: true,
     features: [
       "See every real case in the feed, not a preview",
       "Request a consultation directly on any inquiry",
@@ -134,7 +144,7 @@ export function PricingCards() {
           <Link
             href={plan.href}
             className={`mt-6 block rounded-sm px-4 py-2.5 text-center text-body-sm font-medium transition-all active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
-              plan.featured
+              plan.ctaIsDirectAction
                 ? "bg-accent text-accent-foreground hover:bg-accent-hover"
                 : "border border-border-strong text-text-primary hover:bg-bg-subtle"
             }`}
