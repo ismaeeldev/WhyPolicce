@@ -33,7 +33,7 @@ export function ConsultationRequestRow({
     : "An attorney";
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-sm border border-border-default bg-bg-elevated p-3">
+    <div className="flex items-center justify-between gap-3 rounded-sm border border-accent/30 bg-accent-subtle/40 p-3 transition-colors duration-150 hover:border-accent/50">
       <p className="text-body-sm text-text-primary">{attorneyLabel} requested a consultation.</p>
 
       {request.status === "pending" && (

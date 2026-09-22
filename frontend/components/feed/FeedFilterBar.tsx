@@ -63,7 +63,7 @@ export function FeedFilterBar({
             onChange={(e) => onSearchInputChange(e.target.value)}
             aria-label="Search inquiries"
             placeholder="Search state, city, precinct, or incident keyword..."
-            className="h-12 w-full min-w-0 rounded-lg border border-border-default bg-bg-elevated pl-11 pr-4 text-body text-text-primary shadow-card outline-none transition-colors focus:border-accent placeholder:text-text-muted"
+            className="h-12 w-full min-w-0 rounded-lg border border-border-default bg-bg-elevated pl-11 pr-4 text-body text-text-primary shadow-card outline-none transition-all duration-200 ease-out hover:border-border-strong focus:border-accent focus:shadow-card-lg placeholder:text-text-muted"
           />
         </div>
 

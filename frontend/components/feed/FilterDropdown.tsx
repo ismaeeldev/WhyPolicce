@@ -42,10 +42,10 @@ export function FilterDropdown({
         render={
           <button
             type="button"
-            className={`flex items-center gap-1.5 rounded-sm border px-3.5 py-2 text-body-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+            className={`flex items-center gap-1.5 rounded-sm border px-3.5 py-2 text-body-sm transition-all duration-150 ease-out focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
               isActive
-                ? "border-accent bg-accent-subtle text-text-primary"
-                : "border-border-default bg-bg-elevated text-text-secondary hover:border-border-strong"
+                ? "border-accent bg-accent-subtle text-text-primary hover:bg-accent-subtle/80"
+                : "border-border-default bg-bg-elevated text-text-secondary hover:border-border-strong hover:bg-bg-subtle"
             }`}
           />
         }

@@ -25,7 +25,7 @@ export function AttachmentList({ attachments }: { attachments: EvidenceAttachmen
           return (
             <li
               key={a.id}
-              className="flex items-center gap-2.5 rounded-sm border border-border-default bg-bg-elevated px-3 py-2"
+              className="flex items-center gap-2.5 rounded-sm border border-border-default bg-bg-elevated px-3 py-2 transition-colors duration-150 hover:border-border-strong"
             >
               <Icon className="h-4 w-4 shrink-0 text-text-muted" strokeWidth={1.5} />
               <a

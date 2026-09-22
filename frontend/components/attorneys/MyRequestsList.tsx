@@ -66,7 +66,7 @@ export function MyRequestsList() {
         return (
           <div
             key={request.id}
-            className="flex items-center justify-between gap-3 rounded-sm border border-border-default bg-bg-elevated p-3"
+            className="flex items-center justify-between gap-3 rounded-sm border border-border-default bg-bg-elevated p-3 transition-colors duration-150 hover:border-border-strong"
           >
             <div className="min-w-0">
               <Link
