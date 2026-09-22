@@ -45,3 +45,10 @@ next-env.d.ts
 
 # UI review screenshots (local visual QA artifacts, not source)
 .ui-review/
+
+# Playwright E2E run artifacts
+/test-results/
+/e2e-report/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

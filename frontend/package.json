@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:browser": "node scripts/browser-smoke.mjs",
-    "test:search": "node scripts/browser-search-test.mjs"
+    "test:search": "node scripts/browser-search-test.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.27.0",
@@ -31,6 +32,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

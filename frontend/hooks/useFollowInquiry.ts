@@ -6,6 +6,34 @@ import { apiFetch } from "@/lib/api-client";
 import type { Inquiry, InquiriesPage } from "@/hooks/useInquiries";
 
 /**
+ * Real bug found via Playwright E2E re-testing (Milestone 1/2
+ * re-verification pass): this hook only ever updated/invalidated the
+ * feed's ["inquiries"] cache — the thread page reads a single inquiry
+ * via useInquiry(id), key ["inquiry", id], which this hook never
+ * touched. Following an inquiry from its own thread page silently
+ * succeeded on the backend (confirmed via a real 201 response) but the
+ * button never flipped to "Following," since nothing ever told that
+ * page's own cache entry the follow happened. The exact same class of
+ * stale-query-key bug already found once this session in
+ * useRespondToConsultation (see that hook's own fix), now recurring
+ * here — updateSingleInquiryInCache + the matching invalidation below
+ * close it the same way.
+ */
+function updateSingleInquiryInCache(
+  data: Inquiry | undefined,
+  inquiryId: string,
+  isFollowing: boolean,
+  followerCountDelta: number,
+): Inquiry | undefined {
+  if (!data || data.id !== inquiryId) return data;
+  return {
+    ...data,
+    isFollowing,
+    followerCount: Math.max(0, data.followerCount + followerCountDelta),
+  };
+}
+
+/**
  * Follow/unfollow mutation for feed cards — forum rebuild, Milestone 2
  * Step M2.2 (WhyPoliceForum_MasterGuide.md). Optimistic per ThemeGuideline
  * §10 rule 3 (updates the button state instantly, rolls back on failure) —
@@ -66,22 +94,35 @@ function useFollowMutation(method: "POST" | "DELETE", isFollowing: boolean, delt
       latestMutationId.set(inquiryId, thisMutationId);
 
       await queryClient.cancelQueries({ queryKey: ["inquiries"] });
+      await queryClient.cancelQueries({ queryKey: ["inquiry", inquiryId] });
+
       const previous = queryClient.getQueriesData<InfiniteData<InquiriesPage>>({
         queryKey: ["inquiries"],
       });
       previous.forEach(([key, data]) => {
         queryClient.setQueryData(key, updateInquiryInCache(data, inquiryId, isFollowing, delta));
       });
-      return { previous, thisMutationId };
+
+      const previousSingle = queryClient.getQueryData<Inquiry>(["inquiry", inquiryId]);
+      queryClient.setQueryData<Inquiry>(
+        ["inquiry", inquiryId],
+        (data) => updateSingleInquiryInCache(data, inquiryId, isFollowing, delta),
+      );
+
+      return { previous, previousSingle, thisMutationId };
     },
-    onError: (_err, _inquiryId, context) => {
+    onError: (_err, inquiryId, context) => {
       context?.previous.forEach(([key, data]) => {
         queryClient.setQueryData(key, data);
       });
+      if (context?.previousSingle !== undefined) {
+        queryClient.setQueryData(["inquiry", inquiryId], context.previousSingle);
+      }
     },
     onSettled: (_data, _err, inquiryId, context) => {
       if (latestMutationId.get(inquiryId) !== context?.thisMutationId) return;
       queryClient.invalidateQueries({ queryKey: ["inquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["inquiry", inquiryId] });
     },
   });
 }

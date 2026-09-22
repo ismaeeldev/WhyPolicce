@@ -44,8 +44,13 @@ export function useRequestConsultation() {
         `/api/v1/attorneys/request-consultation?inquiry_id=${inquiryId}`,
         { method: "POST" },
       ),
-    onSuccess: () => {
+    onSuccess: (_data, inquiryId) => {
+      // Real bug found via Playwright E2E re-testing, same class as
+      // useFollowInquiry's own fix: only invalidating the feed's
+      // ["inquiries"] key left a single inquiry's own thread-page cache
+      // (["inquiry", id]) stale after a real, successful request.
       queryClient.invalidateQueries({ queryKey: ["inquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["inquiry", inquiryId] });
       queryClient.invalidateQueries({ queryKey: ["my-consultation-requests"] });
     },
   });
