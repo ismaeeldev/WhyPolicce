@@ -95,8 +95,14 @@
   --radius-md: 12px;
   --radius-lg: 20px;
 
-  /* shadow scale — §3 */
+  /* shadow scale — §3. --shadow-card-lg added during the premium-polish
+     pass (user-confirmed real token addition, not invented silently):
+     a hover/lift-only variant with a bit more presence than the base
+     --shadow-card, still soft/diffuse — no harsh drop shadows, per §3's
+     own rule, just a deeper, wider blur radius for the same 2-layer
+     shape. */
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-card-lg: 0 2px 4px rgba(0, 0, 0, 0.05), 0 16px 40px rgba(0, 0, 0, 0.09);
 
   /* type scale — §2.1 — full named set so future components reference
      text-display-xl / text-h1 / text-body-lg etc. instead of guessing raw

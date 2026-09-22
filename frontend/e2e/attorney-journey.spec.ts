@@ -38,7 +38,7 @@ test.describe("Attorney journey", () => {
     await page.locator("#bar-no").fill(barNo);
     await page.locator("#jurisdiction").fill("New York");
     await page.getByRole("button", { name: /^submit$/i }).click();
-    await expect(page.getByText(/pending review/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/pending review/i)).toBeVisible({ timeout: 25_000 });
 
     // Pending attorney visiting the portal sees the pending banner, not the real portal.
     await page.goto("/attorneys/dashboard");

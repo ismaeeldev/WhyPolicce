@@ -144,7 +144,14 @@ export default function NewInquiryPage() {
         New Inquiry
       </motion.h1>
 
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+      <motion.form
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.05, ease: EASE }}
+        onSubmit={handleSubmit}
+        noValidate
+        className="flex flex-col gap-5 rounded-md border border-border-default bg-bg-elevated p-5 sm:p-7 shadow-card"
+      >
         <div>
           <label htmlFor="title" className="mb-1.5 block text-body-sm text-text-secondary">
             Title
@@ -255,7 +262,7 @@ export default function NewInquiryPage() {
         >
           {createInquiry.isPending ? "Posting…" : "Post Inquiry"}
         </button>
-      </form>
+      </motion.form>
 
       <UpgradeModal
         open={upgradeModalOpen}

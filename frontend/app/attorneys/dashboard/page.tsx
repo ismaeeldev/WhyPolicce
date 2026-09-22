@@ -166,7 +166,7 @@ function AttorneyCaseFeed({
           </div>
         </div>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3 rounded-md border border-border-default bg-bg-elevated p-8 text-center shadow-card">
+          <div className="flex flex-col items-center gap-3 rounded-md border border-accent/30 bg-bg-elevated p-8 text-center shadow-card-lg">
             <p className="text-body font-medium text-text-primary">Subscribe to see real cases</p>
             <p className="max-w-xs text-body-sm text-text-secondary">
               A $149/month subscription gives you full access to every inquiry and lets you

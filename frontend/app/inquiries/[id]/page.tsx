@@ -266,9 +266,12 @@ export default function ThreadPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {thread?.items.map((comment) => (
-            <div key={comment.id} className="group flex flex-col gap-1">
+            <div
+              key={comment.id}
+              className="group flex flex-col gap-1.5 rounded-md border border-border-default bg-bg-elevated p-4 transition-colors duration-150 hover:border-border-strong"
+            >
               {editingCommentId === comment.id ? (
                 <div className="flex flex-col gap-2">
                   <textarea

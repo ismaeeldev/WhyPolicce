@@ -53,8 +53,8 @@ export function InquiryCard({
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       onMouseLeave={() => setPressed(false)}
-      className={`rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6 shadow-none transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card ${
-        pressed ? "translate-y-0 scale-[0.997]" : ""
+      className={`group rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6 shadow-none transition-all duration-200 ease-out hover:-translate-y-1 hover:border-border-strong hover:shadow-card-lg ${
+        pressed ? "translate-y-0 scale-[0.997] shadow-none" : ""
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -67,7 +67,7 @@ export function InquiryCard({
 
       <Link
         href={`/inquiries/${inquiry.id}`}
-        className="mt-3 block rounded-sm text-body font-medium text-text-primary hover:text-accent transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+        className="mt-3 block rounded-sm text-body font-medium text-text-primary decoration-accent decoration-1 underline-offset-4 transition-colors hover:text-accent hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
       >
         {inquiry.title}
       </Link>

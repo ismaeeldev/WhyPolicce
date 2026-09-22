@@ -98,7 +98,7 @@ export function PricingCards() {
           whileInView="show"
           viewport={{ once: true, margin: "-40px" }}
           variants={cardVariants}
-          className={`wp-plan-card relative rounded-lg bg-bg-elevated p-6 sm:p-8 text-left transition-shadow duration-200 hover:shadow-card ${
+          className={`wp-plan-card relative rounded-lg bg-bg-elevated p-6 sm:p-8 text-left transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card-lg ${
             plan.featured
               ? "border border-accent shadow-card"
               : "border border-border-default"
