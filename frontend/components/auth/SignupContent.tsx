@@ -49,7 +49,16 @@ export function SignupContent() {
       )}
 
       <a
-        href="/auth/login?screen_hint=signup&returnTo=/search"
+        // Real bug found during a full-scope re-audit: this defaulted
+        // to returnTo=/search — the OLD, retired RAG-search product
+        // (see the scope PDF's "What We Are No Longer Building On").
+        // Every brand-new signup's first authenticated screen landed on
+        // a dead product with its own $12/mo Pro paywall, a price that
+        // isn't even part of this product's real pricing. /login
+        // already gets this right by omitting returnTo entirely when
+        // none is given; the forum's real equivalent "no specific
+        // destination" default is the home feed, not the old product.
+        href="/auth/login?screen_hint=signup&returnTo=/"
         className="block rounded-sm bg-accent px-4 py-3 text-body font-medium text-accent-foreground hover:bg-accent-hover transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
       >
         Continue to sign up

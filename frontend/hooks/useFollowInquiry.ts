@@ -112,6 +112,17 @@ function useFollowMutation(method: "POST" | "DELETE", isFollowing: boolean, delt
       return { previous, previousSingle, thisMutationId };
     },
     onError: (_err, inquiryId, context) => {
+      // Real gap found during a full-scope re-audit: onSettled below
+      // already guards against a stale mutation clobbering a newer one
+      // (see the module-level latestMutationId comment), but onError
+      // did the same rollback with no such guard. If an earlier follow
+      // is still in flight when a later unfollow starts, the unfollow's
+      // onMutate snapshots the already-follow-updated cache; if the
+      // follow then fails, its onError blindly restores ITS OWN
+      // pre-follow snapshot, clobbering the unfollow's newer optimistic
+      // update — only repaired later by the unfollow's own onSettled
+      // invalidate. Same recency check closes the gap symmetrically.
+      if (latestMutationId.get(inquiryId) !== context?.thisMutationId) return;
       context?.previous.forEach(([key, data]) => {
         queryClient.setQueryData(key, data);
       });

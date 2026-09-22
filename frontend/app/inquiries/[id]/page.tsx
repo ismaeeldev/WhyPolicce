@@ -16,6 +16,7 @@ import { StatusPill } from "@/components/feed/StatusPill";
 import { ApiError } from "@/lib/api-client";
 import { useFollowInquiry, useUnfollowInquiry } from "@/hooks/useFollowInquiry";
 import { useInquiryUpgradeCheckout } from "@/hooks/useForumBilling";
+import { useUser } from "@/hooks/useUser";
 import { useToastStore } from "@/stores/useToastStore";
 import {
   useCreateComment,
@@ -56,6 +57,17 @@ export default function ThreadPage() {
     useInquiry(inquiryId);
   const { data: thread, isLoading: threadLoading, isError: threadError, refetch: refetchThread } =
     useThread(inquiryId);
+  // Real bug found during a full-scope re-audit: Edit/Delete controls on
+  // each comment were rendered completely unconditionally, for every
+  // visitor, on every comment — including comments other users wrote.
+  // The backend already hard-403s a non-owner's edit/delete (inquiries.py
+  // update_comment/delete_comment), so this only ever showed a working-
+  // looking pencil/trash icon (complete with a destructive-confirmation
+  // dialog on delete) that was guaranteed to fail. authorId is already on
+  // each ThreadComment; the backend just never computed a per-comment
+  // isAuthor the way it does for the inquiry itself (inquiry.isAuthor),
+  // so this compares against the current user's own id client-side.
+  const { data: me } = useUser();
 
   const [editingInquiry, setEditingInquiry] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -310,11 +322,13 @@ export default function ThreadPage() {
                     <p className="text-caption text-text-muted">
                       {dateFormatter.format(new Date(comment.createdAt))}
                     </p>
-                    <CommentEditDeleteControls
-                      inquiryId={inquiryId}
-                      commentId={comment.id}
-                      onEditClick={() => startEditingComment(comment)}
-                    />
+                    {me?.id === comment.authorId && (
+                      <CommentEditDeleteControls
+                        inquiryId={inquiryId}
+                        commentId={comment.id}
+                        onEditClick={() => startEditingComment(comment)}
+                      />
+                    )}
                   </div>
                   <p className="text-body text-text-primary whitespace-pre-wrap [overflow-wrap:anywhere]">
                     {comment.body}

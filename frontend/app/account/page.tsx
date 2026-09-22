@@ -8,6 +8,7 @@ import { useState } from "react";
 import { AttorneyStatusBanner } from "@/components/account/AttorneyStatusBanner";
 import { BecomeAttorneyDialog } from "@/components/account/BecomeAttorneyDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -26,7 +27,7 @@ const EASE = [0.22, 1, 0.36, 1] as const;
  */
 export default function AccountPage() {
   const { user: auth0User } = useAuth0User();
-  const { data: me } = useUser();
+  const { data: me, isLoading: meLoading } = useUser();
   const [attorneyDialogOpen, setAttorneyDialogOpen] = useState(false);
 
   return (
@@ -77,7 +78,24 @@ export default function AccountPage() {
         transition={{ duration: 0.3, delay: 0.1, ease: EASE }}
         className="mt-8"
       >
-        {me?.role === "attorney" && me.verificationStatus ? (
+        {meLoading ? (
+          // Real bug found during a full-scope re-audit: this block used
+          // to render straight off `me?.role`/`me.verificationStatus`
+          // with no isLoading check, so while /api/me was still in
+          // flight the `?.` short-circuit always fell through to the
+          // "Become an Attorney" CTA — even for an ALREADY approved or
+          // rejected attorney. That button opens a dialog wired to a
+          // mutation the backend guarantees will 400 for that exact
+          // account state (users.py's already_decided check), so an
+          // approved attorney on a cold cache could open the dialog,
+          // fill it in, and get told their application was "already
+          // decided" — right as the real banner silently swapped in
+          // behind it. useUser() already exposes a correct composite
+          // isLoading; the attorney dashboard page already uses this
+          // same skeleton-while-loading pattern, this page just hadn't
+          // applied it.
+          <Skeleton className="h-[52px] w-full rounded-sm" />
+        ) : me?.role === "attorney" && me.verificationStatus ? (
           <AttorneyStatusBanner status={me.verificationStatus} />
         ) : (
           <button

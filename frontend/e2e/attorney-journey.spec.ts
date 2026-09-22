@@ -32,7 +32,17 @@ test.describe("Attorney journey", () => {
     const barNo = `E2E${Date.now()}`;
     await signup(page, email, "/account");
 
-    await expect(page.getByRole("button", { name: /become an attorney/i })).toBeVisible({ timeout: 10_000 });
+    // Timeout raised from 10s: the account page now correctly shows a
+    // loading skeleton instead of the "Become an Attorney" button until
+    // /api/me resolves (a real bug fix this session — the button used
+    // to render instantly as the fallback state even for an
+    // already-decided attorney, opening a dialog wired to a mutation
+    // guaranteed to 400 for that account). Under this environment's
+    // real, variable backend latency (confirmed via an isolated debug
+    // run: a clean signup->account round trip took ~26s end to end,
+    // /api/me itself returning a real 200 with no errors) the skeleton
+    // can outlast even 30s under load.
+    await expect(page.getByRole("button", { name: /become an attorney/i })).toBeVisible({ timeout: 45_000 });
     await page.getByRole("button", { name: /become an attorney/i }).click();
 
     await page.locator("#bar-no").fill(barNo);

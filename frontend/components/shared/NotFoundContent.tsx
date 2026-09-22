@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SearchX } from "lucide-react";
+import { CompassIcon } from "lucide-react";
 import { motion } from "framer-motion";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -11,11 +11,17 @@ const EASE = [0.22, 1, 0.36, 1] as const;
  * Client wrapper for entrance motion; metadata lives in not-found's parent
  * layout via the static export in not-found.tsx (Next.js limitation).
  *
- * UI polish pass: was a fairly generic "icon + message + button" template.
- * Leans into the product's own search metaphor instead — "no results" copy
- * and a faint ambient glow (the same decorative language already used on
- * the hero and auth shell) so a 404 still feels like part of WhyPolice,
- * not a stock error page bolted onto it.
+ * Real bug found during a full-scope re-audit: this used to lean on the
+ * OLD RAG-search product's own metaphor — "no results," a search icon,
+ * and a "Start a search" button linking to /search, the retired product
+ * (see the scope PDF's "What We Are No Longer Building On"). A visitor
+ * hitting a bad/stale link (e.g. a deleted inquiry) got bounced further
+ * from the forum, not back to it — /search is behind the same auth guard
+ * as the rest of the old product, so a logged-out visitor would even get
+ * detoured through a login prompt before landing on a dead product.
+ * Rewritten for the real forum: the second recovery action now points at
+ * starting a new inquiry, the actual thing a visitor here can DO, rather
+ * than duplicating "Back to home."
  */
 export function NotFoundContent() {
   return (
@@ -30,26 +36,26 @@ export function NotFoundContent() {
         transition={{ duration: 0.35, ease: EASE }}
         className="relative flex flex-col items-center text-center"
       >
-        <SearchX className="h-10 w-10 text-text-muted mb-6" strokeWidth={1.5} />
+        <CompassIcon className="h-10 w-10 text-text-muted mb-6" strokeWidth={1.5} />
         <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-3">
-          No results for that page.
+          This page doesn&apos;t exist.
         </h1>
         <p className="max-w-sm text-body text-text-secondary mb-8">
-          It doesn&apos;t exist, or may have moved. The trail runs cold here —
-          try a fresh search instead.
+          It may have been deleted or the link is wrong. Head back to the
+          feed, or post what you&apos;re looking for as a new inquiry.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/"
             className="rounded-sm bg-accent px-5 py-2.5 text-body-sm font-medium text-accent-foreground transition-all hover:bg-accent-hover active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
           >
-            Back to home
+            Back to the feed
           </Link>
           <Link
-            href="/search"
+            href="/inquiries/new"
             className="rounded-sm border border-border-strong px-5 py-2.5 text-body-sm font-medium text-text-primary transition-all hover:bg-bg-subtle active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
           >
-            Start a search
+            Post an inquiry
           </Link>
         </div>
       </motion.div>

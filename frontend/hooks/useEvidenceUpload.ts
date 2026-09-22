@@ -70,7 +70,15 @@ export function useEvidenceUpload(inquiryId: string) {
     },
     onSuccess: () => {
       setProgress(null);
+      // Real gap found during a full-scope re-audit, same stale-cache-key
+      // class already fixed 3 times this session in other hooks
+      // (useFollowInquiry, useRequestConsultation, useRespondToConsultation):
+      // the feed card renders a paperclip icon driven by inquiry.hasAttachments
+      // (InquiryCard.tsx), which lives in the ["inquiries", filters] cache —
+      // only invalidating ["inquiry", inquiryId] left that stale for up to
+      // staleTime (30s) after a real, successful upload/delete.
       queryClient.invalidateQueries({ queryKey: ["inquiry", inquiryId] });
+      queryClient.invalidateQueries({ queryKey: ["inquiries"] });
     },
     onError: () => {
       setProgress(null);
@@ -87,6 +95,7 @@ export function useDeleteAttachment(inquiryId: string) {
       apiFetch(`/api/v1/inquiries/${inquiryId}/attachments/${attachmentId}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inquiry", inquiryId] });
+      queryClient.invalidateQueries({ queryKey: ["inquiries"] });
     },
   });
 }
