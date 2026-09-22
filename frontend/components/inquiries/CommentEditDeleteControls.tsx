@@ -13,7 +13,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { ApiError } from "@/lib/api-client";
 import { useDeleteComment } from "@/hooks/useInquiries";
+import { useToastStore } from "@/stores/useToastStore";
 
 /** Same pattern as InquiryEditDeleteControls, scoped to one comment. */
 export function CommentEditDeleteControls({
@@ -26,6 +28,7 @@ export function CommentEditDeleteControls({
   onEditClick: () => void;
 }) {
   const deleteComment = useDeleteComment(inquiryId);
+  const showToast = useToastStore((s) => s.show);
 
   return (
     <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
@@ -57,7 +60,13 @@ export function CommentEditDeleteControls({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteComment.mutate(commentId)}
+              onClick={() =>
+                deleteComment.mutate(commentId, {
+                  onError: (err) => {
+                    showToast(err instanceof ApiError ? err.message : "Couldn't delete that comment. Try again.");
+                  },
+                })
+              }
               className="bg-danger text-danger-foreground hover:bg-danger/90"
             >
               Delete

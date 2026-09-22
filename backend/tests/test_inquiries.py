@@ -182,6 +182,39 @@ class TestOwnership:
         assert res.status_code == 200
         assert res.json()["title"] == "Updated title"
 
+    def test_editing_a_free_tier_inquiry_past_the_char_limit_is_rejected(self, client: TestClient):
+        """Real gap found during a full-scope re-audit: update_inquiry
+        never enforced the free-tier character limit, so a citizen could
+        edit a free inquiry's description to any length after creation —
+        completely bypassing the $2.99 upgrade requirement create_inquiry
+        already enforces. This confirms the same rule now applies to
+        PATCH."""
+        created = _create_inquiry(client, description="short").json()
+        assert created["tier"] == "free"
+        res = client.patch(f"/api/v1/inquiries/{created['id']}", json={"description": "x" * 251})
+        assert res.status_code == 403
+        assert res.json()["error"] == "upgrade_required"
+
+        # Confirm the description was genuinely never changed server-side.
+        follow_up = client.get(f"/api/v1/inquiries/{created['id']}")
+        assert follow_up.json()["description"] == "short"
+
+    def test_editing_an_expanded_tier_inquiry_past_250_chars_succeeds(self, client: TestClient, session: Session):
+        """A genuinely expanded (real, webhook-confirmed payment) inquiry
+        keeps its unlocked length when edited — the limit only applies to
+        an inquiry still on the free tier."""
+        from app.models.inquiry import Inquiry, InquiryTier
+
+        created = _create_inquiry(client, description="short").json()
+        inquiry = session.get(Inquiry, uuid.UUID(created["id"]))
+        inquiry.tier = InquiryTier.expanded
+        session.add(inquiry)
+        session.commit()
+
+        res = client.patch(f"/api/v1/inquiries/{created['id']}", json={"description": "x" * 300})
+        assert res.status_code == 200, res.text
+        assert len(res.json()["description"]) == 300
+
     def test_non_owner_update_returns_403_not_404(self, client: TestClient, session: Session):
         created = _create_inquiry(client).json()
         other_client = _second_user_client(session)

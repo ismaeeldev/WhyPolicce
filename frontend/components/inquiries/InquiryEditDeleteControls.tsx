@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { ApiError } from "@/lib/api-client";
 import { useDeleteInquiry } from "@/hooks/useInquiries";
 import { useToastStore } from "@/stores/useToastStore";
 
@@ -41,9 +42,18 @@ export function InquiryEditDeleteControls({
   const showToast = useToastStore((s) => s.show);
 
   const handleDelete = async () => {
-    await deleteInquiry.mutateAsync();
-    showToast("Inquiry deleted");
-    router.push("/");
+    // Real bug found during a full-scope re-audit: an unhandled
+    // deleteInquiry.mutateAsync() rejection here silently swallowed the
+    // failure — the user never saw a toast, and the dialog just sat
+    // there with no indication anything went wrong. Now surfaced
+    // explicitly instead of letting the rejection propagate unhandled.
+    try {
+      await deleteInquiry.mutateAsync();
+      showToast("Inquiry deleted");
+      router.push("/");
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Couldn't delete this inquiry. Try again.");
+    }
   };
 
   return (

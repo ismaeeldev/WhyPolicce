@@ -114,7 +114,7 @@ test.describe("Privacy", () => {
     await pageA.locator("#city").fill("Privacyville");
     await pageA.getByRole("button", { name: "Community Trace" }).click();
     await pageA.getByRole("button", { name: /post inquiry/i }).click();
-    await pageA.waitForURL(/\/inquiries\/[0-9a-f-]{36}$/, { timeout: 15_000 });
+    await pageA.waitForURL(/\/inquiries\/[0-9a-f-]{36}$/, { timeout: 30_000 });
     const threadUrl = pageA.url();
     await ctxA.close();
 

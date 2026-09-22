@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { StatusTagSelector } from "@/components/inquiries/StatusTagSelector";
 import type { StatusTag } from "@/components/feed/StatusPill";
+import { ApiError } from "@/lib/api-client";
 import { US_STATES } from "@/lib/us-states";
 import { useUpdateInquiry, type Inquiry } from "@/hooks/useInquiries";
 
@@ -36,10 +37,12 @@ export function InquiryEditForm({
   const [city, setCity] = useState(inquiry.city);
   const [precinct, setPrecinct] = useState(inquiry.precinct ?? "");
   const [statusTag, setStatusTag] = useState<StatusTag>(inquiry.statusTag);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const updateInquiry = useUpdateInquiry(inquiry.id);
 
   const handleSave = () => {
+    setSaveError(null);
     updateInquiry.mutate(
       {
         title: title.trim(),
@@ -49,7 +52,12 @@ export function InquiryEditForm({
         precinct: precinct.trim(),
         statusTag,
       },
-      { onSuccess: onSaved },
+      {
+        onSuccess: onSaved,
+        onError: (err) => {
+          setSaveError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+        },
+      },
     );
   };
 
@@ -111,6 +119,12 @@ export function InquiryEditForm({
       </div>
 
       <StatusTagSelector value={statusTag} onChange={setStatusTag} />
+
+      {saveError && (
+        <div className="rounded-md border border-danger bg-danger-subtle p-3">
+          <p className="text-body-sm text-text-primary">{saveError}</p>
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         <button

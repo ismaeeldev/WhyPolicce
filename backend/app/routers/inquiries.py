@@ -467,6 +467,24 @@ def update_inquiry(
     if body.title is not None:
         inquiry.title = body.title
     if body.description is not None:
+        # Real gap found and fixed during a full-scope re-audit: this
+        # endpoint never enforced the free-tier character limit at all,
+        # so a citizen could edit a free inquiry to any length, bypassing
+        # the $2.99 upgrade entirely — the exact same rule create_inquiry
+        # already enforces, just never applied here. Only a genuinely
+        # free-tier inquiry is capped; an already-expanded one (real,
+        # webhook-confirmed payment) keeps its unlocked length.
+        if inquiry.tier == InquiryTier.free and len(body.description) > _FREE_TIER_CHAR_LIMIT:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error": "upgrade_required",
+                    "message": (
+                        "This post needs the $2.99 upgrade to publish past "
+                        f"{_FREE_TIER_CHAR_LIMIT} characters."
+                    ),
+                },
+            )
         inquiry.description = body.description
     if body.state is not None:
         inquiry.state = body.state

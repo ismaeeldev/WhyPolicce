@@ -137,7 +137,12 @@ export default function ThreadPage() {
     if (!editingCommentId || !editDraft.trim()) return;
     updateComment.mutate(
       { commentId: editingCommentId, body: editDraft.trim() },
-      { onSuccess: () => setEditingCommentId(null) },
+      {
+        onSuccess: () => setEditingCommentId(null),
+        onError: (err) => {
+          showToast(err instanceof ApiError ? err.message : "Couldn't save that edit. Try again.");
+        },
+      },
     );
   };
 
