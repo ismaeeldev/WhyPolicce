@@ -20,7 +20,13 @@ import { auth0 } from "@/lib/auth0";
 // which authenticated user's role/verification_status to check; the
 // public /attorneys landing page itself is intentionally NOT prefixed
 // here, since a logged-out visitor must be able to read about attorney
-// signup before being forced to authenticate.
+// signup before being forced to authenticate. /admin (new) is the
+// admin panel — this only enforces "must be logged in at all" the same
+// as every other protected prefix; the REAL admin-membership check
+// (ADMIN_AUTH0_SUBS) happens server-side via GET /api/v1/admin/me,
+// since proxy.ts has no DB access and can't know who's an admin. A
+// logged-in non-admin reaching /admin gets a real "not authorized"
+// page from the admin layout itself, not a silent redirect here.
 const PROTECTED_PREFIXES = [
   "/search",
   "/history",
@@ -28,6 +34,7 @@ const PROTECTED_PREFIXES = [
   "/upgrade",
   "/inquiries/new",
   "/attorneys/dashboard",
+  "/admin",
 ];
 
 export async function proxy(request: NextRequest) {

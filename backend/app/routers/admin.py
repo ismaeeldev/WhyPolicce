@@ -121,6 +121,125 @@ def verify_attorney(
     return {"id": str(target.id), "verificationStatus": target.verification_status.value}
 
 
+@router.get("/me")
+def get_admin_me(
+    current: AuthenticatedUser = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Real gap found building the admin panel: the frontend needs a way
+    to ask "is the signed-in user actually an admin?" that returns a
+    clean, real boolean rather than the frontend inferring admin status
+    from whether some OTHER admin-only call happened to 403 — a fragile,
+    indirect way to gate an entire route. Deliberately does not leak
+    WHO else is on the allowlist; only confirms the caller's own status.
+    Never raises _FORBIDDEN itself — a non-admin gets a real 200 with
+    isAdmin: false, so the frontend can render a clear "not authorized"
+    page instead of treating this specific check as a hard error."""
+    is_admin = current.auth0_sub in settings.admin_auth0_subs
+    if not is_admin:
+        return {"isAdmin": False}
+    user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
+    return {"isAdmin": user is not None, "email": user.email if user else None}
+
+
+@router.get("/dashboard")
+def get_admin_dashboard(
+    current: AuthenticatedUser = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Summary counts for the admin panel's own landing screen — real
+    aggregate queries, not the frontend fetching every list just to
+    count its length."""
+    _require_admin(session, current)
+
+    pending_attorneys = session.exec(
+        select(func.count()).select_from(
+            select(User)
+            .where(User.role == Role.attorney, User.verification_status == VerificationStatus.pending)
+            .subquery()
+        )
+    ).one()
+    approved_attorneys = session.exec(
+        select(func.count()).select_from(
+            select(User)
+            .where(User.role == Role.attorney, User.verification_status == VerificationStatus.approved)
+            .subquery()
+        )
+    ).one()
+    rejected_attorneys = session.exec(
+        select(func.count()).select_from(
+            select(User)
+            .where(User.role == Role.attorney, User.verification_status == VerificationStatus.rejected)
+            .subquery()
+        )
+    ).one()
+    open_reports = session.exec(
+        select(func.count()).select_from(select(Report).where(Report.status == ReportStatus.open).subquery())
+    ).one()
+    return {
+        "pendingAttorneys": pending_attorneys,
+        "approvedAttorneys": approved_attorneys,
+        "rejectedAttorneys": rejected_attorneys,
+        "openReports": open_reports,
+    }
+
+
+def _attorney_out(u: User) -> dict:
+    return {
+        "id": str(u.id),
+        "email": u.email,
+        "verifiedBarNo": u.verified_bar_no,
+        "barJurisdiction": u.bar_jurisdiction,
+        "verificationStatus": u.verification_status.value if u.verification_status else None,
+        "createdAt": to_utc_iso(u.created_at),
+    }
+
+
+@router.get("/attorneys")
+def list_attorneys(
+    status: str | None = Query(default=None),
+    limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
+    offset: int = Query(default=0, ge=0),
+    current: AuthenticatedUser = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Real gap found building the admin panel's own Pending/Approved
+    tabs: list_pending_attorneys only ever supported the pending case —
+    there was no way to see already-approved (or rejected) attorneys at
+    all. One endpoint, filterable by `status`, replaces it; omitting
+    `status` returns every attorney account regardless of status. Newest
+    first, so a freshly-applied attorney surfaces at the top of the
+    admin's own Pending tab without them needing to page through."""
+    _require_admin(session, current)
+
+    statement = select(User).where(User.role == Role.attorney)
+    if status:
+        if status not in (
+            VerificationStatus.pending.value,
+            VerificationStatus.approved.value,
+            VerificationStatus.rejected.value,
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "validation_error",
+                    "message": "status must be 'pending', 'approved', or 'rejected'.",
+                },
+            )
+        statement = statement.where(User.verification_status == VerificationStatus(status))
+
+    total = session.exec(select(func.count()).select_from(statement.subquery())).one()
+    rows = session.exec(
+        statement.order_by(User.created_at.desc()).offset(offset).limit(limit)
+    ).all()
+    return {
+        "items": [_attorney_out(u) for u in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
 @router.get("/attorneys/pending")
 def list_pending_attorneys(
     limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
@@ -128,30 +247,12 @@ def list_pending_attorneys(
     current: AuthenticatedUser = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """Lists every attorney account awaiting approval — the minimum needed
-    for a human admin to see what's waiting, even without a dedicated
-    admin UI in this milestone."""
-    _require_admin(session, current)
-
-    statement = select(User).where(
-        User.role == Role.attorney, User.verification_status == VerificationStatus.pending
-    )
-    total = session.exec(select(func.count()).select_from(statement.subquery())).one()
-    rows = session.exec(statement.offset(offset).limit(limit)).all()
-    return {
-        "items": [
-            {
-                "id": str(u.id),
-                "email": u.email,
-                "verifiedBarNo": u.verified_bar_no,
-                "barJurisdiction": u.bar_jurisdiction,
-            }
-            for u in rows
-        ],
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-    }
+    """Kept as a thin wrapper around list_attorneys(status="pending") for
+    backward compatibility — nothing in this codebase calls this
+    directly anymore (the admin panel uses list_attorneys), but removing
+    a real, working endpoint outright rather than deprecating it is an
+    avoidable breaking change for zero benefit."""
+    return list_attorneys(status="pending", limit=limit, offset=offset, current=current, session=session)
 
 
 def _report_target_summary(session: Session, report: Report) -> dict | None:

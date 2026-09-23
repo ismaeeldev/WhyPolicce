@@ -149,6 +149,155 @@ class TestPendingAttorneysList:
         assert "citizen-list@test.example" not in emails
 
 
+class TestAdminMe:
+    """Real gap found building the admin panel: the frontend needs a
+    clean way to ask "is the signed-in user an admin?" without inferring
+    it from some other admin-only call's 403 — a fragile, indirect way
+    to gate a whole route."""
+
+    def test_non_admin_gets_200_with_isadmin_false(self, client: TestClient):
+        res = client.get("/api/v1/admin/me")
+        assert res.status_code == 200
+        assert res.json() == {"isAdmin": False}
+
+    def test_admin_gets_isadmin_true(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ):
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+        res = client.get("/api/v1/admin/me")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["isAdmin"] is True
+        assert body["email"] == TEST_USER.email
+
+    def test_allowlisted_sub_with_no_user_row_yet_is_not_admin(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ):
+        # Matches _require_admin's own documented behavior: an
+        # allowlisted sub with no User row yet (never made any other
+        # authenticated call first) is treated as not-admin, not
+        # silently created as a side effect of a status check.
+        _make_admin(monkeypatch)
+        res = client.get("/api/v1/admin/me")
+        assert res.status_code == 200
+        assert res.json()["isAdmin"] is False
+
+
+class TestAdminDashboard:
+    def test_non_admin_gets_403(self, client: TestClient):
+        res = client.get("/api/v1/admin/dashboard")
+        assert res.status_code == 403
+
+    def test_counts_are_real_and_correctly_bucketed(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        session.add(User(
+            auth0_sub="auth0|dash-pending", email="dash-pending@test.example",
+            role=Role.attorney, verification_status=VerificationStatus.pending,
+        ))
+        session.add(User(
+            auth0_sub="auth0|dash-approved", email="dash-approved@test.example",
+            role=Role.attorney, verification_status=VerificationStatus.approved,
+        ))
+        session.add(User(
+            auth0_sub="auth0|dash-rejected", email="dash-rejected@test.example",
+            role=Role.attorney, verification_status=VerificationStatus.rejected,
+        ))
+        session.commit()
+
+        res = client.get("/api/v1/admin/dashboard")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["pendingAttorneys"] >= 1
+        assert body["approvedAttorneys"] >= 1
+        assert body["rejectedAttorneys"] >= 1
+        assert "openReports" in body
+
+
+class TestAttorneysList:
+    """GET /api/v1/admin/attorneys — replaces the pending-only endpoint's
+    narrow scope with a real Pending/Approved-tab-capable listing."""
+
+    def test_non_admin_gets_403(self, client: TestClient):
+        res = client.get("/api/v1/admin/attorneys")
+        assert res.status_code == 403
+
+    def test_no_filter_returns_every_attorney_regardless_of_status(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        session.add(User(
+            auth0_sub="auth0|all-pending", email="all-pending@test.example",
+            role=Role.attorney, verification_status=VerificationStatus.pending,
+        ))
+        session.add(User(
+            auth0_sub="auth0|all-approved", email="all-approved@test.example",
+            role=Role.attorney, verification_status=VerificationStatus.approved,
+        ))
+        session.commit()
+
+        res = client.get("/api/v1/admin/attorneys")
+        assert res.status_code == 200
+        emails = [item["email"] for item in res.json()["items"]]
+        assert "all-pending@test.example" in emails
+        assert "all-approved@test.example" in emails
+
+    def test_status_filter_returns_only_approved(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        session.add(User(
+            auth0_sub="auth0|filt-pending", email="filt-pending@test.example",
+            role=Role.attorney, verification_status=VerificationStatus.pending,
+        ))
+        session.add(User(
+            auth0_sub="auth0|filt-approved", email="filt-approved@test.example",
+            role=Role.attorney, verification_status=VerificationStatus.approved,
+        ))
+        session.commit()
+
+        res = client.get("/api/v1/admin/attorneys?status=approved")
+        assert res.status_code == 200
+        emails = [item["email"] for item in res.json()["items"]]
+        assert "filt-approved@test.example" in emails
+        assert "filt-pending@test.example" not in emails
+
+    def test_invalid_status_rejected(self, client: TestClient, monkeypatch: pytest.MonkeyPatch):
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+        res = client.get("/api/v1/admin/attorneys?status=not_a_real_status")
+        assert res.status_code == 422
+
+    def test_response_includes_verification_status_and_created_at(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        session.add(User(
+            auth0_sub="auth0|shape-check", email="shape-check@test.example",
+            role=Role.attorney, verification_status=VerificationStatus.approved,
+            verified_bar_no="NY123", bar_jurisdiction="New York",
+        ))
+        session.commit()
+
+        res = client.get("/api/v1/admin/attorneys?status=approved")
+        assert res.status_code == 200
+        item = next(i for i in res.json()["items"] if i["email"] == "shape-check@test.example")
+        assert item["verificationStatus"] == "approved"
+        assert item["verifiedBarNo"] == "NY123"
+        assert item["barJurisdiction"] == "New York"
+        assert item["createdAt"] is not None
+
+
 class TestReportReview:
     def test_open_reports_are_listed_with_inlined_target(
         self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
