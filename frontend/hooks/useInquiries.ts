@@ -94,6 +94,35 @@ export function useInquiries(filters: InquiriesFilters) {
   });
 }
 
+/**
+ * "My Inquiries" — a citizen's own posts, real gap found: there was no
+ * way to see just your own inquiries, only the full nationwide feed.
+ * Own hook rather than overloading useInquiries' generic InquiriesFilters
+ * with a `mine` flag every OTHER caller would need to remember is always
+ * false — this view has none of the region/status/sort/search filters,
+ * just pagination, so a separate, simpler shape is the honest fit.
+ * A distinct query key (["inquiries", "mine"]) so it never collides with
+ * or gets invalidated/confused by the general feed's own cache entries.
+ */
+export function useMyInquiries() {
+  return useInfiniteQuery<InquiriesPage>({
+    queryKey: ["inquiries", "mine"],
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams();
+      params.set("mine", "true");
+      params.set("sort", "newest");
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(pageParam));
+      return apiFetch<InquiriesPage>(`/api/v1/inquiries?${params.toString()}`);
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const nextOffset = lastPage.offset + lastPage.items.length;
+      return nextOffset < lastPage.total ? nextOffset : undefined;
+    },
+  });
+}
+
 export type InquiryCreatePayload = {
   title: string;
   description: string;

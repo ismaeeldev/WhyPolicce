@@ -192,14 +192,24 @@ function DropdownMenuRadioItem({
   className,
   children,
   inset,
+  closeOnClick = true,
   ...props
 }: MenuPrimitive.RadioItem.Props & {
   inset?: boolean
 }) {
+  // Real bug reported by the user: base-ui's MenuRadioItem defaults
+  // closeOnClick to FALSE (its own docs confirm this — unlike the plain
+  // MenuItem, presumably to support a multi-pick radio-menu use case
+  // somewhere else). For this app's single-select Region/Status/Sort
+  // filters (FeedFilterBar -> FilterDropdown), picking a value should
+  // close the menu immediately, matching every other single-select
+  // dropdown convention. Defaulting true here, overridable per-call if
+  // a future radio-group genuinely wants multi-pick-without-closing.
   return (
     <MenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
+      closeOnClick={closeOnClick}
       className={cn(
         "relative flex cursor-pointer items-center gap-1.5 rounded-md py-1.5 pr-8 pl-2 text-body-sm text-text-primary outline-hidden select-none transition-colors focus:bg-bg-subtle data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:text-text-muted [&_svg:not([class*='size-'])]:size-4",
         className

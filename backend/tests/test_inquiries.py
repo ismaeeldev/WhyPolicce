@@ -815,6 +815,60 @@ class TestPaginationAndSearch:
         assert "Unrelated other inquiry" not in titles
 
 
+class TestMyInquiriesFilter:
+    """Real gap found: a citizen had no way to see just their own posts,
+    only the full nationwide feed — `mine=true` on the same feed
+    endpoint (GET /api/v1/inquiries), reusing the feed's own card UI,
+    rather than a separate endpoint."""
+
+    def test_mine_filter_requires_auth(self):
+        with TestClient(app) as anon_client:
+            res = anon_client.get("/api/v1/inquiries?mine=true")
+        assert res.status_code == 401
+
+    def test_mine_filter_returns_only_own_inquiries(self, client: TestClient, session: Session):
+        # "My" inquiry first, while `client` still owns the shared
+        # app.dependency_overrides as TEST_USER. _second_user_client
+        # then replaces those overrides entirely to create the OTHER
+        # user's inquiry — .clear() alone can't be used to switch back,
+        # since it wipes the `client` fixture's own override too, not
+        # just the second user's; re-applying TEST_USER's own overrides
+        # explicitly is what actually switches identity back.
+        mine = _create_inquiry(client, title="My own inquiry").json()
+
+        other_client = _second_user_client(session)
+        other_client.post(
+            "/api/v1/inquiries",
+            json={
+                "title": "Someone else's inquiry",
+                "description": "not mine",
+                "state": "CA",
+                "city": "Otherville",
+                "status_tag": "community_trace",
+            },
+        )
+
+        app.dependency_overrides[get_current_user] = lambda: TEST_USER
+        app.dependency_overrides[get_optional_user] = lambda: TEST_USER
+        res = client.get("/api/v1/inquiries?mine=true")
+        assert res.status_code == 200
+        body = res.json()
+        titles = [item["title"] for item in body["items"]]
+        assert "My own inquiry" in titles
+        assert "Someone else's inquiry" not in titles
+        assert mine["id"] in [item["id"] for item in body["items"]]
+        app.dependency_overrides.clear()
+
+    def test_mine_filter_combines_with_other_filters(self, client: TestClient):
+        _create_inquiry(client, title="Mine matching search", city="Springfield")
+        _create_inquiry(client, title="Mine not matching", city="Portland")
+        res = client.get("/api/v1/inquiries?mine=true&q=matching+search")
+        assert res.status_code == 200
+        titles = [item["title"] for item in res.json()["items"]]
+        assert "Mine matching search" in titles
+        assert "Mine not matching" not in titles
+
+
 class TestAdversarialValidation:
     def test_invalid_state_code_rejected(self, client: TestClient):
         res = _create_inquiry(client, state="New York")

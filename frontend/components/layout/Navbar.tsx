@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@auth0/nextjs-auth0";
-import { LogOut, Menu, Plus, User as UserIcon } from "lucide-react";
+import { FileText, LogOut, Menu, Plus, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -144,6 +144,12 @@ export function Navbar() {
                   <UserIcon className="h-4 w-4" />
                   Account
                 </DropdownMenuItem>
+                {/* Real gap the user reported: no dedicated place to see
+                    just your own posts, only the full nationwide feed. */}
+                <DropdownMenuItem render={<Link href="/account/my-inquiries" />} className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  My Inquiries
+                </DropdownMenuItem>
                 <DropdownMenuItem render={<a href="/auth/logout" />} className="flex items-center gap-2">
                   <LogOut className="h-4 w-4" />
                   Log out
@@ -241,6 +247,18 @@ export function Navbar() {
                   >
                     <span className="block rounded-sm border border-border-strong px-4 py-2.5 text-center text-body text-text-primary hover:bg-bg-subtle transition-colors">
                       Account
+                    </span>
+                  </SheetClose>
+                  <SheetClose
+                    render={
+                      <Link
+                        href="/account/my-inquiries"
+                        className="rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                      />
+                    }
+                  >
+                    <span className="block rounded-sm border border-border-strong px-4 py-2.5 text-center text-body text-text-primary hover:bg-bg-subtle transition-colors">
+                      My Inquiries
                     </span>
                   </SheetClose>
                   <SheetClose

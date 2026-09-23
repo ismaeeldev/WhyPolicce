@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { StatusTagSelector } from "@/components/inquiries/StatusTagSelector";
+import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
 import type { StatusTag } from "@/components/feed/StatusPill";
 import { ApiError } from "@/lib/api-client";
 import { US_STATES } from "@/lib/us-states";
+import { useInquiryUpgradeCheckout } from "@/hooks/useForumBilling";
 import { useUpdateInquiry, type Inquiry } from "@/hooks/useInquiries";
+
+const FREE_TIER_CHAR_LIMIT = 250;
 
 /**
  * Inquiry edit form — forum rebuild, Milestone 2 Step M2.4
@@ -21,6 +25,16 @@ import { useUpdateInquiry, type Inquiry } from "@/hooks/useInquiries";
  * all, so the original content on the server is always intact; there
  * is no auto-save/draft-persistence path that could partially apply an
  * unsaved edit.
+ *
+ * Real gap found and fixed: the backend correctly enforces the
+ * free-tier 250-char limit on edits too (not just creation), but this
+ * form gave zero warning before Save — a citizen editing a free post
+ * past the limit only found out via a raw error message after
+ * clicking Save, with no character counter and no path to actually
+ * upgrade from here. Mirrors the create form's own counter/upgrade-
+ * modal pattern, but conditional on inquiry.tier — an already-
+ * `expanded` (paid) inquiry has no length limit at all when editing,
+ * so the counter/modal only ever applies to a genuinely free-tier one.
  */
 export function InquiryEditForm({
   inquiry,
@@ -38,10 +52,21 @@ export function InquiryEditForm({
   const [precinct, setPrecinct] = useState(inquiry.precinct ?? "");
   const [statusTag, setStatusTag] = useState<StatusTag>(inquiry.statusTag);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const updateInquiry = useUpdateInquiry(inquiry.id);
+  const inquiryUpgradeCheckout = useInquiryUpgradeCheckout();
+
+  const isFreeTier = inquiry.tier === "free";
+  const charCount = description.length;
+  const overLimit = isFreeTier && charCount > FREE_TIER_CHAR_LIMIT;
 
   const handleSave = () => {
+    if (overLimit) {
+      setUpgradeModalOpen(true);
+      return;
+    }
     setSaveError(null);
     updateInquiry.mutate(
       {
@@ -61,6 +86,10 @@ export function InquiryEditForm({
     );
   };
 
+  const handleTrimInstead = () => {
+    descriptionRef.current?.focus();
+  };
+
   return (
     <div className="flex flex-col gap-4 rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6">
       <div>
@@ -75,11 +104,19 @@ export function InquiryEditForm({
       <div>
         <label className="mb-1.5 block text-body-sm text-text-secondary">Description</label>
         <textarea
+          ref={descriptionRef}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={6}
           className="w-full rounded-sm border border-border-default bg-bg px-3.5 py-2.5 text-body text-text-primary outline-none resize-none focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
+        {isFreeTier && (
+          <div className="mt-1 flex items-center justify-end">
+            <p className={`text-caption tabular-nums ${overLimit ? "text-warning" : "text-text-muted"}`}>
+              {charCount}/{FREE_TIER_CHAR_LIMIT}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -143,6 +180,20 @@ export function InquiryEditForm({
           Cancel
         </button>
       </div>
+
+      {isFreeTier && (
+        <UpgradeModal
+          open={upgradeModalOpen}
+          onOpenChange={setUpgradeModalOpen}
+          onTrimInstead={handleTrimInstead}
+          descriptionTextareaRef={descriptionRef}
+          primaryAction={{
+            label: "Upgrade for $2.99",
+            onClick: () => inquiryUpgradeCheckout.mutate(inquiry.id),
+            isPending: inquiryUpgradeCheckout.isPending,
+          }}
+        />
+      )}
     </div>
   );
 }

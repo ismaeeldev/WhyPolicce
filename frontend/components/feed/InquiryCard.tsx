@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { StatusPill } from "@/components/feed/StatusPill";
+import { ApiError } from "@/lib/api-client";
 import { useFollowInquiry, useUnfollowInquiry } from "@/hooks/useFollowInquiry";
 import type { Inquiry } from "@/hooks/useInquiries";
+import { useToastStore } from "@/stores/useToastStore";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 
@@ -33,12 +35,30 @@ export function InquiryCard({
   const [pressed, setPressed] = useState(false);
   const followMutation = useFollowInquiry();
   const unfollowMutation = useUnfollowInquiry();
+  const showToast = useToastStore((s) => s.show);
+
+  // Real bug reported by the user: a logged-out visitor clicking Follow
+  // saw the button optimistically flip, then silently snap back (the
+  // hook's onError rollback firing on the backend's real 401) with
+  // absolutely no explanation why — it just "fluctuated." The button was
+  // never gated on auth state to begin with (same as the thread page's
+  // own Follow button), so this distinguishes "you're not signed in"
+  // from any other genuine failure and says so.
+  const onFollowError = (err: unknown) => {
+    showToast(
+      err instanceof ApiError && err.status === 401
+        ? "Sign in to follow an inquiry."
+        : err instanceof ApiError
+          ? err.message
+          : "Couldn't update follow status. Try again.",
+    );
+  };
 
   const handleFollowClick = () => {
     if (inquiry.isFollowing) {
-      unfollowMutation.mutate(inquiry.id);
+      unfollowMutation.mutate(inquiry.id, { onError: onFollowError });
     } else {
-      followMutation.mutate(inquiry.id);
+      followMutation.mutate(inquiry.id, { onError: onFollowError });
     }
   };
 

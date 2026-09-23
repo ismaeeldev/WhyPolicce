@@ -174,6 +174,7 @@ def list_inquiries(
     status: StatusTag | None = Query(default=None),
     sort: str = Query(default="newest"),
     q: str | None = Query(default=None, max_length=200),
+    mine: bool = Query(default=False),
     limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
     offset: int = Query(default=0, ge=0),
     current: AuthenticatedUser | None = Depends(get_optional_user),
@@ -194,10 +195,23 @@ def list_inquiries(
     isFollowing is correctly False (there is no viewer to follow
     anything), never a per-request User row created just for anonymous
     reads.
+
+    `mine=true` (real gap found later: a citizen had no way to see just
+    their own posts, only the full nationwide feed) requires a real
+    signed-in user — filtering "my inquiries" for an anonymous request
+    is meaningless, so this 401s rather than silently returning an
+    empty/full list.
     """
+    if mine and current is None:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "unauthorized", "message": "Sign in to see your own inquiries."},
+        )
     user = _get_or_create_user(session, current) if current else None
 
     statement = select(Inquiry)
+    if mine:
+        statement = statement.where(Inquiry.author_id == user.id)
     if region:
         statement = statement.where(Inquiry.state == region.strip().upper())
     if status:

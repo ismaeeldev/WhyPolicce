@@ -26,6 +26,24 @@ export function FeedEmptyStateNoInquiries() {
   );
 }
 
+export function FeedEmptyStateNoOwnInquiries() {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border-strong bg-bg-elevated py-16 text-center px-6">
+      <MessageCirclePlus className="h-8 w-8 text-text-muted" strokeWidth={1.5} />
+      <p className="text-body font-medium text-text-primary">You haven&apos;t posted anything yet</p>
+      <p className="max-w-sm text-body-sm text-text-secondary">
+        Inquiries you post will show up here, where you can view, edit, or delete them anytime.
+      </p>
+      <Link
+        href="/inquiries/new"
+        className="mt-2 rounded-sm bg-accent px-4 py-2 text-body-sm font-medium text-accent-foreground hover:bg-accent-hover transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+      >
+        Post an inquiry
+      </Link>
+    </div>
+  );
+}
+
 export function FeedEmptyStateNoResults({ onClearFilters }: { onClearFilters: () => void }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border-strong bg-bg-elevated py-16 text-center px-6">

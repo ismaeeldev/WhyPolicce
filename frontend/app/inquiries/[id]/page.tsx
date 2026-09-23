@@ -121,11 +121,24 @@ export default function ThreadPage() {
     );
   }
 
+  // Same fix as InquiryCard's own Follow button: a logged-out visitor
+  // clicking Follow used to just flicker (optimistic flip -> silent
+  // rollback on the backend's real 401) with no explanation.
+  const onFollowError = (err: unknown) => {
+    showToast(
+      err instanceof ApiError && err.status === 401
+        ? "Sign in to follow an inquiry."
+        : err instanceof ApiError
+          ? err.message
+          : "Couldn't update follow status. Try again.",
+    );
+  };
+
   const handleFollowClick = () => {
     if (inquiry.isFollowing) {
-      unfollowMutation.mutate(inquiry.id);
+      unfollowMutation.mutate(inquiry.id, { onError: onFollowError });
     } else {
-      followMutation.mutate(inquiry.id);
+      followMutation.mutate(inquiry.id, { onError: onFollowError });
     }
   };
 
