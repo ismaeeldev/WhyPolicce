@@ -228,7 +228,18 @@ def create_inquiry_upgrade_checkout(
     if not settings.FORUM_STRIPE_SECRET_KEY or not settings.FORUM_STRIPE_INQUIRY_UPGRADE_PRICE_ID:
         raise _NOT_CONFIGURED
 
-    stripe.api_key = settings.FORUM_STRIPE_SECRET_KEY
+    # Real gap found during a credential-activation readiness audit:
+    # stripe.api_key is a process-global module attribute. This app runs
+    # sync def endpoints (this one included) dispatched to a shared
+    # threadpool (uvicorn --workers 2 in the real deploy), and the OLD
+    # product's billing.py sets this SAME global to a DIFFERENT Stripe
+    # account's key. Two concurrent requests — one old-product checkout,
+    # one forum checkout — can interleave between the assignment below
+    # and Session.create, so a forum checkout could execute against the
+    # old account's key with the new account's price id (or vice versa):
+    # a real, load-dependent, unreproducible cross-account failure that's
+    # completely invisible today since neither account is configured yet.
+    # Passing api_key= per-call avoids the global entirely.
     try:
         checkout_session = stripe.checkout.Session.create(
             mode="payment",
@@ -237,6 +248,7 @@ def create_inquiry_upgrade_checkout(
             customer_email=user.email or None,
             success_url=f"{settings.FRONTEND_URL}/inquiries/{inquiry.id}?upgraded=1",
             cancel_url=f"{settings.FRONTEND_URL}/inquiries/{inquiry.id}",
+            api_key=settings.FORUM_STRIPE_SECRET_KEY,
         )
     except stripe.StripeError as exc:
         logger.exception("Forum Stripe inquiry-upgrade checkout session creation failed")
@@ -273,7 +285,8 @@ def create_attorney_subscription_checkout(
     if not settings.FORUM_STRIPE_SECRET_KEY or not settings.FORUM_STRIPE_ATTORNEY_SUBSCRIPTION_PRICE_ID:
         raise _NOT_CONFIGURED
 
-    stripe.api_key = settings.FORUM_STRIPE_SECRET_KEY
+    # Same process-global stripe.api_key race as create_inquiry_upgrade_
+    # checkout above — see that function's own comment.
     try:
         checkout_session = stripe.checkout.Session.create(
             mode="subscription",
@@ -282,6 +295,7 @@ def create_attorney_subscription_checkout(
             customer_email=user.email or None,
             success_url=f"{settings.FRONTEND_URL}/attorneys/dashboard?subscribed=1",
             cancel_url=f"{settings.FRONTEND_URL}/attorneys/dashboard",
+            api_key=settings.FORUM_STRIPE_SECRET_KEY,
         )
     except stripe.StripeError as exc:
         logger.exception("Forum Stripe attorney-subscription checkout session creation failed")

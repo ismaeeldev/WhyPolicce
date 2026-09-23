@@ -10,6 +10,7 @@ upload flow with credentials that don't exist.
 
 import datetime
 import logging
+import os
 import uuid
 
 from google.cloud import storage
@@ -22,7 +23,27 @@ _SIGNED_URL_EXPIRY = datetime.timedelta(minutes=15)
 
 
 def is_configured() -> bool:
-    return bool(settings.GCS_BUCKET_NAME and settings.GCS_SERVICE_ACCOUNT_JSON_PATH)
+    """Real gap found during a credential-activation readiness audit: this
+    used to only check that GCS_SERVICE_ACCOUNT_JSON_PATH was a non-empty
+    string, never that the file actually exists at that path. The moment
+    real credentials are attached, a wrong/missing path (a very easy
+    mistake in a container deploy — see the Dockerfile note on
+    generate_upload_url below) would pass this check, open the 501 gate,
+    and then every upload/register/delete call would raise a raw
+    FileNotFoundError from from_service_account_json, swallowed by the
+    global exception handler into a generic 500 with zero indication the
+    real cause is a missing credentials file. Checking os.path.exists
+    here means a misconfigured deploy fails this same honest 501 instead
+    of a confusing 500, and the real cause is loggable right here."""
+    if not settings.GCS_BUCKET_NAME or not settings.GCS_SERVICE_ACCOUNT_JSON_PATH:
+        return False
+    if not os.path.isfile(settings.GCS_SERVICE_ACCOUNT_JSON_PATH):
+        logger.warning(
+            "GCS_SERVICE_ACCOUNT_JSON_PATH is set to %r but no file exists there — treating GCS as unconfigured",
+            settings.GCS_SERVICE_ACCOUNT_JSON_PATH,
+        )
+        return False
+    return True
 
 
 def generate_upload_url(*, inquiry_id: uuid.UUID, file_type: str, content_type: str) -> tuple[str, str]:

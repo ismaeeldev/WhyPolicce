@@ -7,12 +7,22 @@ alembic
 psycopg2-binary
 python-jose[cryptography]
 httpx
-stripe
+# Pinned to a known-good major version, not just any version — a
+# credential-activation readiness audit found this codebase's own
+# exception-handling (e.g. `except stripe.StripeError`, which only
+# exists post-v12) and SDK call shapes were verified against these
+# exact versions. requirements.txt previously left these bare, so the
+# deploy that first attaches real credentials would resolve whatever's
+# current THEN, not what this code was actually written/tested against
+# — a major bump here is a real, silent breakage risk specifically
+# because these three integrations are otherwise completely untested
+# until real credentials exist.
+stripe==15.5.*
 slowapi
 openai
 google-genai
 pgvector==0.5.0
 apscheduler==3.11.3
 pytest
-google-cloud-storage
-resend
+google-cloud-storage==3.14.*
+resend==2.47.*

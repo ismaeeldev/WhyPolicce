@@ -17,6 +17,14 @@ backend/.env
 *.pyc
 backend/*.db
 
+# GCS service-account credentials — a real private key, never committed
+# (see CLIENT_DEPLOYMENT_GUIDE.md's Milestone 3 §A). Ignored anywhere in
+# the repo, not just backend/, since GCS_SERVICE_ACCOUNT_JSON_PATH's own
+# .env.example comment doesn't mandate a specific location for the file.
+*service-account*.json
+*-key.json
+secrets/
+
 # General
 .DS_Store
 *.log
