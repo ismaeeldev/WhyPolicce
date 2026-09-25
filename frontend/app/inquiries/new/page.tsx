@@ -13,12 +13,20 @@ import { useCreateInquiry } from "@/hooks/useInquiries";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const FREE_TIER_CHAR_LIMIT = 250;
+// Backend hard caps — backend/app/schemas/inquiry.py's InquiryCreate.
+// maxLength on the inputs stops most overlong input at the keystroke,
+// but paste can still exceed it in some browsers, so validate() below
+// re-checks these explicitly rather than relying on maxLength alone.
+const TITLE_MAX_LENGTH = 200;
+const CITY_MAX_LENGTH = 200;
+const PRECINCT_MAX_LENGTH = 200;
 
 type FieldErrors = {
   title?: string;
   description?: string;
   state?: string;
   city?: string;
+  precinct?: string;
   statusTag?: string;
 };
 
@@ -66,9 +74,12 @@ export default function NewInquiryPage() {
   const validate = (): FieldErrors => {
     const errors: FieldErrors = {};
     if (!title.trim()) errors.title = "Title is required.";
+    else if (title.length > TITLE_MAX_LENGTH) errors.title = `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`;
     if (!description.trim()) errors.description = "Description is required.";
     if (!state) errors.state = "State is required.";
     if (!city.trim()) errors.city = "City is required.";
+    else if (city.length > CITY_MAX_LENGTH) errors.city = `City must be ${CITY_MAX_LENGTH} characters or fewer.`;
+    if (precinct.length > PRECINCT_MAX_LENGTH) errors.precinct = `Precinct must be ${PRECINCT_MAX_LENGTH} characters or fewer.`;
     if (!statusTag) errors.statusTag = "Please select a status.";
     return errors;
   };
@@ -160,6 +171,7 @@ export default function NewInquiryPage() {
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            maxLength={TITLE_MAX_LENGTH}
             className={`h-11 w-full rounded-sm border bg-bg-elevated px-3.5 text-body text-text-primary outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 ${
               fieldErrors.title ? "border-danger" : "border-border-default"
             }`}
@@ -193,7 +205,7 @@ export default function NewInquiryPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="state" className="mb-1.5 block text-body-sm text-text-secondary">
               State
@@ -224,6 +236,7 @@ export default function NewInquiryPage() {
               id="city"
               value={city}
               onChange={(e) => setCity(e.target.value)}
+              maxLength={CITY_MAX_LENGTH}
               className={`h-11 w-full rounded-sm border bg-bg-elevated px-3.5 text-body text-text-primary outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 ${
                 fieldErrors.city ? "border-danger" : "border-border-default"
               }`}
@@ -240,8 +253,12 @@ export default function NewInquiryPage() {
             id="precinct"
             value={precinct}
             onChange={(e) => setPrecinct(e.target.value)}
-            className="h-11 w-full rounded-sm border border-border-default bg-bg-elevated px-3.5 text-body text-text-primary outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
+            maxLength={PRECINCT_MAX_LENGTH}
+            className={`h-11 w-full rounded-sm border bg-bg-elevated px-3.5 text-body text-text-primary outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+              fieldErrors.precinct ? "border-danger" : "border-border-default"
+            }`}
           />
+          <p className="mt-1 min-h-[1.25rem] text-caption text-danger">{fieldErrors.precinct}</p>
         </div>
 
         <div>

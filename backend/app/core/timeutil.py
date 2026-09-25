@@ -17,7 +17,28 @@ string regardless of which database backend produced the value.
 from datetime import datetime, timezone
 
 
-def to_utc_iso(dt: datetime) -> str:
+def to_utc_iso(dt: datetime | None) -> str | None:
+    """Real availability bug found by a production-readiness audit,
+    reproduced live: every created_at/updated_at column in this
+    codebase is declared with an explicit `sa_column=Column(...)`,
+    which silently DISCARDS SQLModel's inferred `nullable=False` —
+    confirmed against the live SQLModel.metadata DDL, every one of
+    these columns is actually NULLable in the real schema, with no
+    server-side DEFAULT either (default_factory is Python-side only).
+    A row that arrives by any path other than a normal ORM insert — a
+    manual SQL fix, a restore that drops defaults, a future data
+    migration, a bulk import — can carry created_at=NULL and the
+    schema accepts it without complaint. This function used to call
+    `.isoformat()` unconditionally, so ONE such row raised
+    AttributeError on `.tzinfo` and took down the ENTIRE list endpoint
+    it appeared in for every user — not a per-row degradation, a full
+    outage triggered by a single bad row with no visible cause. Now
+    degrades to `None` for that one row instead of crashing the whole
+    response; the real, durable fix is making these columns genuinely
+    NOT NULL at the database level (a migration), which this guard
+    doesn't replace but does buy safety against in the meantime."""
+    if dt is None:
+        return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.isoformat()

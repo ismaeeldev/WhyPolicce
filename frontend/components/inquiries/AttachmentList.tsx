@@ -34,7 +34,7 @@ export function AttachmentList({ attachments }: { attachments: EvidenceAttachmen
                 rel="noopener noreferrer"
                 className="min-w-0 flex-1 truncate text-body-sm text-accent hover:text-accent-hover transition-colors rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
               >
-                {a.fileUrl.split("/").pop()}
+                {a.originalFilename ?? a.fileUrl.split("/").pop()}
               </a>
               <span className="shrink-0 text-caption text-text-muted tabular-nums">
                 {formatSize(a.sizeBytes)}

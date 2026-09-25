@@ -3,7 +3,9 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api-client";
-import type { AttorneyRequestOnInquiry } from "@/hooks/useConsultationRequests";
+import { fetchInquiriesPage, INQUIRIES_PAGE_SIZE, inquiriesQueryKey } from "@/lib/inquiries-query";
+import type { InquiriesFilters, InquiriesPage } from "@/lib/inquiries-query";
+import type { AttorneyRequestOnInquiry, AttorneyRequestStatus } from "@/hooks/useConsultationRequests";
 
 /**
  * Home feed data hook — forum rebuild, Milestone 2 Step M2.2
@@ -48,6 +50,14 @@ export type Inquiry = {
   // M3.1 — real uploaded evidence, visible to every viewer (unlike
   // attorneyRequests above); only present on the single-inquiry fetch.
   attachments?: EvidenceAttachment[];
+  // Real gap found during a full-scope re-audit: the backend already
+  // computes this per-item specifically so RequestConsultationButton's
+  // "Requested" state survives a remount/refetch instead of resetting
+  // to local mutation state that a background refetch (refetchOnWindowFocus
+  // is app-wide) wipes out — but nothing here declared the field, so it
+  // was silently dropped. Only ever non-null for the viewing attorney's
+  // own requests; null for a citizen viewer or an inquiry never requested.
+  myRequestStatus?: AttorneyRequestStatus | null;
 };
 
 export type EvidenceAttachment = {
@@ -55,37 +65,23 @@ export type EvidenceAttachment = {
   fileUrl: string;
   fileType: "image" | "video" | "document";
   sizeBytes: number;
+  originalFilename: string | null;
 };
 
-export type InquiriesPage = {
-  items: Inquiry[];
-  total: number;
-  limit: number;
-  offset: number;
-};
-
-export type InquiriesFilters = {
-  region: string;
-  status: string;
-  sort: "newest" | "most_followed";
-  q: string;
-};
-
-const PAGE_SIZE = 20;
+// Re-exported so every existing "@/hooks/useInquiries" importer keeps
+// working unchanged — the actual definitions live in lib/inquiries-query.ts
+// (no "use client"), specifically because this file's own "use client"
+// marker would make even these plain helper functions client-only,
+// which is exactly what broke app/page.tsx's Server Component prefetch
+// (Next.js refuses to let a Server Component call ANY export of a
+// "use client" file, hooks or not).
+export { INQUIRIES_PAGE_SIZE, inquiriesQueryKey, fetchInquiriesPage };
+export type { InquiriesPage, InquiriesFilters };
 
 export function useInquiries(filters: InquiriesFilters) {
   return useInfiniteQuery<InquiriesPage>({
-    queryKey: ["inquiries", filters],
-    queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams();
-      if (filters.region) params.set("region", filters.region);
-      if (filters.status) params.set("status", filters.status);
-      params.set("sort", filters.sort);
-      if (filters.q) params.set("q", filters.q);
-      params.set("limit", String(PAGE_SIZE));
-      params.set("offset", String(pageParam));
-      return apiFetch<InquiriesPage>(`/api/v1/inquiries?${params.toString()}`);
-    },
+    queryKey: inquiriesQueryKey(filters),
+    queryFn: ({ pageParam }) => fetchInquiriesPage(filters, pageParam as number),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => {
       const nextOffset = lastPage.offset + lastPage.items.length;
@@ -111,7 +107,7 @@ export function useMyInquiries() {
       const params = new URLSearchParams();
       params.set("mine", "true");
       params.set("sort", "newest");
-      params.set("limit", String(PAGE_SIZE));
+      params.set("limit", String(INQUIRIES_PAGE_SIZE));
       params.set("offset", String(pageParam));
       return apiFetch<InquiriesPage>(`/api/v1/inquiries?${params.toString()}`);
     },
@@ -231,10 +227,20 @@ export type ThreadPage = {
   offset: number;
 };
 
+const THREAD_PAGE_SIZE = 100;
+
 export function useThread(inquiryId: string) {
-  return useQuery<ThreadPage>({
+  return useInfiniteQuery<ThreadPage>({
     queryKey: ["thread", inquiryId],
-    queryFn: () => apiFetch<ThreadPage>(`/api/v1/inquiries/${inquiryId}/thread?limit=100`),
+    queryFn: ({ pageParam }) =>
+      apiFetch<ThreadPage>(
+        `/api/v1/inquiries/${inquiryId}/thread?limit=${THREAD_PAGE_SIZE}&offset=${pageParam}`,
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => {
+      const loaded = pages.reduce((sum, p) => sum + p.items.length, 0);
+      return loaded < lastPage.total ? loaded : undefined;
+    },
   });
 }
 

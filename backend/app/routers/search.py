@@ -3,6 +3,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.db import get_session
@@ -42,13 +43,23 @@ def _note_snippet(content: str, max_len: int = 40) -> str:
 def _get_or_create_user(session: Session, current: AuthenticatedUser) -> User:
     """Same sync-on-first-call pattern as GET /api/me (app/routers/users.py) —
     duplicated here rather than imported, since /api/search/stream must work
-    even if the frontend somehow calls it before ever calling /api/me."""
+    even if the frontend somehow calls it before ever calling /api/me.
+    IntegrityError guard matches users.py's own copy — a genuine
+    concurrent "first request ever" race for the same auth0_sub must
+    return the winner's row, not bubble up as a 500."""
     user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
     if user is None:
         user = User(auth0_sub=current.auth0_sub, email=current.email or "")
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
+            if user is None:
+                raise
+        else:
+            session.refresh(user)
     elif current.email and not user.email:
         # Same self-heal as GET /api/me — see app/routers/users.py's comment.
         user.email = current.email

@@ -28,14 +28,28 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     // which is the correct behavior for a protected endpoint.
   }
 
-  const res = await fetch(`${BACKEND_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init.headers,
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BACKEND_URL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init.headers,
+      },
+    });
+  } catch {
+    // Real gap found during a full-scope re-audit: fetch() itself
+    // throwing (offline, DNS failure, CORS, a dropped connection —
+    // never reaching a real HTTP response) was never caught here, so
+    // it propagated as a raw TypeError instead of the one error type
+    // (ApiError) this wrapper exists to guarantee every caller gets.
+    // Most callers already fall back to a generic message for any
+    // non-ApiError, so this was silently working in practice — but any
+    // caller that DOES want to distinguish "the network is down" from
+    // "the API returned a real error" had no way to do so.
+    throw new ApiError(0, "network_error", "We couldn't reach the server — check your connection.");
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: "unknown_error", message: res.statusText }));

@@ -11,13 +11,15 @@ grows well beyond this.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import text
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.db import sync_engine
+from app.models.evidence_attachment import EvidenceAttachment
+from app.services import media_service
 from app.services.ingestion.nyc_socrata import sync_all_nyc
 from app.services.ingestion.phase1_cities import sync_all_phase1_cities
 from app.services.ingestion.phase2_cities import sync_all_phase2_cities
@@ -77,6 +79,29 @@ _SYNC_LOCK_ID = 728194635  # arbitrary but fixed — must not collide with any o
 # latest public safety records weekly or monthly"). A single config point,
 # not hardcoded logic scattered around — change here only.
 SYNC_INTERVAL_HOURS = 24 * 7
+
+# Real gap found during a full-scope re-audit: EvidenceUploadField's own
+# upload flow is a two-step process — the file PUTs directly to GCS
+# first, THEN a separate call registers the DB row (app/routers/media.py's
+# register_attachment). If the tab closes, the network drops, or the
+# user simply navigates away in the gap between those two steps, GCS
+# ends up holding a real file with no DB row ever pointing at it — not a
+# security/cost risk at this app's scale, but an unbounded, silent
+# storage leak with nothing anywhere ever cleaning it up. A distinct
+# advisory lock (never _SYNC_LOCK_ID, which must not collide with any
+# other lock this app uses) and its own interval, independent of the
+# ingestion syncs above — a failure or slow run in one must never block
+# or interfere with the other.
+_ORPHAN_CLEANUP_LOCK_ID = 728194636
+ORPHAN_CLEANUP_INTERVAL_HOURS = 24
+# A blob must be older than this before it's even considered for
+# deletion — the real, load-bearing safety margin against deleting a
+# file that's genuinely mid-upload-flow (GCS PUT succeeded, register-
+# attachment call hasn't landed yet). Generous on purpose: this is a
+# storage-cost cleanup, not a time-critical job, so erring toward
+# "leave it another day" costs nothing, while erring the other way
+# would delete a real user's in-progress upload.
+_ORPHAN_GRACE_PERIOD_HOURS = 24
 
 _scheduler: AsyncIOScheduler | None = None
 
@@ -402,6 +427,74 @@ async def _run_scheduled_sync() -> None:
             session.exec(text(f"SELECT pg_advisory_unlock({_SYNC_LOCK_ID})"))
 
 
+async def _run_orphan_evidence_cleanup() -> None:
+    """Deletes any GCS object under evidence/ that's older than the
+    grace period and has no matching evidence_attachments row — the
+    real cleanup for the two-step-upload gap described on
+    ORPHAN_CLEANUP_INTERVAL_HOURS's own comment above. Same advisory-
+    lock-protected, sync_engine/bound-Connection pattern as
+    _run_scheduled_sync above, for the identical reason (Neon's pooler
+    can reassign the physical backend mid-session, silently dropping a
+    session-level advisory lock held any other way) — see that
+    function's own docstring for the full explanation, not repeated
+    here.
+
+    Never touches GCS or the DB destructively on any error partway
+    through: each blob is deleted individually inside its own
+    try/except, so one failure (a transient GCS error, a blob deleted
+    by a concurrent request between listing and deleting) never aborts
+    the whole run or leaves it half-done in a way that matters — the
+    next scheduled run simply re-evaluates from scratch."""
+    if sync_engine is None:
+        logger.warning("scheduler: DATABASE_URL not configured, skipping orphan evidence cleanup")
+        return
+    if not media_service.is_configured():
+        logger.info("scheduler: GCS not configured, skipping orphan evidence cleanup")
+        return
+
+    with sync_engine.connect() as connection, Session(bind=connection) as session:
+        lock_row = session.exec(text(f"SELECT pg_try_advisory_lock({_ORPHAN_CLEANUP_LOCK_ID})")).first()
+        got_lock = bool(lock_row and lock_row[0])
+        if not got_lock:
+            logger.info("scheduler: another worker already holds the orphan-cleanup lock, skipping this run")
+            return
+        try:
+            logger.info("scheduler: starting scheduled orphan evidence cleanup")
+            try:
+                cutoff = datetime.now(timezone.utc) - timedelta(hours=_ORPHAN_GRACE_PERIOD_HOURS)
+                candidate_urls = media_service.list_evidence_blobs(older_than=cutoff)
+                if not candidate_urls:
+                    logger.info("scheduler: orphan evidence cleanup — no blobs found, nothing to do")
+                    return
+
+                known_urls = set(
+                    session.exec(
+                        select(EvidenceAttachment.file_url).where(
+                            EvidenceAttachment.file_url.in_(candidate_urls)
+                        )
+                    ).all()
+                )
+                orphans = [url for url in candidate_urls if url not in known_urls]
+
+                deleted = 0
+                for url in orphans:
+                    try:
+                        media_service.delete_blob(url)
+                        deleted += 1
+                    except Exception:
+                        logger.exception("scheduler: failed to delete orphaned evidence blob %s", url)
+
+                logger.info(
+                    "scheduler: orphan evidence cleanup complete — %d candidate(s), %d deleted",
+                    len(orphans),
+                    deleted,
+                )
+            except Exception:
+                logger.exception("scheduler: scheduled orphan evidence cleanup failed")
+        finally:
+            session.exec(text(f"SELECT pg_advisory_unlock({_ORPHAN_CLEANUP_LOCK_ID})"))
+
+
 def start_scheduler() -> AsyncIOScheduler | None:
     """Starts the background scheduler. Returns None (and logs, doesn't
     raise) if DATABASE_URL isn't configured — matches this project's
@@ -431,9 +524,23 @@ def start_scheduler() -> AsyncIOScheduler | None:
         id="nyc_socrata_sync",
         next_run_time=start_time,
     )
+    # Same next_run_time reasoning as the sync job above — never fires
+    # immediately on every dev-server hot-reload, only on its real interval.
+    orphan_cleanup_start_time = datetime.now() + timedelta(hours=ORPHAN_CLEANUP_INTERVAL_HOURS)
+    scheduler.add_job(
+        _run_orphan_evidence_cleanup,
+        "interval",
+        hours=ORPHAN_CLEANUP_INTERVAL_HOURS,
+        id="orphan_evidence_cleanup",
+        next_run_time=orphan_cleanup_start_time,
+    )
     scheduler.start()
     _scheduler = scheduler
-    logger.info("scheduler: started, NYC Socrata sync every %d hours", SYNC_INTERVAL_HOURS)
+    logger.info(
+        "scheduler: started, NYC Socrata sync every %d hours, orphan evidence cleanup every %d hours",
+        SYNC_INTERVAL_HOURS,
+        ORPHAN_CLEANUP_INTERVAL_HOURS,
+    )
     return scheduler
 
 

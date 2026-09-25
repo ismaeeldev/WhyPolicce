@@ -31,7 +31,12 @@ export function CommentEditDeleteControls({
   const showToast = useToastStore((s) => s.show);
 
   return (
-    <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+    // Real gap found during a UI audit: opacity-0 + hover/focus-reveal
+    // has no touch equivalent — on mobile, a user must Tab in via
+    // keyboard to ever see these controls, which means editing/deleting
+    // your own comment was effectively undiscoverable on a phone.
+    // Always visible below sm:, hover/focus-reveal only from sm: up.
+    <div className="flex items-center gap-1 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
       <button
         type="button"
         onClick={onEditClick}

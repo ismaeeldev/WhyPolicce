@@ -24,7 +24,16 @@ const STATUS_CONFIG: Record<StatusTag, { label: string; bg: string; text: string
 };
 
 export function StatusPill({ status }: { status: StatusTag }) {
-  const config = STATUS_CONFIG[status];
+  // `status` is only guaranteed to be a StatusTag at compile time — the
+  // backend response isn't validated at runtime, so an unrecognized value
+  // (a stale client hitting a renamed enum, a future third status) must
+  // not throw and take the whole feed down with it.
+  const config = STATUS_CONFIG[status] ?? {
+    label: String(status),
+    bg: "bg-bg-subtle",
+    text: "text-text-secondary",
+    dot: "bg-text-muted",
+  };
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-caption font-medium ${config.bg} ${config.text}`}

@@ -95,7 +95,12 @@ export function FeedFilterBar({
           className="md:hidden flex h-12 items-center gap-1.5 rounded-lg border border-border-default bg-bg-elevated px-4 text-body-sm text-text-secondary shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
         >
           Filters
-          {hasActiveFilters && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+          {hasActiveFilters && (
+            <>
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+              <span className="sr-only">(filters active)</span>
+            </>
+          )}
         </button>
       </div>
 

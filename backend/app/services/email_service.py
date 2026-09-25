@@ -14,6 +14,7 @@ ThemeGuideline system in HTML email — a clean, mostly-plain-text email
 is the right target.
 """
 
+import html
 import logging
 
 import resend
@@ -79,12 +80,16 @@ def send_consultation_requested_email(*, to: str, inquiry_title: str, inquiry_ur
     privacy rule) — the actual "connect" mechanism stays inside the
     product's own gated flow (accept/decline), not leaked into an email
     body."""
+    # inquiry_title is user-authored free text interpolated into HTML —
+    # escaped so a title containing <, &, or " can't break the layout
+    # (e.g. an unclosed tag mangling the CTA link) or inject markup.
+    safe_title = html.escape(inquiry_title)
     send_email(
         to=to,
         subject="A verified attorney reviewed your case",
         body_html=(
             f"<p style=\"margin: 0 0 16px;\">A verified attorney has reviewed your inquiry "
-            f"&mdash; <strong>{inquiry_title}</strong> &mdash; and requested a consultation.</p>"
+            f"&mdash; <strong>{safe_title}</strong> &mdash; and requested a consultation.</p>"
             f"<p style=\"margin: 0;\">You can accept or decline the request from your inquiry's page.</p>"
         ),
         cta_url=inquiry_url,
@@ -93,12 +98,17 @@ def send_consultation_requested_email(*, to: str, inquiry_title: str, inquiry_ur
 
 
 def send_new_comment_email(*, to: str, inquiry_title: str, inquiry_url: str) -> None:
+    safe_title = html.escape(inquiry_title)
+    # Subject isn't HTML, so no html.escape() here — but titles allow
+    # embedded newlines (no such validation on Inquiry.title), so strip
+    # them defensively rather than pass raw multi-line text as a header value.
+    subject_title = " ".join(inquiry_title.splitlines())
     send_email(
         to=to,
-        subject=f"New reply on \"{inquiry_title}\"",
+        subject=f"New reply on \"{subject_title}\"",
         body_html=(
             f"<p style=\"margin: 0;\">There's a new comment on an inquiry you're following "
-            f"&mdash; <strong>{inquiry_title}</strong>.</p>"
+            f"&mdash; <strong>{safe_title}</strong>.</p>"
         ),
         cta_url=inquiry_url,
         cta_label="Read the thread",

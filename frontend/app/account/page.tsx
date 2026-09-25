@@ -3,13 +3,15 @@
 import { useUser as useAuth0User } from "@auth0/nextjs-auth0";
 import { motion } from "framer-motion";
 import { ChevronRight, Scale } from "lucide-react";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { AttorneyStatusBanner } from "@/components/account/AttorneyStatusBanner";
 import { BecomeAttorneyDialog } from "@/components/account/BecomeAttorneyDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
+import { useToastStore } from "@/stores/useToastStore";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -27,8 +29,23 @@ const EASE = [0.22, 1, 0.36, 1] as const;
  */
 export default function AccountPage() {
   const { user: auth0User } = useAuth0User();
-  const { data: me, isLoading: meLoading } = useUser();
+  const { data: me, isLoading: meLoading, isError: meError, refetch: refetchMe } = useUser();
   const [attorneyDialogOpen, setAttorneyDialogOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const showToast = useToastStore((s) => s.show);
+
+  // Stripe checkout success redirect (backend/app/routers/billing.py's
+  // success_url) — without this, a user returning from a successful
+  // upgrade sees stale (pre-upgrade) tier data until the cache naturally
+  // refetches, since the webhook that actually flips their tier can land
+  // slightly after the redirect. Same ?param=1 + refetch + toast +
+  // clean-URL pattern as /attorneys/dashboard's ?subscribed=1 handling.
+  useEffect(() => {
+    if (searchParams.get("upgraded") !== "1") return;
+    void refetchMe();
+    showToast("You're upgraded — thanks for subscribing.");
+    window.history.replaceState({}, "", "/account");
+  }, [searchParams, refetchMe, showToast]);
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[560px] px-5 sm:px-6 py-16 sm:py-20">
@@ -95,8 +112,31 @@ export default function AccountPage() {
           // same skeleton-while-loading pattern, this page just hadn't
           // applied it.
           <Skeleton className="h-[52px] w-full rounded-sm" />
+        ) : meError ? (
+          // Real gap found during a state-handling audit, same class as
+          // the loading-state fix above but for the error case: isError
+          // was still unread, so a failed /api/me left `me` undefined
+          // and fell through to the SAME "Become an Attorney" CTA —
+          // including for an already-approved/rejected attorney, who
+          // could open the dialog and hit the exact already_decided 400
+          // the loading-state fix above was written to prevent.
+          <div className="flex items-center justify-between gap-3 rounded-sm border border-border-default bg-bg-subtle px-4 py-3">
+            <p className="text-body-sm text-text-secondary">Couldn&apos;t load this section.</p>
+            <button
+              type="button"
+              onClick={() => refetchMe()}
+              className="shrink-0 text-body-sm font-medium text-accent hover:text-accent-hover transition-colors rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            >
+              Try again
+            </button>
+          </div>
         ) : me?.role === "attorney" && me.verificationStatus ? (
-          <AttorneyStatusBanner status={me.verificationStatus} />
+          <AttorneyStatusBanner
+            status={me.verificationStatus}
+            onReapplyClick={
+              me.verificationStatus === "rejected" ? () => setAttorneyDialogOpen(true) : undefined
+            }
+          />
         ) : (
           <button
             type="button"

@@ -108,12 +108,22 @@ def verify_attorney(
             },
         )
 
-    # Idempotent: re-applying the same decision succeeds harmlessly (an
-    # admin re-clicking the same action, or two admins acting on the same
-    # attorney near-simultaneously, is normal usage, not an error) — the
-    # exact same rule this guide applies everywhere the same shape of
-    # problem recurs (Standing Implementation Discipline rule 8), which
-    # M1.4's own consultation-response endpoint already follows too.
+    # Real inconsistency found by a production-readiness audit: this
+    # docstring used to claim the same "different decision on an
+    # already-decided target is a 400 conflict" rule as review_report
+    # below — but the code never actually enforced that here, and
+    # re-decision is a genuine, intentional admin-panel capability (the
+    # attorneys page's own detail dialog offers "Revoke approval" /
+    # "Approve instead" on an already-decided attorney, confirmed
+    # working end-to-end when the panel was built). Attorney
+    # verification is corrigible by design — a wrongly-rejected
+    # attorney or a since-revoked approval both need a real path back
+    # without deleting and recreating the account — unlike a report's
+    # resolved/dismissed decision, which this codebase treats as
+    # genuinely final. Re-applying the SAME decision is idempotent
+    # (an admin re-clicking, or two admins acting near-simultaneously,
+    # is normal usage); applying the OPPOSITE decision is a real,
+    # supported revision, not a conflict.
     target.verification_status = VerificationStatus(body.decision)
     session.add(target)
     session.commit()
@@ -176,10 +186,32 @@ def get_admin_dashboard(
     open_reports = session.exec(
         select(func.count()).select_from(select(Report).where(Report.status == ReportStatus.open).subquery())
     ).one()
+    # Real correctness gap found by a production-readiness audit: the
+    # three buckets above are filtered on verification_status IS
+    # <specific value>, so a role=attorney row whose
+    # verification_status is NULL is invisible to ALL THREE — the
+    # dashboard would report "0 pending" while that attorney's real
+    # application sits unreviewed. The model's own docstring documents
+    # verification_status as nullable-for-citizens-only, but nothing
+    # actually enforces that a role=attorney row always has a non-null
+    # status (verify_attorney only ever writes into the enum, never
+    # clears role back to citizen on rejection, so a future "revoke"
+    # action or a manual fix could produce exactly this row). Comparing
+    # the three buckets' sum against a real total-attorneys count
+    # surfaces this as an honest, non-zero "unknown" bucket instead of
+    # silently under-reporting — the dashboard is this panel's whole
+    # "is there work waiting for me" landing screen, so a count that
+    # can hide real, unreviewed applications is a correctness gap, not
+    # cosmetic.
+    total_attorneys = session.exec(
+        select(func.count()).select_from(select(User).where(User.role == Role.attorney).subquery())
+    ).one()
+    unknown_status_attorneys = total_attorneys - (pending_attorneys + approved_attorneys + rejected_attorneys)
     return {
         "pendingAttorneys": pending_attorneys,
         "approvedAttorneys": approved_attorneys,
         "rejectedAttorneys": rejected_attorneys,
+        "unknownStatusAttorneys": unknown_status_attorneys,
         "openReports": open_reports,
     }
 
@@ -229,8 +261,17 @@ def list_attorneys(
         statement = statement.where(User.verification_status == VerificationStatus(status))
 
     total = session.exec(select(func.count()).select_from(statement.subquery())).one()
+    # Real gap found during a full-scope re-audit: ordering by created_at
+    # alone has no tie-breaker — two rows created in the same instant
+    # (plausible under bulk/automated signups, or simply low timestamp
+    # resolution) could appear in a different relative order across two
+    # page fetches, letting a row be skipped or duplicated at a page
+    # boundary. id is added as a stable secondary sort purely to make
+    # the ordering deterministic; this does not by itself eliminate the
+    # separate, inherent offset-pagination risk of a row inserted/deleted
+    # between fetches shifting the whole list.
     rows = session.exec(
-        statement.order_by(User.created_at.desc()).offset(offset).limit(limit)
+        statement.order_by(User.created_at.desc(), User.id).offset(offset).limit(limit)
     ).all()
     return {
         "items": [_attorney_out(u) for u in rows],
@@ -285,7 +326,10 @@ def list_open_reports(
 
     statement = select(Report).where(Report.status == ReportStatus.open)
     total = session.exec(select(func.count()).select_from(statement.subquery())).one()
-    rows = session.exec(statement.order_by(Report.created_at.asc()).offset(offset).limit(limit)).all()
+    # id as a stable secondary sort — see list_attorneys' own comment above.
+    rows = session.exec(
+        statement.order_by(Report.created_at.asc(), Report.id).offset(offset).limit(limit)
+    ).all()
     return {
         "items": [
             {
@@ -316,11 +360,15 @@ def review_report(
     """Only closes the report record itself — deliberately does NOT
     delete/hide the reported content (that remains the content owner's
     own edit/delete action, or a future, not-yet-scoped admin
-    content-removal capability). Same idempotency rule as
-    verify_attorney/M1.4's consultation-response: re-applying the same
-    decision succeeds harmlessly; requesting the OTHER decision on an
-    already-decided report is a real 400 conflict via this guide's
-    canonical error shape."""
+    content-removal capability). Re-applying the SAME decision succeeds
+    harmlessly (an admin re-clicking, or two admins acting near-
+    simultaneously, is normal usage), matching M1.4's consultation-
+    response endpoint — but unlike verify_attorney (see that function's
+    own docstring), requesting the OTHER decision on an already-decided
+    report IS a real 400 conflict, not a supported revision: a
+    report's resolved/dismissed decision is treated as genuinely final
+    here, since re-opening a closed moderation case has no real admin-
+    panel use case the way revising an attorney's verification does."""
     _require_admin(session, current)
 
     if body.decision not in (ReportStatus.resolved.value, ReportStatus.dismissed.value):

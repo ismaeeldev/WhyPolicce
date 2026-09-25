@@ -11,6 +11,7 @@ never a mocked signed URL that could be mistaken for a working upload.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.db import get_session
@@ -40,13 +41,23 @@ _NOT_CONFIGURED = HTTPException(
 
 def _get_or_create_user(session: Session, current: AuthenticatedUser) -> User:
     """Duplicated per this codebase's own established per-router pattern
-    (see app/routers/inquiries.py's own copy of this exact helper)."""
+    (see app/routers/inquiries.py's own copy of this exact helper).
+    IntegrityError guard matches users.py's own copy — a genuine
+    concurrent "first request ever" race for the same auth0_sub must
+    return the winner's row, not bubble up as a 500."""
     user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
     if user is None:
         user = User(auth0_sub=current.auth0_sub, email=current.email or "")
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
+            if user is None:
+                raise
+        else:
+            session.refresh(user)
     return user
 
 
@@ -152,11 +163,43 @@ def register_attachment(
             },
         )
 
+    # Real gap found during a full-scope re-audit: size_bytes used to be
+    # taken straight from the client's own report with no verification —
+    # a malicious client could under-report a large file's size to slip
+    # past the tier's cumulative-byte cap (create_upload_url's own check
+    # above, and the same cap re-checked here) while GCS actually holds
+    # the full-size blob. The real, authoritative size is read back from
+    # GCS itself and used for both the stored value and the re-check.
+    real_size = media_service.get_blob_size(body.file_url)
+    if real_size is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "invalid_file_url",
+                "message": "This file wasn't uploaded through a valid upload session.",
+            },
+        )
+
+    limits = _TIER_LIMITS[inquiry.tier]
+    existing = session.exec(
+        select(EvidenceAttachment).where(EvidenceAttachment.inquiry_id == inquiry.id)
+    ).all()
+    existing_total_bytes = sum(a.size_bytes for a in existing)
+    if len(existing) + 1 > limits["max_files"] or existing_total_bytes + real_size > limits["max_total_bytes"]:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "upgrade_required",
+                "message": "This inquiry needs the $2.99 upgrade to attach more evidence.",
+            },
+        )
+
     attachment = EvidenceAttachment(
         inquiry_id=inquiry.id,
         file_url=body.file_url,
         file_type=body.file_type,
-        size_bytes=body.size_bytes,
+        size_bytes=real_size,
+        original_filename=body.original_filename,
     )
     session.add(attachment)
     session.commit()
@@ -167,6 +210,7 @@ def register_attachment(
         "fileUrl": attachment.file_url,
         "fileType": attachment.file_type.value,
         "sizeBytes": attachment.size_bytes,
+        "originalFilename": attachment.original_filename,
     }
 
 

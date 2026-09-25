@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock, Flag, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Flag, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,24 +72,46 @@ export default function AdminDashboardPage() {
       )}
 
       {!isLoading && !isError && data && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {CARDS.map((card) => {
-            const Icon = card.icon;
-            return (
-              <Link
-                key={card.key}
-                href={card.href}
-                className="rounded-md border border-border-default bg-bg-elevated p-5 transition-all duration-150 hover:border-border-strong hover:shadow-card focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-              >
-                <Icon className={`h-5 w-5 ${card.tone}`} strokeWidth={1.75} />
-                <p className="mt-3 font-display text-h1 text-text-primary tabular-nums">
-                  {data[card.key]}
-                </p>
-                <p className="mt-1 text-body-sm text-text-secondary">{card.label}</p>
-              </Link>
-            );
-          })}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {CARDS.map((card) => {
+              const Icon = card.icon;
+              return (
+                <Link
+                  key={card.key}
+                  href={card.href}
+                  className="rounded-md border border-border-default bg-bg-elevated p-5 transition-all duration-150 hover:border-border-strong hover:shadow-card focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                >
+                  <Icon className={`h-5 w-5 ${card.tone}`} strokeWidth={1.75} />
+                  <p className="mt-3 font-display text-h1 text-text-primary tabular-nums">
+                    {data[card.key]}
+                  </p>
+                  <p className="mt-1 text-body-sm text-text-secondary">{card.label}</p>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Real correctness gap found by a production-readiness
+              audit: an attorney account can end up with a null
+              verification_status (never via normal signup, but
+              nothing currently prevents it via a future admin action
+              or a manual data fix), invisible to all 3 cards above.
+              Only rendered when genuinely non-zero — this is a rare
+              data-integrity alert, not permanent dashboard clutter. */}
+          {data.unknownStatusAttorneys > 0 && (
+            <Link
+              href="/admin/attorneys"
+              className="mt-4 flex items-center gap-3 rounded-md border border-warning bg-warning-subtle p-4 transition-colors hover:border-warning focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            >
+              <AlertTriangle className="h-5 w-5 shrink-0 text-warning" strokeWidth={1.75} />
+              <p className="text-body-sm text-text-primary">
+                {data.unknownStatusAttorneys} attorney{data.unknownStatusAttorneys === 1 ? "" : "s"} with an
+                unrecognized status — not counted above. View all attorneys to investigate.
+              </p>
+            </Link>
+          )}
+        </>
       )}
     </div>
   );

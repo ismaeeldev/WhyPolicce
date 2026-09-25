@@ -73,13 +73,25 @@ def _get_or_create_user(session: Session, current: AuthenticatedUser) -> User:
     """Duplicated from search.py/memory.py rather than imported — same
     reasoning: this router must work even if /api/me was never called
     first, and this codebase's own established pattern is to duplicate
-    this small helper per-router, not share it."""
+    this small helper per-router, not share it.
+
+    IntegrityError guard matches users.py's own copy — a genuine
+    concurrent "first request ever" race for the same auth0_sub (both
+    requests see no existing row, both insert) must return the winner's
+    row, not bubble up as a 500."""
     user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
     if user is None:
         user = User(auth0_sub=current.auth0_sub, email=current.email or "")
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
+            if user is None:
+                raise
+        else:
+            session.refresh(user)
     elif current.email and not user.email:
         user.email = current.email
         session.add(user)
@@ -111,7 +123,7 @@ def _rate_limit_or_429(action: str, user_id: uuid.UUID) -> None:
         ) from exc
 
 
-def _inquiry_out(inquiry: Inquiry, *, viewer_id: uuid.UUID | None, comment_count: int, has_attachments: bool, truncate: bool) -> dict:
+def _inquiry_out(inquiry: Inquiry, *, comment_count: int, has_attachments: bool, truncate: bool) -> dict:
     """Public response shape — never the raw SQLModel Inquiry object (that
     is exactly how a users.email join would leak accidentally, per this
     guide's own privacy rule). comment_count/has_attachments are NOT
@@ -125,8 +137,24 @@ def _inquiry_out(inquiry: Inquiry, *, viewer_id: uuid.UUID | None, comment_count
     enforcement (M1.4's create/update endpoints already prevent a
     free-tier inquiry from ever exceeding this length at write time, so
     this should be a no-op in the common case, not the primary control)."""
+    # Real availability bug found by a production-readiness audit,
+    # reproduced live: `inquiries.tier` carries the same sa_column-
+    # discards-nullable=False issue as every timestamp column (see
+    # to_utc_iso's own docstring) — confirmed nullable in the live DDL,
+    # with no server-side DEFAULT. A row with tier=NULL used to crash
+    # `.value` here and take down list_inquiries entirely. Notably,
+    # `tier` is exactly the column the Stripe webhook writes
+    # (forum_billing.py's _handle_inquiry_upgrade_completed) — the
+    # field most likely to be touched by out-of-band remediation (a
+    # manual fix after a payment dispute, a refund reversal), which is
+    # precisely the population that could produce a NULL. Falls back
+    # to "free" (matching create_inquiry's own real default) rather
+    # than None, since the frontend types this field as a required
+    # non-nullable union — a null here would just move the crash
+    # there instead of fixing it.
+    tier = inquiry.tier or InquiryTier.free
     description = inquiry.description
-    if truncate and inquiry.tier == InquiryTier.free and len(description) > _FREE_TIER_CHAR_LIMIT:
+    if truncate and tier == InquiryTier.free and len(description) > _FREE_TIER_CHAR_LIMIT:
         description = description[:_FREE_TIER_CHAR_LIMIT].rstrip() + "…"
     return {
         "id": str(inquiry.id),
@@ -136,7 +164,7 @@ def _inquiry_out(inquiry: Inquiry, *, viewer_id: uuid.UUID | None, comment_count
         "city": inquiry.city,
         "precinct": inquiry.precinct,
         "statusTag": inquiry.status_tag.value,
-        "tier": inquiry.tier.value,
+        "tier": tier.value,
         "followerCount": inquiry.follower_count,
         "commentCount": comment_count,
         "hasAttachments": has_attachments,
@@ -225,10 +253,14 @@ def list_inquiries(
             | (Inquiry.precinct.ilike(like))
         )
 
+    # id as a stable secondary sort on both branches — without it, ties
+    # (equal follower_count, or created_at values close enough to tie)
+    # have no deterministic order, letting a row appear inconsistently
+    # across two page fetches of the same query.
     if sort == "most_followed":
-        statement = statement.order_by(Inquiry.follower_count.desc())
+        statement = statement.order_by(Inquiry.follower_count.desc(), Inquiry.id)
     else:
-        statement = statement.order_by(Inquiry.created_at.desc())
+        statement = statement.order_by(Inquiry.created_at.desc(), Inquiry.id)
 
     total = session.exec(select(func.count()).select_from(statement.subquery())).one()
     rows = session.exec(statement.offset(offset).limit(limit)).all()
@@ -261,19 +293,43 @@ def list_inquiries(
             if user
             else set()
         )
+        # Real gap found during a state-handling audit: the "Requested"
+        # confirmation on RequestConsultationButton only ever lived in
+        # local mutation state, never the server — a page remount or a
+        # background refetch (refetchOnWindowFocus is on app-wide) reset
+        # the button to "Request Consultation" even though a real
+        # request still existed, and clicking again just got a silently
+        # -swallowed 409 with zero explanation. Batched across the whole
+        # page (never one query per row), attorney-only per this
+        # endpoint's own established privacy rule for consultation data
+        # — a citizen viewer never triggers this query at all.
+        my_request_status_by_inquiry = (
+            dict(
+                session.exec(
+                    select(AttorneyRequest.inquiry_id, AttorneyRequest.status).where(
+                        AttorneyRequest.inquiry_id.in_(inquiry_ids),
+                        AttorneyRequest.attorney_id == user.id,
+                    )
+                ).all()
+            )
+            if user and user.role == Role.attorney
+            else {}
+        )
     else:
         comment_counts, attachment_inquiry_ids, following_inquiry_ids = {}, set(), set()
+        my_request_status_by_inquiry = {}
 
     items = []
     for inquiry in rows:
         item = _inquiry_out(
             inquiry,
-            viewer_id=user.id if user else None,
             comment_count=comment_counts.get(inquiry.id, 0),
             has_attachments=inquiry.id in attachment_inquiry_ids,
             truncate=True,
         )
         item["isFollowing"] = inquiry.id in following_inquiry_ids
+        status = my_request_status_by_inquiry.get(inquiry.id)
+        item["myRequestStatus"] = status.value if status else None
         items.append(item)
 
     return {"items": items, "total": total, "limit": limit, "offset": offset}
@@ -322,7 +378,6 @@ def get_inquiry(
     )
     out = _inquiry_out(
         inquiry,
-        viewer_id=user.id if user else None,
         comment_count=comment_count,
         has_attachments=has_attachments,
         truncate=False,
@@ -394,6 +449,7 @@ def get_inquiry(
             "fileUrl": a.file_url,
             "fileType": a.file_type.value,
             "sizeBytes": a.size_bytes,
+            "originalFilename": a.original_filename,
         }
         for a in attachments
     ]
@@ -449,7 +505,7 @@ def create_inquiry(
     # attachments, and zero follows (including from its own author) by
     # construction, unlike update_inquiry's own real computed values for
     # an inquiry that may already have any of these.
-    return _inquiry_out(inquiry, viewer_id=user.id, comment_count=0, has_attachments=False, truncate=False)
+    return _inquiry_out(inquiry, comment_count=0, has_attachments=False, truncate=False)
 
 
 @router.patch("/inquiries/{inquiry_id}")
@@ -535,7 +591,7 @@ def update_inquiry(
     # have real attachments/followers (unlike create_inquiry's own
     # correct False/0 defaults for a genuinely brand-new row) — computed
     # for real here rather than left as _inquiry_out's placeholder value.
-    out = _inquiry_out(inquiry, viewer_id=user.id, comment_count=comment_count, has_attachments=has_attachments, truncate=False)
+    out = _inquiry_out(inquiry, comment_count=comment_count, has_attachments=has_attachments, truncate=False)
     out["isFollowing"] = is_following
     return out
 
@@ -593,10 +649,12 @@ def get_thread(
     total = session.exec(
         select(func.count()).where(ThreadComment.inquiry_id == inquiry.id)
     ).one()
+    # id as a stable secondary sort — see list_inquiries' own comment on
+    # this same class of fix.
     comments = session.exec(
         select(ThreadComment)
         .where(ThreadComment.inquiry_id == inquiry.id)
-        .order_by(ThreadComment.created_at.asc())
+        .order_by(ThreadComment.created_at.asc(), ThreadComment.id)
         .offset(offset)
         .limit(limit)
     ).all()
@@ -930,11 +988,14 @@ def request_consultation(
         )
     ).first()
     if existing is not None:
-        # Unique constraint at the DB level already prevents a duplicate
-        # row — surfaced here as a real, meaningful conflict (not silently
-        # idempotent like follow/unfollow) since a second request on an
-        # already-pending/decided one is a genuinely different situation
-        # the attorney should know about, not a harmless repeat click.
+        # Decision (user-confirmed): a decline is final, no re-request
+        # path — the uniqueness constraint on (attorney, inquiry) makes
+        # no distinction by status, so a repeat POST always 409s
+        # regardless of how the prior request was resolved. Considered
+        # and deliberately reverted (kept matching this decision) during
+        # a full-scope re-audit that initially "fixed" this as a gap —
+        # it isn't one; it's an intentional product choice preventing an
+        # attorney from re-soliciting a citizen who already said no.
         raise HTTPException(
             status_code=409,
             detail={
@@ -985,8 +1046,12 @@ def list_my_consultation_requests(
         Inquiry, AttorneyRequest.inquiry_id == Inquiry.id
     ).where(AttorneyRequest.attorney_id == user.id)
     total = session.exec(select(func.count()).select_from(statement.subquery())).one()
+    # id as a stable secondary sort — see list_inquiries' own comment on
+    # this same class of fix.
     rows = session.exec(
-        statement.order_by(AttorneyRequest.created_at.desc()).offset(offset).limit(limit)
+        statement.order_by(AttorneyRequest.created_at.desc(), AttorneyRequest.id)
+        .offset(offset)
+        .limit(limit)
     ).all()
 
     return {

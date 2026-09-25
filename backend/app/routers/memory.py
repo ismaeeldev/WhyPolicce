@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.db import get_session
@@ -29,13 +30,23 @@ def _parse_note_id(raw: str) -> uuid.UUID:
 
 def _get_or_create_user(session: Session, current: AuthenticatedUser) -> User:
     """Duplicated from search.py rather than imported, same reasoning: this
-    router must work even if /api/me was never called first."""
+    router must work even if /api/me was never called first.
+    IntegrityError guard matches users.py's own copy — a genuine
+    concurrent "first request ever" race for the same auth0_sub must
+    return the winner's row, not bubble up as a 500."""
     user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
     if user is None:
         user = User(auth0_sub=current.auth0_sub, email=current.email or "")
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
+            if user is None:
+                raise
+        else:
+            session.refresh(user)
     elif current.email and not user.email:
         # Same self-heal as GET /api/me — see app/routers/users.py's comment.
         user.email = current.email

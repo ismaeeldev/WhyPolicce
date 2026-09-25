@@ -121,6 +121,46 @@ class TestVerifyAttorney:
         assert second.status_code == 200, second.text
         assert second.json()["verificationStatus"] == "approved"
 
+    def test_revising_an_already_decided_attorney_is_allowed_not_a_conflict(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Real inconsistency found by a production-readiness audit: this
+        endpoint's own docstring used to claim the same "different
+        decision on an already-decided target is a 400 conflict" rule
+        as review_report, but the code never enforced that — and the
+        admin panel's own attorney detail dialog offers "Revoke
+        approval"/"Approve instead" specifically because attorney
+        verification is meant to be revisable (unlike a closed report).
+        Locking in the real, intended behavior with a real test rather
+        than leaving it only implied by the absence of a guard."""
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        attorney = User(
+            auth0_sub="auth0|revise-target",
+            email="revise-target@test.example",
+            role=Role.attorney,
+            verification_status=VerificationStatus.pending,
+        )
+        session.add(attorney)
+        session.commit()
+        session.refresh(attorney)
+
+        approved = client.post(
+            f"/api/v1/admin/attorneys/{attorney.id}/verify", json={"decision": "approved"}
+        )
+        assert approved.status_code == 200
+        assert approved.json()["verificationStatus"] == "approved"
+
+        revised = client.post(
+            f"/api/v1/admin/attorneys/{attorney.id}/verify", json={"decision": "rejected"}
+        )
+        assert revised.status_code == 200, revised.text
+        assert revised.json()["verificationStatus"] == "rejected"
+
+        session.refresh(attorney)
+        assert attorney.verification_status == VerificationStatus.rejected
+
 
 class TestPendingAttorneysList:
     def test_lists_only_pending_attorneys(
@@ -216,6 +256,40 @@ class TestAdminDashboard:
         assert body["approvedAttorneys"] >= 1
         assert body["rejectedAttorneys"] >= 1
         assert "openReports" in body
+
+    def test_attorney_with_null_verification_status_surfaces_as_unknown_not_invisible(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Real correctness gap found by a production-readiness audit,
+        reproduced live: a role=attorney row with verification_status=
+        NULL matched none of the three status-filtered buckets, so the
+        dashboard reported it nowhere — "0 pending" while GET
+        /admin/attorneys (no filter) genuinely listed it, meaning an
+        admin looking at "0 pending" had no reason to open the tab and
+        that attorney's application was never reviewed. Nothing in this
+        codebase currently prevents this row shape (verify_attorney
+        never clears role back to citizen on rejection, so a future
+        "revoke attorney status" action or a manual fix could produce
+        it) even though the normal signup path never does."""
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        session.add(User(
+            auth0_sub="auth0|dash-unknown", email="dash-unknown@test.example",
+            role=Role.attorney, verification_status=None,
+        ))
+        session.commit()
+
+        res = client.get("/api/v1/admin/dashboard")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["unknownStatusAttorneys"] >= 1
+
+        # And confirm it's genuinely visible via the unfiltered list too
+        # — the dashboard count isn't inventing a phantom attorney.
+        list_res = client.get("/api/v1/admin/attorneys")
+        emails = [item["email"] for item in list_res.json()["items"]]
+        assert "dash-unknown@test.example" in emails
 
 
 class TestAttorneysList:

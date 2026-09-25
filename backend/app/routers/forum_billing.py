@@ -19,6 +19,7 @@ import uuid
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.config import settings
@@ -41,13 +42,23 @@ _NOT_CONFIGURED = HTTPException(
 
 
 def _get_or_create_user(session: Session, current: AuthenticatedUser) -> User:
-    """Duplicated per this codebase's own established per-router pattern."""
+    """Duplicated per this codebase's own established per-router pattern.
+    IntegrityError guard matches users.py's own copy — a genuine
+    concurrent "first request ever" race for the same auth0_sub must
+    return the winner's row, not bubble up as a 500."""
     user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
     if user is None:
         user = User(auth0_sub=current.auth0_sub, email=current.email or "")
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            user = session.exec(select(User).where(User.auth0_sub == current.auth0_sub)).first()
+            if user is None:
+                raise
+        else:
+            session.refresh(user)
     return user
 
 
@@ -177,11 +188,22 @@ def _handle_attorney_subscription_completed(session: Session, checkout_object: d
 
 
 def _handle_attorney_subscription_lapsed(session: Session, object_body: dict) -> None:
-    """Handles both customer.subscription.deleted and
-    invoice.payment_failed — both mean the attorney no longer has an
-    active paid subscription, re-locking M2.4's portal paywall for real
-    (previously always-locked via the ATTORNEY_SUBSCRIPTION_ACTIVE_STUB
-    placeholder)."""
+    """Handles customer.subscription.deleted — re-locks M2.4's portal
+    paywall for real (previously always-locked via the
+    ATTORNEY_SUBSCRIPTION_ACTIVE_STUB placeholder).
+
+    Real bug found during a payment-feature audit: this used to also
+    fire on invoice.payment_failed, treating the FIRST failed payment
+    attempt as an immediate lapse. Stripe automatically retries a failed
+    subscription payment (Smart Retries, over several days) before
+    actually giving up — invoice.payment_failed fires on every one of
+    those attempts, including ones that later succeed. An attorney whose
+    card temporarily failed (a bank hiccup, an expired card they hadn't
+    updated yet) but whose retry succeeded a day later would have been
+    locked out of a portal they were still legitimately paying for, the
+    entire time in between. customer.subscription.deleted is the one
+    event that means Stripe has genuinely given up and the subscription
+    is truly over — the only signal this should actually re-lock on."""
     customer_id = object_body.get("customer")
     if not customer_id:
         logger.warning("subscription-lapsed event missing customer id")
@@ -349,7 +371,7 @@ async def forum_stripe_webhook(
             _handle_inquiry_upgrade_completed(session, object_body)
         elif "user_id" in metadata:
             _handle_attorney_subscription_completed(session, object_body)
-    elif event_type in ("customer.subscription.deleted", "invoice.payment_failed") and object_body:
+    elif event_type == "customer.subscription.deleted" and object_body:
         _handle_attorney_subscription_lapsed(session, object_body)
 
     # Real gap found during a full-scope re-audit: the marker row used
@@ -362,6 +384,17 @@ async def forum_stripe_webhook(
     # a failure anywhere rolls back the whole event — marker included —
     # so Stripe's automatic retry gets a genuine second attempt.
     session.add(ProcessedStripeEvent(stripe_event_id=event_id))
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Two deliveries of the same event landed concurrently and both
+        # passed the _already_processed check above before either
+        # committed — the marker's unique constraint is the real guard.
+        # The handler's own writes above are staged in this same
+        # transaction, so the rollback here discards them too; the
+        # winning request already committed the real state change.
+        session.rollback()
+        logger.info("Stripe event %s already processed — skipping duplicate delivery", event_id)
+        return {"received": True, "duplicate": True}
 
     return {"received": True}

@@ -40,6 +40,15 @@ class EvidenceAttachment(SQLModel, table=True):
     file_url: str
     file_type: FileType
     size_bytes: int
+    # Real gap found during a full-scope re-audit: the GCS object name is
+    # deliberately a random UUID, never the client-supplied filename
+    # (generate_upload_url's own comment — path traversal / collision
+    # risk), which is correct, but it meant the UI had nothing to display
+    # except that raw UUID where a filename belongs. Storing the
+    # client's original filename here (display-only, never used to build
+    # a storage path) fixes that without touching the security property.
+    # Nullable for rows created before this column existed.
+    original_filename: str | None = Field(default=None, max_length=255)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True)),

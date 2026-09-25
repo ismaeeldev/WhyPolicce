@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import { useRef } from "react";
 
 import { ApiError, apiFetch } from "@/lib/api-client";
 import { useToastStore } from "@/stores/useToastStore";
@@ -28,7 +29,17 @@ function isCheckoutNotConfigured(error: unknown): boolean {
 
 export function useInquiryUpgradeCheckout() {
   const showToast = useToastStore((s) => s.show);
-  return useMutation({
+  // Real gap found during a payment-feature audit: disabled={isPending}
+  // alone doesn't close the synchronous double-click window — a real
+  // double-click (or a fast double-tap on mobile) can fire mutate()
+  // twice before React's re-render reflecting isPending=true commits,
+  // each creating its own real Stripe Checkout session before the
+  // first redirect happens. A plain ref-based lock closes that race
+  // immediately, synchronously, on the very first call — matching the
+  // exact pattern already established for consequential mutations
+  // elsewhere (app/inquiries/new/page.tsx, BecomeAttorneyDialog.tsx).
+  const lockRef = useRef(false);
+  const mutation = useMutation({
     mutationFn: (inquiryId: string) =>
       apiFetch<{ checkoutUrl: string }>("/api/v1/billing/checkout/inquiry-upgrade", {
         method: "POST",
@@ -38,6 +49,7 @@ export function useInquiryUpgradeCheckout() {
       window.location.href = checkoutUrl;
     },
     onError: (error) => {
+      lockRef.current = false;
       showToast(
         isCheckoutNotConfigured(error)
           ? "Upgrades aren't fully set up yet — check back soon."
@@ -45,11 +57,20 @@ export function useInquiryUpgradeCheckout() {
       );
     },
   });
+  return {
+    ...mutation,
+    mutate: (inquiryId: string) => {
+      if (lockRef.current) return;
+      lockRef.current = true;
+      mutation.mutate(inquiryId);
+    },
+  };
 }
 
 export function useAttorneySubscriptionCheckout() {
   const showToast = useToastStore((s) => s.show);
-  return useMutation({
+  const lockRef = useRef(false);
+  const mutation = useMutation({
     mutationFn: () =>
       apiFetch<{ checkoutUrl: string }>("/api/v1/billing/checkout/attorney-subscription", {
         method: "POST",
@@ -58,6 +79,7 @@ export function useAttorneySubscriptionCheckout() {
       window.location.href = checkoutUrl;
     },
     onError: (error) => {
+      lockRef.current = false;
       showToast(
         isCheckoutNotConfigured(error)
           ? "Subscriptions aren't fully set up yet — check back soon."
@@ -65,4 +87,12 @@ export function useAttorneySubscriptionCheckout() {
       );
     },
   });
+  return {
+    ...mutation,
+    mutate: () => {
+      if (lockRef.current) return;
+      lockRef.current = true;
+      mutation.mutate();
+    },
+  };
 }

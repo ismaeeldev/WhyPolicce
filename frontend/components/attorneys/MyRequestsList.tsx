@@ -3,6 +3,7 @@
 import { Check, Clock, X } from "lucide-react";
 import Link from "next/link";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMyConsultationRequests, type AttorneyRequestStatus } from "@/hooks/useConsultationRequests";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -35,20 +36,34 @@ const STATUS_CONFIG: Record<AttorneyRequestStatus, { label: string; className: s
  * (§4.6's badge pattern).
  */
 export function MyRequestsList() {
-  const { data, isLoading, isError } = useMyConsultationRequests();
+  const { data, isLoading, isError, refetch } = useMyConsultationRequests();
 
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-16 animate-pulse rounded-sm border border-border-default bg-bg-elevated" />
+          <Skeleton key={i} className="h-16 w-full rounded-sm" />
         ))}
       </div>
     );
   }
 
   if (isError) {
-    return <p className="text-body-sm text-text-muted">Couldn&apos;t load your requests.</p>;
+    // Real gap found during a state-handling audit: every other error
+    // surface in this app (feed, my-inquiries, admin, thread) has a
+    // working retry button — this was a bare sentence with none.
+    return (
+      <div className="rounded-md border border-danger bg-danger-subtle p-4 text-center">
+        <p className="text-body-sm text-text-primary mb-2">Couldn&apos;t load your requests.</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="rounded-sm px-4 py-2 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 
   if (!data || data.items.length === 0) {
@@ -76,8 +91,8 @@ export function MyRequestsList() {
                 {request.inquiry.title}
               </Link>
               <p className="text-caption text-text-muted">
-                {request.inquiry.city}, {request.inquiry.state} &middot;{" "}
-                {dateFormatter.format(new Date(request.createdAt))}
+                {request.inquiry.city}, {request.inquiry.state}{" "}
+                <span aria-hidden="true">&middot;</span> {dateFormatter.format(new Date(request.createdAt))}
               </p>
             </div>
             <span

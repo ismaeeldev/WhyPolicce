@@ -3,6 +3,7 @@
 import { Flag } from "lucide-react";
 import { useState } from "react";
 
+import { ApiError } from "@/lib/api-client";
 import { useReportContent } from "@/hooks/useReportContent";
 import { useToastStore } from "@/stores/useToastStore";
 
@@ -45,8 +46,22 @@ export function ReportButton({
           setReason("");
           showToast("Report submitted");
         },
-        onError: () => {
-          setError("This content may have been removed. Please refresh and try again.");
+        onError: (err) => {
+          // Real bug found during a state-handling audit: every failure
+          // — including a logged-out visitor's real 401 (reading the
+          // forum needs no login, so this is a common path to hit this
+          // button at all) or a rate-limit 429 — was hardcoded to a
+          // 404-flavored "content may have been removed" message. A
+          // logged-out user got told to refresh, did, found the
+          // content still there, and reasonably concluded the button
+          // was broken.
+          if (err instanceof ApiError && err.status === 401) {
+            setError("Sign in to report content.");
+          } else if (err instanceof ApiError && err.status === 404) {
+            setError("This content may have been removed. Please refresh and try again.");
+          } else {
+            setError(err instanceof ApiError ? err.message : "Couldn't submit that report. Try again.");
+          }
         },
       },
     );
@@ -57,7 +72,7 @@ export function ReportButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1 rounded-sm px-1.5 py-1 text-caption text-text-muted transition-colors hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+        className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-caption text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
       >
         <Flag className="h-3 w-3" />
         Report

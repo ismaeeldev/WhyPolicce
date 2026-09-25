@@ -215,7 +215,9 @@ class TestRegisterAttachmentWithGCSConfigured:
         created = _create_inquiry(client).json()
         with patch("app.routers.media.media_service.is_configured", return_value=True), patch(
             "app.routers.media.media_service.blob_exists_for_bucket", return_value=True
-        ), patch("app.routers.media.media_service.sniff_matches_claimed_type", return_value=True):
+        ), patch(
+            "app.routers.media.media_service.sniff_matches_claimed_type", return_value=True
+        ), patch("app.routers.media.media_service.get_blob_size", return_value=1024):
             res = client.post(
                 f"/api/v1/inquiries/{created['id']}/attachments",
                 json={"file_url": "https://storage.googleapis.com/bucket/real-obj", "file_type": "image", "size_bytes": 1024},
@@ -252,6 +254,31 @@ class TestRegisterAttachmentWithGCSConfigured:
             )
         assert res.status_code == 422
         assert res.json()["error"] == "invalid_file_url"
+
+    def test_real_gcs_size_overrides_client_reported_size(self, client: TestClient):
+        """Real gap found during a full-scope re-audit: size_bytes used to
+        be trusted straight from the client with no verification. A
+        client under-reporting a 1024-byte size for a blob that's
+        actually well over the free tier's 5MB cap must be rejected using
+        the REAL size, not the claimed one — and if it were accepted
+        under a different tier, the stored size_bytes must be the real
+        GCS size, not the client's claim."""
+        created = _create_inquiry(client).json()
+        with patch("app.routers.media.media_service.is_configured", return_value=True), patch(
+            "app.routers.media.media_service.blob_exists_for_bucket", return_value=True
+        ), patch(
+            "app.routers.media.media_service.sniff_matches_claimed_type", return_value=True
+        ), patch("app.routers.media.media_service.get_blob_size", return_value=6 * 1024 * 1024):
+            res = client.post(
+                f"/api/v1/inquiries/{created['id']}/attachments",
+                json={
+                    "file_url": "https://storage.googleapis.com/bucket/under-reported",
+                    "file_type": "image",
+                    "size_bytes": 1024,
+                },
+            )
+        assert res.status_code == 403
+        assert res.json()["error"] == "upgrade_required"
 
     def test_deleted_inquiry_mid_upload_cannot_create_orphaned_attachment(self, client: TestClient):
         """Bug Fix adversarial scenario: an upload starts, then the parent
@@ -291,7 +318,9 @@ class TestGetInquiryExposesAttachments:
         created = _create_inquiry(client).json()
         with patch("app.routers.media.media_service.is_configured", return_value=True), patch(
             "app.routers.media.media_service.blob_exists_for_bucket", return_value=True
-        ), patch("app.routers.media.media_service.sniff_matches_claimed_type", return_value=True):
+        ), patch(
+            "app.routers.media.media_service.sniff_matches_claimed_type", return_value=True
+        ), patch("app.routers.media.media_service.get_blob_size", return_value=1024):
             client.post(
                 f"/api/v1/inquiries/{created['id']}/attachments",
                 json={"file_url": "https://storage.googleapis.com/bucket/visible-obj", "file_type": "image", "size_bytes": 2048},
@@ -314,7 +343,9 @@ class TestGetInquiryExposesAttachments:
         created = _create_inquiry(client).json()
         with patch("app.routers.media.media_service.is_configured", return_value=True), patch(
             "app.routers.media.media_service.blob_exists_for_bucket", return_value=True
-        ), patch("app.routers.media.media_service.sniff_matches_claimed_type", return_value=True):
+        ), patch(
+            "app.routers.media.media_service.sniff_matches_claimed_type", return_value=True
+        ), patch("app.routers.media.media_service.get_blob_size", return_value=1024):
             client.post(
                 f"/api/v1/inquiries/{created['id']}/attachments",
                 json={"file_url": "https://storage.googleapis.com/bucket/public-obj", "file_type": "document", "size_bytes": 512},
@@ -336,7 +367,9 @@ class TestDeleteAttachment:
         created = _create_inquiry(client).json()
         with patch("app.routers.media.media_service.is_configured", return_value=True), patch(
             "app.routers.media.media_service.blob_exists_for_bucket", return_value=True
-        ), patch("app.routers.media.media_service.sniff_matches_claimed_type", return_value=True):
+        ), patch(
+            "app.routers.media.media_service.sniff_matches_claimed_type", return_value=True
+        ), patch("app.routers.media.media_service.get_blob_size", return_value=1024):
             reg = client.post(
                 f"/api/v1/inquiries/{created['id']}/attachments",
                 json={"file_url": "https://storage.googleapis.com/bucket/to-delete", "file_type": "image", "size_bytes": 1024},
@@ -364,7 +397,9 @@ class TestDeleteAttachment:
         created = _create_inquiry(client).json()
         with patch("app.routers.media.media_service.is_configured", return_value=True), patch(
             "app.routers.media.media_service.blob_exists_for_bucket", return_value=True
-        ), patch("app.routers.media.media_service.sniff_matches_claimed_type", return_value=True):
+        ), patch(
+            "app.routers.media.media_service.sniff_matches_claimed_type", return_value=True
+        ), patch("app.routers.media.media_service.get_blob_size", return_value=1024):
             reg = client.post(
                 f"/api/v1/inquiries/{created['id']}/attachments",
                 json={"file_url": "https://storage.googleapis.com/bucket/protected", "file_type": "image", "size_bytes": 1024},

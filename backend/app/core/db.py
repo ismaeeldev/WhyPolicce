@@ -78,7 +78,18 @@ def get_session() -> Generator[Session, None, None]:
     if engine is None:
         raise RuntimeError("DATABASE_URL is not configured — set it in backend/.env")
     with Session(engine) as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            # Explicit, not relying on Session.close()'s own implicit
+            # rollback-of-unflushed-work on context-manager exit — a
+            # route that catches its own exception (to build a clean
+            # error response) and re-raises, or one that partially
+            # commits before a later failure, should never leave a
+            # half-applied transaction for the next request on a
+            # pooled connection.
+            session.rollback()
+            raise
 
 
 def create_db_and_tables() -> None:

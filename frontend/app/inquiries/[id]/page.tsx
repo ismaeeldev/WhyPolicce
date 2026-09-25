@@ -12,7 +12,9 @@ import { InquiryEditDeleteControls } from "@/components/inquiries/InquiryEditDel
 import { InquiryEditForm } from "@/components/inquiries/InquiryEditForm";
 import { ReportButton } from "@/components/inquiries/ReportButton";
 import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
+import { NotFoundContent } from "@/components/shared/NotFoundContent";
 import { StatusPill } from "@/components/feed/StatusPill";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api-client";
 import { useFollowInquiry, useUnfollowInquiry } from "@/hooks/useFollowInquiry";
 import { useInquiryUpgradeCheckout } from "@/hooks/useForumBilling";
@@ -53,10 +55,28 @@ export default function ThreadPage() {
   const searchParams = useSearchParams();
   const showToast = useToastStore((s) => s.show);
 
-  const { data: inquiry, isLoading: inquiryLoading, isError: inquiryError, refetch: refetchInquiry } =
-    useInquiry(inquiryId);
-  const { data: thread, isLoading: threadLoading, isError: threadError, refetch: refetchThread } =
-    useThread(inquiryId);
+  const {
+    data: inquiry,
+    isLoading: inquiryLoading,
+    isError: inquiryError,
+    error: inquiryErrorObj,
+    refetch: refetchInquiry,
+  } = useInquiry(inquiryId);
+  const {
+    data: threadPages,
+    isLoading: threadLoading,
+    isError: threadError,
+    refetch: refetchThread,
+    hasNextPage: threadHasNextPage,
+    fetchNextPage: fetchNextThreadPage,
+    isFetchingNextPage: threadFetchingNextPage,
+  } = useThread(inquiryId);
+  const thread = threadPages
+    ? {
+        items: threadPages.pages.flatMap((p) => p.items),
+        total: threadPages.pages[0]?.total ?? 0,
+      }
+    : undefined;
   // Real bug found during a full-scope re-audit: Edit/Delete controls on
   // each comment were rendered completely unconditionally, for every
   // visitor, on every comment — including comments other users wrote.
@@ -93,18 +113,43 @@ export default function ThreadPage() {
   const updateComment = useUpdateComment(inquiryId);
 
   if (inquiryLoading || threadLoading) {
+    // Real gap found during a UI audit: this used to be one small
+    // block (title+description only), then the full page — comments,
+    // evidence, buttons — popped in beneath it all at once once loaded,
+    // a real layout shift from ~150px to 1000px+ on a real thread. Sized
+    // closer to the eventual layout, including a few comment-row
+    // placeholders, so the swap doesn't jump the page around.
     return (
       <div className="mx-auto w-full max-w-[760px] px-5 sm:px-6 py-12 sm:py-16">
-        <div className="animate-pulse">
-          <div className="h-5 w-32 rounded-full bg-bg-subtle" />
-          <div className="mt-4 h-8 w-3/4 rounded bg-bg-subtle" />
-          <div className="mt-6 h-24 w-full rounded bg-bg-subtle" />
+        <div className="rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6">
+          <Skeleton className="h-5 w-32 rounded-full" />
+          <Skeleton className="mt-4 h-8 w-3/4" />
+          <Skeleton className="mt-6 h-24 w-full" />
+        </div>
+        <div className="mt-8 flex flex-col gap-3">
+          <Skeleton className="h-4 w-24" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
         </div>
       </div>
     );
   }
 
   if (inquiryError || !inquiry) {
+    // Real bug found during a state-handling audit: this collapsed
+    // "the network/backend failed" and "this inquiry was deleted or
+    // never existed" into one message with a retry button that can
+    // never succeed for the second case — a user following a stale
+    // link to a deleted inquiry got a "Try again" they could click
+    // forever. A 404 is a genuinely different, permanent outcome from
+    // a transient failure; distinguished here via ApiError.status,
+    // reusing the app's own real 404 page content instead of a
+    // dead-end retry loop.
+    const isNotFound = inquiryErrorObj instanceof ApiError && inquiryErrorObj.status === 404;
+    if (isNotFound) {
+      return <NotFoundContent />;
+    }
     return (
       <div className="mx-auto w-full max-w-[760px] px-5 sm:px-6 py-12 sm:py-16">
         <div className="rounded-md border border-danger bg-danger-subtle p-5 text-center">
@@ -186,12 +231,11 @@ export default function ThreadPage() {
           transition={{ duration: 0.3, ease: EASE }}
           className="group relative rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6"
         >
-          {inquiry.isAuthor && (
-            <InquiryEditDeleteControls inquiryId={inquiry.id} onEditClick={() => setEditingInquiry(true)} />
-          )}
-
           <div className="flex items-center justify-between gap-3">
             <StatusPill status={inquiry.statusTag} />
+            {inquiry.isAuthor && (
+              <InquiryEditDeleteControls inquiryId={inquiry.id} onEditClick={() => setEditingInquiry(true)} />
+            )}
           </div>
 
           <p className="mt-4 mb-1.5 text-caption font-medium uppercase tracking-wide text-text-muted">
@@ -211,7 +255,7 @@ export default function ThreadPage() {
 
           {inquiry.isAuthor ? (
             <div className="mt-4">
-              <EvidenceUploadField inquiryId={inquiry.id} attachments={inquiry.attachments ?? []} />
+              <EvidenceUploadField inquiryId={inquiry.id} attachments={inquiry.attachments ?? []} tier={inquiry.tier} />
             </div>
           ) : (
             inquiry.attachments && inquiry.attachments.length > 0 && (
@@ -279,9 +323,17 @@ export default function ThreadPage() {
       )}
 
       <div className="mt-8">
-        <p className="mb-3 text-caption font-medium uppercase tracking-wide text-text-muted">
-          {thread?.total ?? 0} {thread?.total === 1 ? "comment" : "comments"}
-        </p>
+        {/* Real bug found during a state-handling audit: this always
+            rendered "{thread?.total ?? 0} comments" — on a real thread-
+            load failure that read as a confident "0 comments" directly
+            above the error box below it, when the true count might be
+            in the dozens. Only shown once the thread has actually
+            loaded. */}
+        {!threadError && (
+          <p className="mb-3 text-caption font-medium uppercase tracking-wide text-text-muted">
+            {thread?.total ?? 0} {thread?.total === 1 ? "comment" : "comments"}
+          </p>
+        )}
 
         {threadError && (
           <div className="rounded-md border border-danger bg-danger-subtle p-4 text-center">
@@ -289,7 +341,7 @@ export default function ThreadPage() {
             <button
               type="button"
               onClick={() => refetchThread()}
-              className="text-body-sm font-medium text-text-primary hover:underline"
+              className="rounded-sm px-4 py-2 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
             >
               Try again
             </button>
@@ -316,7 +368,7 @@ export default function ThreadPage() {
                       type="button"
                       onClick={saveCommentEdit}
                       disabled={updateComment.isPending || !editDraft.trim()}
-                      className="rounded-sm bg-accent px-3 py-1.5 text-caption font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                      className="rounded-sm bg-accent px-3 py-1.5 text-caption font-medium text-accent-foreground hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
                     >
                       Save
                     </button>
@@ -355,30 +407,51 @@ export default function ThreadPage() {
           {thread && thread.items.length === 0 && !threadError && (
             <p className="text-body-sm text-text-muted">No comments yet. Be the first to reply.</p>
           )}
+
+          {threadHasNextPage && (
+            <button
+              type="button"
+              onClick={() => fetchNextThreadPage()}
+              disabled={threadFetchingNextPage}
+              className="self-center rounded-sm border border-border-strong px-4 py-2 text-body-sm font-medium text-text-primary transition-colors hover:bg-bg-subtle disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            >
+              {threadFetchingNextPage ? "Loading…" : "Load more comments"}
+            </button>
+          )}
         </div>
 
-        <div className="mt-6">
-          <textarea
-            value={commentDraft}
-            onChange={(e) => setCommentDraft(e.target.value)}
-            placeholder="Add a comment…"
-            rows={3}
-            className="w-full rounded-sm border border-border-default bg-bg-elevated px-3.5 py-2.5 text-body text-text-primary outline-none resize-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
-          />
-          {commentError && (
-            <div className="mt-2 rounded-md border border-danger bg-danger-subtle p-3">
-              <p className="text-body-sm text-text-primary">{commentError}</p>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={handlePostComment}
-            disabled={!commentDraft.trim() || createComment.isPending}
-            className="mt-2 rounded-sm bg-accent px-4 py-2 text-body-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-bg-subtle disabled:text-text-muted disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-          >
-            {createComment.isPending ? "Posting…" : "Post Comment"}
-          </button>
-        </div>
+        {/* Real bug found during a state-handling audit: this compose
+            box stayed fully enabled even while the thread itself failed
+            to load. Posting still succeeded server-side, but the
+            success invalidation just re-ran the SAME failing thread
+            query, so the user's own comment never appeared — they'd
+            reasonably conclude the post failed and try again,
+            duplicating it. Hidden entirely while the thread can't be
+            displayed; the error box above already offers Try again. */}
+        {!threadError && (
+          <div className="mt-6">
+            <textarea
+              value={commentDraft}
+              onChange={(e) => setCommentDraft(e.target.value)}
+              placeholder="Add a comment…"
+              rows={3}
+              className="w-full rounded-sm border border-border-default bg-bg-elevated px-3.5 py-2.5 text-body text-text-primary outline-none resize-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
+            />
+            {commentError && (
+              <div className="mt-2 rounded-md border border-danger bg-danger-subtle p-3">
+                <p className="text-body-sm text-text-primary">{commentError}</p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handlePostComment}
+              disabled={!commentDraft.trim() || createComment.isPending}
+              className="mt-2 rounded-sm bg-accent px-4 py-2 text-body-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-bg-subtle disabled:text-text-muted disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            >
+              {createComment.isPending ? "Posting…" : "Post Comment"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

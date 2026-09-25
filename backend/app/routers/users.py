@@ -103,22 +103,30 @@ def become_attorney(
     problem as every other "re-apply the same action" case in this
     codebase — resubmitting corrected bar info before an admin has acted
     is normal usage, not an error) — but rejects outright if the account
-    is already an attorney with a decided (approved/rejected) status,
-    since silently overwriting a real admin decision with a brand-new
-    "pending" state would erase that decision without anyone asking for
-    it to be reconsidered.
+    is already an APPROVED attorney, since silently overwriting a real
+    admin decision with a brand-new "pending" state would erase that
+    decision without anyone asking for it to be reconsidered.
+
+    Real gap found during a full-scope re-audit: a REJECTED attorney had
+    no path back at all — this used to 400 "already_decided" the exact
+    same way for rejected as for approved, a genuine dead end flagged as
+    an open product question in the build guide and never resolved. A
+    rejected applicant deserves the chance to reapply (e.g. with
+    corrected bar info, or after actually passing the bar since their
+    first attempt) — resubmitting moves them back to "pending" for a
+    real admin to re-review, same as the pending-resubmission case
+    above. Only an already-APPROVED attorney is still blocked, since
+    that's the one case where silently discarding a real decision would
+    be wrong.
     """
     user = _get_or_create_user(session, current)
 
-    if user.role == Role.attorney and user.verification_status in (
-        VerificationStatus.approved,
-        VerificationStatus.rejected,
-    ):
+    if user.role == Role.attorney and user.verification_status == VerificationStatus.approved:
         raise HTTPException(
             status_code=400,
             detail={
                 "error": "already_decided",
-                "message": f"This account's attorney application was already {user.verification_status.value}.",
+                "message": "This account's attorney application was already approved.",
             },
         )
 

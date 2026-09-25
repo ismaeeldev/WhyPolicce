@@ -93,6 +93,55 @@ def blob_exists_for_bucket(file_url: str) -> bool:
     return bucket.blob(object_name).exists()
 
 
+def get_blob_size(file_url: str) -> int | None:
+    """The real, authoritative byte size of the uploaded blob — the
+    attachments-registration endpoint uses this instead of trusting the
+    client-reported size_bytes, which a malicious or buggy client could
+    under-report to slip a much larger file past the free/expanded tier's
+    cumulative-byte cap. Returns None if the URL isn't shaped like our
+    own bucket's public URL or the blob metadata can't be read (caller
+    treats that the same as blob_exists_for_bucket returning False)."""
+    if not is_configured():
+        raise RuntimeError("GCS is not configured — call is_configured() first")
+
+    prefix = f"https://storage.googleapis.com/{settings.GCS_BUCKET_NAME}/"
+    if not file_url.startswith(prefix):
+        return None
+    object_name = file_url[len(prefix):]
+
+    client = storage.Client.from_service_account_json(settings.GCS_SERVICE_ACCOUNT_JSON_PATH)
+    bucket = client.bucket(settings.GCS_BUCKET_NAME)
+    blob = bucket.blob(object_name)
+    blob.reload()
+    return blob.size
+
+
+def list_evidence_blobs(*, older_than: "datetime.datetime | None" = None) -> list[str]:
+    """Lists every object under the evidence/ prefix (every uploaded
+    file, across every inquiry/file-type subfolder), returned as full
+    public file_urls in the exact shape evidence_attachments.file_url
+    stores them — so callers can diff this list against real DB rows.
+
+    older_than optionally filters to only blobs whose creation time is
+    at or before that timestamp — used by the orphan-cleanup job to
+    apply a grace period, so a genuinely in-flight upload (GCS PUT
+    already succeeded, but the client hasn't called the register-
+    attachment endpoint yet, which is exactly the window
+    EvidenceUploadField's own progress bar spans) is never mistaken for
+    an orphan."""
+    if not is_configured():
+        raise RuntimeError("GCS is not configured — call is_configured() first")
+
+    client = storage.Client.from_service_account_json(settings.GCS_SERVICE_ACCOUNT_JSON_PATH)
+    bucket_name = settings.GCS_BUCKET_NAME
+    urls = []
+    for blob in client.list_blobs(bucket_name, prefix="evidence/"):
+        if older_than is not None and blob.time_created is not None and blob.time_created > older_than:
+            continue
+        urls.append(f"https://storage.googleapis.com/{bucket_name}/{blob.name}")
+    return urls
+
+
 def delete_blob(file_url: str) -> None:
     """Real gap found during a full-scope re-audit: the attachments-
     delete endpoint used to only remove the DB row, deliberately leaving

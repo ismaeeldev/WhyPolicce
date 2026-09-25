@@ -20,10 +20,11 @@ export type AdminMe = {
   email?: string | null;
 };
 
-export function useAdminMe() {
+export function useAdminMe(options?: { enabled?: boolean }) {
   return useQuery<AdminMe>({
     queryKey: ["admin", "me"],
     queryFn: () => apiFetch<AdminMe>("/api/v1/admin/me"),
+    enabled: options?.enabled,
   });
 }
 
@@ -31,6 +32,13 @@ export type AdminDashboard = {
   pendingAttorneys: number;
   approvedAttorneys: number;
   rejectedAttorneys: number;
+  // Real correctness gap found by a production-readiness audit: a
+  // role=attorney row can (in principle, via a future revoke action
+  // or a manual data fix — never the normal signup path) have a null
+  // verification_status, invisible to all three buckets above. Rather
+  // than silently under-report, the backend surfaces the count here so
+  // it's never hidden.
+  unknownStatusAttorneys: number;
   openReports: number;
 };
 
@@ -59,15 +67,19 @@ export type AdminAttorneysPage = {
   offset: number;
 };
 
-export function useAdminAttorneys(status: VerificationStatus | "all") {
+export const ADMIN_PAGE_SIZE = 20;
+
+export function useAdminAttorneys(status: VerificationStatus | "all", offset: number) {
   return useQuery<AdminAttorneysPage>({
-    queryKey: ["admin", "attorneys", status],
+    queryKey: ["admin", "attorneys", status, offset],
     queryFn: () => {
       const params = new URLSearchParams();
       if (status !== "all") params.set("status", status);
-      params.set("limit", "100");
+      params.set("limit", String(ADMIN_PAGE_SIZE));
+      params.set("offset", String(offset));
       return apiFetch<AdminAttorneysPage>(`/api/v1/admin/attorneys?${params.toString()}`);
     },
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -111,10 +123,12 @@ export type AdminReportsPage = {
   offset: number;
 };
 
-export function useAdminReports() {
+export function useAdminReports(offset: number) {
   return useQuery<AdminReportsPage>({
-    queryKey: ["admin", "reports"],
-    queryFn: () => apiFetch<AdminReportsPage>("/api/v1/admin/reports?limit=100"),
+    queryKey: ["admin", "reports", offset],
+    queryFn: () =>
+      apiFetch<AdminReportsPage>(`/api/v1/admin/reports?limit=${ADMIN_PAGE_SIZE}&offset=${offset}`),
+    placeholderData: (previousData) => previousData,
   });
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   Dialog,
@@ -28,21 +28,58 @@ export function BecomeAttorneyDialog({
   const [jurisdiction, setJurisdiction] = useState("");
   const [touched, setTouched] = useState(false);
   const mutation = useBecomeAttorney();
+  // Real gap found during a state-handling audit: disabled={isPending}
+  // alone doesn't close the synchronous double-click window — React
+  // state updates aren't synchronous, so two rapid clicks can both fire
+  // mutate() before the first render reflecting isPending=true commits.
+  // This mutation changes the account's role, so a duplicate POST is
+  // more consequential than most; app/inquiries/new/page.tsx already
+  // established this exact ref-lock pattern for the same reason.
+  const submitLockRef = useRef(false);
+
+  // Radix keeps DialogContent mounted (just hidden) across open/close, so
+  // this component never remounts — without resetting here, closing after
+  // a failed or partially-filled submission and reopening later shows
+  // stale input/error state instead of a fresh form. Routed through this
+  // wrapper (not a useEffect on `open`) since both the Cancel button and
+  // Radix's own close paths (Escape, overlay click) call onOpenChange.
+  const handleOpenChange = (next: boolean) => {
+    // Block close while a submit is in-flight (Escape/overlay-click can
+    // still fire onOpenChange even with the buttons disabled) — closing
+    // here would reset state out from under the pending mutation, whose
+    // onSuccess/onError would then fire against an already-reset dialog.
+    if (!next && mutation.isPending) return;
+    if (!next) {
+      setBarNo("");
+      setJurisdiction("");
+      setTouched(false);
+      submitLockRef.current = false;
+      mutation.reset();
+    }
+    onOpenChange(next);
+  };
 
   const barNoError = touched && !barNo.trim() ? "Bar number is required." : null;
   const jurisdictionError = touched && !jurisdiction.trim() ? "Jurisdiction is required." : null;
 
   const handleSubmit = () => {
+    if (submitLockRef.current) return;
     setTouched(true);
     if (!barNo.trim() || !jurisdiction.trim()) return;
+    submitLockRef.current = true;
     mutation.mutate(
       { barNo: barNo.trim(), jurisdiction: jurisdiction.trim() },
-      { onSuccess: () => onOpenChange(false) },
+      {
+        onSuccess: () => handleOpenChange(false),
+        onError: () => {
+          submitLockRef.current = false;
+        },
+      },
     );
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="bg-bg-elevated rounded-lg max-w-[440px]">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">Become an Attorney</DialogTitle>
@@ -93,7 +130,7 @@ export function BecomeAttorneyDialog({
           </div>
 
           {mutation.isError && (
-            <p className="text-caption text-danger">
+            <p className="min-h-[1.25rem] text-caption text-danger">
               {mutation.error instanceof Error
                 ? mutation.error.message
                 : "Something went wrong. Please try again."}
@@ -104,7 +141,7 @@ export function BecomeAttorneyDialog({
         <DialogFooter className="bg-transparent border-t-0 p-0 mx-0 mb-0">
           <button
             type="button"
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             className="rounded-sm px-4 py-2.5 text-body-sm text-text-secondary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
           >
             Cancel

@@ -65,7 +65,12 @@ export function useEvidenceUpload(inquiryId: string) {
 
       return apiFetch(`/api/v1/inquiries/${inquiryId}/attachments`, {
         method: "POST",
-        body: JSON.stringify({ file_url: fileUrl, file_type: fileType, size_bytes: file.size }),
+        body: JSON.stringify({
+          file_url: fileUrl,
+          file_type: fileType,
+          size_bytes: file.size,
+          original_filename: file.name || undefined,
+        }),
       });
     },
     onSuccess: () => {

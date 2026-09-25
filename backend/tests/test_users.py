@@ -86,7 +86,26 @@ class TestBecomeAttorney:
         assert res.status_code == 400
         assert res.json()["error"] == "already_decided"
 
-    def test_reapplying_after_rejection_is_rejected(self, client: TestClient, session: Session):
+    def test_reapplying_after_approval_is_rejected(self, client: TestClient, session: Session):
+        client.get("/api/me")
+        user = session.exec(select(User).where(User.auth0_sub == TEST_USER.auth0_sub)).first()
+        user.role = Role.attorney
+        user.verification_status = VerificationStatus.approved
+        session.add(user)
+        session.commit()
+
+        res = client.post(
+            "/api/me/become-attorney", json={"bar_no": "NY999", "jurisdiction": "New York"}
+        )
+        assert res.status_code == 400
+        assert res.json()["error"] == "already_decided"
+
+    def test_reapplying_after_rejection_is_allowed(self, client: TestClient, session: Session):
+        """Real gap found during a full-scope re-audit: a rejected
+        attorney had no path back at all — flagged as an open product
+        question in the build guide and never resolved. Resubmitting
+        must move the account back to pending for a real admin to
+        re-review, not stay permanently rejected."""
         client.get("/api/me")
         user = session.exec(select(User).where(User.auth0_sub == TEST_USER.auth0_sub)).first()
         user.role = Role.attorney
@@ -97,8 +116,12 @@ class TestBecomeAttorney:
         res = client.post(
             "/api/me/become-attorney", json={"bar_no": "NY999", "jurisdiction": "New York"}
         )
-        assert res.status_code == 400
-        assert res.json()["error"] == "already_decided"
+        assert res.status_code == 200, res.text
+        assert res.json()["verificationStatus"] == "pending"
+
+        session.refresh(user)
+        assert user.verification_status == VerificationStatus.pending
+        assert user.verified_bar_no == "NY999"
 
     def test_empty_jurisdiction_returns_validation_error(self, client: TestClient):
         client.get("/api/me")

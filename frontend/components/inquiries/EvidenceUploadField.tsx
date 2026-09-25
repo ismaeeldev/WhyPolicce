@@ -6,9 +6,18 @@ import { useRef, useState } from "react";
 import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
 import { ApiError } from "@/lib/api-client";
 import { useDeleteAttachment, useEvidenceUpload } from "@/hooks/useEvidenceUpload";
+import { useInquiryUpgradeCheckout } from "@/hooks/useForumBilling";
 import type { EvidenceAttachment } from "@/hooks/useInquiries";
 
 const ICONS = { image: ImageIcon, video: FileVideo, document: File } as const;
+
+// Mirrors backend/app/routers/media.py's _TIER_LIMITS exactly — this is
+// a fast-fail UX check only, not the real gate (the backend re-enforces
+// this against the real GCS-verified size, never trusting the client).
+const TIER_LIMITS = {
+  free: { maxFiles: 1, maxTotalBytes: 5 * 1024 * 1024 },
+  expanded: { maxFiles: 5, maxTotalBytes: 50 * 1024 * 1024 },
+} as const;
 
 function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -26,15 +35,18 @@ function formatSize(bytes: number): string {
 export function EvidenceUploadField({
   inquiryId,
   attachments,
+  tier,
 }: {
   inquiryId: string;
   attachments: EvidenceAttachment[];
+  tier: "free" | "expanded";
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const upload = useEvidenceUpload(inquiryId);
   const deleteAttachment = useDeleteAttachment(inquiryId);
+  const inquiryUpgradeCheckout = useInquiryUpgradeCheckout();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,6 +54,20 @@ export function EvidenceUploadField({
     if (!file) return;
 
     setError(null);
+
+    // Fast-fail before round-tripping to the server — the backend still
+    // re-enforces this against the real GCS-verified size (never trusts
+    // the client), so this is a UX improvement only, not the real gate.
+    const limits = TIER_LIMITS[tier];
+    const existingTotalBytes = attachments.reduce((sum, a) => sum + a.sizeBytes, 0);
+    if (
+      attachments.length + 1 > limits.maxFiles ||
+      existingTotalBytes + file.size > limits.maxTotalBytes
+    ) {
+      setUpgradeModalOpen(true);
+      return;
+    }
+
     upload.mutate(file, {
       onError: (err) => {
         if (err instanceof ApiError && err.code === "upgrade_required") {
@@ -70,7 +96,7 @@ export function EvidenceUploadField({
               >
                 <Icon className="h-4 w-4 shrink-0 text-text-muted" strokeWidth={1.5} />
                 <span className="min-w-0 flex-1 truncate text-body-sm text-text-primary">
-                  {a.fileUrl.split("/").pop()}
+                  {a.originalFilename ?? a.fileUrl.split("/").pop()}
                 </span>
                 <span className="shrink-0 text-caption text-text-muted tabular-nums">
                   {formatSize(a.sizeBytes)}
@@ -88,7 +114,18 @@ export function EvidenceUploadField({
                   disabled={deleteAttachment.isPending}
                   className="shrink-0 rounded-sm p-1 text-text-muted transition-colors hover:text-danger disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  {/* Real gap found during a state-handling audit:
+                      deleteAttachment.isPending is shared across every
+                      row's own button, so deleting one attachment
+                      greyed out ALL of them with no way to tell which
+                      one was actually being removed on a 3+ file
+                      inquiry. Only the row whose own id matches the
+                      in-flight mutation's variables shows the spinner. */}
+                  {deleteAttachment.isPending && deleteAttachment.variables === a.id ? (
+                    <span className="block h-3.5 w-3.5 animate-spin rounded-full border-2 border-border-strong border-t-danger" />
+                  ) : (
+                    <X className="h-3.5 w-3.5" />
+                  )}
                 </button>
               </li>
             );
@@ -135,11 +172,23 @@ export function EvidenceUploadField({
 
       {error && <p className="mt-2 text-caption text-danger">{error}</p>}
 
+      {/* Real gap found during a payment-feature audit: this modal had
+          no primaryAction — a citizen hitting the free-tier evidence
+          limit saw "This inquiry needs the $2.99 upgrade" with no
+          actual way to pay from this screen, a dead end at the exact
+          moment they were ready to upgrade. Every other upgrade trigger
+          in the app (the description char-limit path) already wires
+          the real Stripe checkout here. */}
       <UpgradeModal
         open={upgradeModalOpen}
         onOpenChange={setUpgradeModalOpen}
         title="This inquiry needs the $2.99 upgrade"
         description="Free inquiries can attach 1 file up to 5MB. Upgrade to attach up to 5 files and 50MB total."
+        primaryAction={{
+          label: "Upgrade for $2.99",
+          onClick: () => inquiryUpgradeCheckout.mutate(inquiryId),
+          isPending: inquiryUpgradeCheckout.isPending,
+        }}
       />
     </div>
   );

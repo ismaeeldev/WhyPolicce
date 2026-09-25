@@ -869,6 +869,88 @@ class TestMyInquiriesFilter:
         assert "Mine not matching" not in titles
 
 
+class TestNullColumnResilience:
+    """Real availability bug found by a production-readiness audit,
+    reproduced live: every inquiries.created_at/updated_at/tier column
+    is declared with an explicit sa_column=Column(...), which silently
+    discards SQLModel's inferred nullable=False — confirmed nullable in
+    the live DDL, with no server-side DEFAULT (default_factory is
+    Python-side only). A row that arrives by any path other than a
+    normal ORM insert (a manual SQL fix, a restore that drops defaults,
+    a future data migration) can carry these as NULL, and the schema
+    accepts it without complaint. Before the fix, ONE such row crashed
+    _inquiry_out with an unhandled AttributeError and took down
+    list_inquiries entirely for every user, not just a degraded row.
+    These tests insert exactly that row via raw SQL (bypassing every
+    ORM-level default) and confirm the endpoint degrades gracefully
+    instead of 500ing."""
+
+    def test_null_tier_and_timestamps_dont_crash_the_feed(self, client: TestClient, session: Session):
+        from sqlalchemy import text
+
+        author = session.exec(select(User).where(User.auth0_sub == TEST_USER.auth0_sub)).first()
+        if author is None:
+            client.get("/api/v1/inquiries")
+            author = session.exec(select(User).where(User.auth0_sub == TEST_USER.auth0_sub)).first()
+
+        session.execute(
+            text(
+                "INSERT INTO inquiries "
+                "(id, title, description, state, city, status_tag, tier, follower_count, author_id, created_at, updated_at) "
+                "VALUES (:id, :title, :description, :state, :city, :status_tag, NULL, 0, :author_id, NULL, NULL)"
+            ),
+            {
+                "id": str(uuid.uuid4()),
+                "title": "Null-column resilience test",
+                "description": "A real row with tier/created_at/updated_at all NULL.",
+                "state": "NY",
+                "city": "Nullville",
+                "status_tag": "community_trace",
+                "author_id": str(author.id),
+            },
+        )
+        session.commit()
+
+        res = client.get("/api/v1/inquiries")
+        assert res.status_code == 200, res.text
+        titles = [item["title"] for item in res.json()["items"]]
+        assert "Null-column resilience test" in titles
+
+        item = next(i for i in res.json()["items"] if i["title"] == "Null-column resilience test")
+        # tier falls back to "free" (the real create_inquiry default),
+        # never null — the frontend types this as a required union.
+        assert item["tier"] == "free"
+        # timestamps degrade to null rather than crashing; a genuinely
+        # missing timestamp is honestly represented, not fabricated.
+        assert item["createdAt"] is None
+        assert item["updatedAt"] is None
+
+    def test_null_created_at_doesnt_crash_admin_attorneys_list(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        from sqlalchemy import text
+
+        monkeypatch.setattr("app.routers.admin.settings.ADMIN_AUTH0_SUBS", TEST_USER.auth0_sub)
+        client.get("/api/v1/inquiries")
+
+        session.execute(
+            text(
+                "INSERT INTO users "
+                "(id, auth0_sub, email, tier, role, verification_status, attorney_subscription_active, created_at) "
+                "VALUES (:id, :auth0_sub, :email, 'free', 'attorney', 'pending', 0, NULL)"
+            ),
+            {"id": str(uuid.uuid4()), "auth0_sub": "auth0|null-created-at", "email": "null-created-at@test.example"},
+        )
+        session.commit()
+
+        res = client.get("/api/v1/admin/attorneys?status=pending")
+        assert res.status_code == 200, res.text
+        emails = [item["email"] for item in res.json()["items"]]
+        assert "null-created-at@test.example" in emails
+        item = next(i for i in res.json()["items"] if i["email"] == "null-created-at@test.example")
+        assert item["createdAt"] is None
+
+
 class TestAdversarialValidation:
     def test_invalid_state_code_rejected(self, client: TestClient):
         res = _create_inquiry(client, state="New York")

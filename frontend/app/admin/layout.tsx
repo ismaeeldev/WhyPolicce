@@ -33,12 +33,12 @@ const NAV_ITEMS = [
  * _require_admin check, already independently tested.
  */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { data: me, isLoading } = useAdminMe();
+  const { data: me, isLoading, isError, refetch } = useAdminMe();
   const pathname = usePathname();
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-5rem)] w-full">
+      <div className="flex min-h-screen w-full">
         <div className="hidden w-64 shrink-0 border-r border-border-default bg-bg-elevated p-4 md:block">
           <Skeleton className="h-8 w-32 mb-6" />
           <div className="flex flex-col gap-2">
@@ -55,9 +55,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  if (isError) {
+    // Real bug found during a state-handling audit: this branch used to
+    // not exist at all — useAdminMe destructured no isError, so ANY
+    // failure (backend down, a 500, a token-refresh hiccup, offline)
+    // fell through to `!me?.isAdmin` (data is undefined on error) and
+    // rendered the "Not authorized" screen. A real admin hitting a
+    // transient API failure was confidently told their account isn't
+    // on the allowlist — the single most alarming wrong message this
+    // screen could show — with no way out but a manual reload. This is
+    // now a genuinely distinct state with a working retry.
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col items-center justify-center px-5 text-center">
+        <ShieldAlert className="h-10 w-10 text-text-muted mb-4" strokeWidth={1.5} />
+        <h1 className="font-display text-h2 text-text-primary mb-2">Couldn&apos;t check admin access</h1>
+        <p className="text-body-sm text-text-secondary max-w-sm">
+          That&apos;s on us, not you — try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-6 rounded-sm bg-accent px-4 py-2 text-body-sm font-medium text-accent-foreground transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (!me?.isAdmin) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-[560px] flex-col items-center justify-center px-5 text-center">
+      <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col items-center justify-center px-5 text-center">
         <ShieldAlert className="h-10 w-10 text-text-muted mb-4" strokeWidth={1.5} />
         <h1 className="font-display text-h2 text-text-primary mb-2">Not authorized</h1>
         <p className="text-body-sm text-text-secondary max-w-sm">
@@ -75,11 +103,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-5rem)] w-full">
+    <div className="flex min-h-screen w-full">
       <aside className="hidden w-64 shrink-0 border-r border-border-default bg-bg-elevated md:flex md:flex-col">
-        <div className="border-b border-border-default px-5 py-5">
-          <p className="font-display text-lg text-text-primary">Admin</p>
-          <p className="text-caption text-text-muted truncate">{me.email}</p>
+        <div className="flex flex-col items-center gap-3 border-b border-border-default px-5 py-7 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-body font-display font-medium text-accent-foreground">
+            {(me.email?.[0] || "A").toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="font-display text-lg text-text-primary">Admin</p>
+            <p className="text-caption text-text-muted truncate">{me.email}</p>
+          </div>
         </div>
         <nav aria-label="Admin navigation" className="flex flex-col gap-1 p-3">
           {NAV_ITEMS.map((item) => {
@@ -90,13 +123,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={item.href}
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-2.5 rounded-sm px-3 py-2.5 text-body-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+                className={`group relative flex items-center gap-2.5 rounded-sm px-3 py-2.5 text-body-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
                   isActive
                     ? "bg-accent-subtle text-text-primary font-medium"
                     : "text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <span
+                  className={`absolute inset-y-1 left-0 w-0.5 rounded-full bg-accent transition-opacity ${
+                    isActive ? "opacity-100" : "opacity-0"
+                  }`}
+                  aria-hidden="true"
+                />
+                <Icon className="h-4 w-4 shrink-0" />
                 {item.label}
               </Link>
             );
@@ -110,7 +149,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           more mechanism than this small a nav needs. */}
       <nav
         aria-label="Admin navigation"
-        className="fixed inset-x-0 top-20 z-20 flex items-center gap-1 border-b border-border-default bg-bg-elevated px-3 py-2 md:hidden"
+        className="fixed inset-x-0 top-0 z-20 flex items-center gap-1 border-b border-border-default bg-bg-elevated px-3 py-2 md:hidden"
       >
         {NAV_ITEMS.map((item) => {
           const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
@@ -129,7 +168,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         })}
       </nav>
 
-      <main className="min-w-0 flex-1 px-5 py-6 sm:px-8 sm:py-8 md:pt-8 pt-16">{children}</main>
+      <main className="min-w-0 flex-1 px-5 py-6 pt-16 sm:px-8 sm:py-8 md:pt-8">{children}</main>
     </div>
   );
 }

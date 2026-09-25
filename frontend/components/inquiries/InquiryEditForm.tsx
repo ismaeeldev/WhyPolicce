@@ -11,6 +11,11 @@ import { useInquiryUpgradeCheckout } from "@/hooks/useForumBilling";
 import { useUpdateInquiry, type Inquiry } from "@/hooks/useInquiries";
 
 const FREE_TIER_CHAR_LIMIT = 250;
+// Backend hard caps — backend/app/schemas/inquiry.py's InquiryUpdate,
+// same as inquiries/new/page.tsx's create form.
+const TITLE_MAX_LENGTH = 200;
+const CITY_MAX_LENGTH = 200;
+const PRECINCT_MAX_LENGTH = 200;
 
 /**
  * Inquiry edit form — forum rebuild, Milestone 2 Step M2.4
@@ -61,10 +66,17 @@ export function InquiryEditForm({
   const isFreeTier = inquiry.tier === "free";
   const charCount = description.length;
   const overLimit = isFreeTier && charCount > FREE_TIER_CHAR_LIMIT;
+  const titleOverLimit = title.length > TITLE_MAX_LENGTH;
+  const cityOverLimit = city.length > CITY_MAX_LENGTH;
+  const precinctOverLimit = precinct.length > PRECINCT_MAX_LENGTH;
 
   const handleSave = () => {
     if (overLimit) {
       setUpgradeModalOpen(true);
+      return;
+    }
+    if (titleOverLimit || cityOverLimit || precinctOverLimit) {
+      setSaveError("One of the fields above is too long — please shorten it.");
       return;
     }
     setSaveError(null);
@@ -97,7 +109,10 @@ export function InquiryEditForm({
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="h-11 w-full rounded-sm border border-border-default bg-bg px-3.5 text-body text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          maxLength={TITLE_MAX_LENGTH}
+          className={`h-11 w-full rounded-sm border bg-bg px-3.5 text-body text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+            titleOverLimit ? "border-danger" : "border-border-default"
+          }`}
         />
       </div>
 
@@ -119,7 +134,7 @@ export function InquiryEditForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-body-sm text-text-secondary">State</label>
           <select
@@ -139,7 +154,10 @@ export function InquiryEditForm({
           <input
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            className="h-11 w-full rounded-sm border border-border-default bg-bg px-3.5 text-body text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            maxLength={CITY_MAX_LENGTH}
+            className={`h-11 w-full rounded-sm border bg-bg px-3.5 text-body text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+              cityOverLimit ? "border-danger" : "border-border-default"
+            }`}
           />
         </div>
       </div>
@@ -151,7 +169,10 @@ export function InquiryEditForm({
         <input
           value={precinct}
           onChange={(e) => setPrecinct(e.target.value)}
-          className="h-11 w-full rounded-sm border border-border-default bg-bg px-3.5 text-body text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          maxLength={PRECINCT_MAX_LENGTH}
+          className={`h-11 w-full rounded-sm border bg-bg px-3.5 text-body text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+            precinctOverLimit ? "border-danger" : "border-border-default"
+          }`}
         />
       </div>
 
@@ -167,7 +188,15 @@ export function InquiryEditForm({
         <button
           type="button"
           onClick={handleSave}
-          disabled={updateInquiry.isPending || !title.trim() || !description.trim() || !city.trim()}
+          disabled={
+            updateInquiry.isPending ||
+            !title.trim() ||
+            !description.trim() ||
+            !city.trim() ||
+            titleOverLimit ||
+            cityOverLimit ||
+            precinctOverLimit
+          }
           className="rounded-sm bg-accent px-4 py-2 text-body-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
         >
           {updateInquiry.isPending ? "Saving…" : "Save changes"}

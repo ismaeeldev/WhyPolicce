@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 /**
  * Minimal footer — AgentGuide/00_SCOPE.md §2 (why.com's restraint: copyright,
@@ -15,6 +18,12 @@ import Link from "next/link";
  * pages, not just the feed.
  */
 export function Footer() {
+  const pathname = usePathname();
+  // Same reasoning as Navbar: the admin panel has its own dedicated
+  // shell and isn't part of the public forum this footer belongs to.
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  if (isAdminRoute) return null;
+
   return (
     <footer className="border-t border-border-default mt-auto">
       <div className="mx-auto max-w-[1200px] px-5 sm:px-6 py-7 flex flex-col items-center gap-4 text-body-sm text-text-muted">

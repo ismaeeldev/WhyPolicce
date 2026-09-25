@@ -57,7 +57,13 @@ export function InquiryEditDeleteControls({
   };
 
   return (
-    <div className="absolute right-0 top-0 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+    // Real gap found during a UI audit: absolute positioning over the
+    // StatusPill row left an empty-looking placeholder for non-authors
+    // and, combined with opacity-0 hover-reveal, made these controls
+    // undiscoverable on touch (no hover on mobile). Now a real flex
+    // child of its row (parent handles the right-alignment) and always
+    // visible below sm:, hover/focus-reveal only from sm: up.
+    <div className="flex shrink-0 items-center gap-1 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
       <button
         type="button"
         onClick={onEditClick}

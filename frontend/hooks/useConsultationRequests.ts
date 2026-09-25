@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, ApiError } from "@/lib/api-client";
 import type { StatusTag } from "@/hooks/useInquiries";
 
 export type AttorneyRequestStatus = "pending" | "accepted" | "declined";
@@ -52,6 +52,17 @@ export function useRequestConsultation() {
       queryClient.invalidateQueries({ queryKey: ["inquiries"] });
       queryClient.invalidateQueries({ queryKey: ["inquiry", inquiryId] });
       queryClient.invalidateQueries({ queryKey: ["my-consultation-requests"] });
+    },
+    onError: (err, inquiryId) => {
+      // Same reasoning as onSuccess above, for the specific race where
+      // the request actually exists server-side already (a request
+      // landed between this component's last fetch and this click) —
+      // without this, the feed's myRequestStatus stays stale/null and
+      // the button would keep offering "Request Consultation" again.
+      if (err instanceof ApiError && err.code === "already_requested") {
+        queryClient.invalidateQueries({ queryKey: ["inquiries"] });
+        queryClient.invalidateQueries({ queryKey: ["inquiry", inquiryId] });
+      }
     },
   });
 }

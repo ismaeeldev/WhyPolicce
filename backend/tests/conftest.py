@@ -9,6 +9,17 @@ os.environ.setdefault("AUTH0_AUDIENCE", "https://test-api")
 os.environ.setdefault("STRIPE_SECRET_KEY", "")
 os.environ.setdefault("STRIPE_PRICE_ID", "")
 os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "")
+# Real gap found during a payment-feature audit: these were never added
+# when FORUM_STRIPE_* was introduced, so once a real backend/.env had
+# real values (needed for actual manual Stripe testing), the "offline"
+# suite silently stopped being offline — test_forum_billing.py's own
+# "returns 501 when not configured" tests started failing not because
+# of a real regression, but because the suite was reading the same
+# .env file the live dev server uses instead of staying hermetic.
+os.environ.setdefault("FORUM_STRIPE_SECRET_KEY", "")
+os.environ.setdefault("FORUM_STRIPE_WEBHOOK_SECRET", "")
+os.environ.setdefault("FORUM_STRIPE_INQUIRY_UPGRADE_PRICE_ID", "")
+os.environ.setdefault("FORUM_STRIPE_ATTORNEY_SUBSCRIPTION_PRICE_ID", "")
 os.environ.setdefault("FRONTEND_URL", "http://localhost:3000")
 
 import pytest

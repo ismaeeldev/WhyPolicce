@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@auth0/nextjs-auth0";
-import { FileText, LogOut, Menu, Plus, User as UserIcon } from "lucide-react";
+import { FileText, LogOut, Menu, Plus, Scale, ShieldCheck, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { useAdminMe } from "@/hooks/useAdmin";
+import { useUser as useMe } from "@/hooks/useUser";
 
 // Forum rebuild, Milestone 2 Step M2.0 (WhyPoliceForum_MasterGuide.md) —
 // replaces the old RAG-search product's nav links/CTA/dropdown content.
@@ -49,6 +51,17 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, isLoading } = useUser();
   const pathname = usePathname();
+  // Real gap found during a full-scope re-audit: the admin panel (built
+  // in a prior milestone) had no in-app nav path at all — an admin had
+  // to know/type the /admin URL by hand. Only fired once actually
+  // logged in; a logged-out visitor never needs this round-trip.
+  const { data: adminMe } = useAdminMe({ enabled: !!user });
+  // Same gap, same fix, for an approved attorney reaching their own
+  // portal — the account page's "verified" banner is the only other
+  // place this link exists; most sessions won't pass through there on
+  // every visit, so the dropdown needs its own copy of this shortcut.
+  const { data: me } = useMe();
+  const isApprovedAttorney = me?.role === "attorney" && me.verificationStatus === "approved";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -56,6 +69,12 @@ export function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // The admin panel (app/admin/layout.tsx) has its own dedicated shell
+  // (sidebar/top tab nav) — the public forum's Navbar duplicates that
+  // navigation and doesn't belong there.
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  if (isAdminRoute) return null;
 
   return (
     <header
@@ -150,6 +169,18 @@ export function Navbar() {
                   <FileText className="h-4 w-4" />
                   My Inquiries
                 </DropdownMenuItem>
+                {isApprovedAttorney && (
+                  <DropdownMenuItem render={<Link href="/attorneys/dashboard" />} className="flex items-center gap-2">
+                    <Scale className="h-4 w-4" />
+                    Attorney Dashboard
+                  </DropdownMenuItem>
+                )}
+                {adminMe?.isAdmin && (
+                  <DropdownMenuItem render={<Link href="/admin" />} className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4" />
+                    Admin
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem render={<a href="/auth/logout" />} className="flex items-center gap-2">
                   <LogOut className="h-4 w-4" />
                   Log out
@@ -261,6 +292,34 @@ export function Navbar() {
                       My Inquiries
                     </span>
                   </SheetClose>
+                  {isApprovedAttorney && (
+                    <SheetClose
+                      render={
+                        <Link
+                          href="/attorneys/dashboard"
+                          className="rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                        />
+                      }
+                    >
+                      <span className="block rounded-sm border border-border-strong px-4 py-2.5 text-center text-body text-text-primary hover:bg-bg-subtle transition-colors">
+                        Attorney Dashboard
+                      </span>
+                    </SheetClose>
+                  )}
+                  {adminMe?.isAdmin && (
+                    <SheetClose
+                      render={
+                        <Link
+                          href="/admin"
+                          className="rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                        />
+                      }
+                    >
+                      <span className="block rounded-sm border border-border-strong px-4 py-2.5 text-center text-body text-text-primary hover:bg-bg-subtle transition-colors">
+                        Admin
+                      </span>
+                    </SheetClose>
+                  )}
                   <SheetClose
                     render={
                       <a

@@ -107,6 +107,18 @@ export default function SearchPage() {
     }
   }, [stream.status, openUpgradeModal]);
 
+  // Abort an in-flight stream on unmount — without this, navigating away
+  // mid-search leaves the fetch/SSE read loop running in the background
+  // until the server finishes: wasted LLM cost and a DB write for an
+  // answer the user will never see.
+  const cancelRef = useRef(stream.cancel);
+  useEffect(() => {
+    cancelRef.current = stream.cancel;
+  }, [stream.cancel]);
+  useEffect(() => {
+    return () => cancelRef.current();
+  }, []);
+
   const handleSubmit = (query: string) => {
     lastPromptRef.current = query;
     stream.submit({ prompt: query, deepSearch, state: selectedState });

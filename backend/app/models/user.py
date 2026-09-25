@@ -42,7 +42,13 @@ class User(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     auth0_sub: str = Field(unique=True, index=True)
-    email: str
+    # Indexed (not unique) — auth0_sub is the real identity key. Some
+    # rows have an empty-string email (populated lazily on next login,
+    # see app/routers/*.py's _get_or_create_user), so a unique constraint
+    # would be violated by real, legitimate data. Indexed only to keep a
+    # future by-email lookup (support tooling, admin search) from doing
+    # a full table scan.
+    email: str = Field(index=True)
     tier: Tier = Field(default=Tier.free)
     stripe_customer_id: str | None = Field(default=None)
     # Forum rebuild (M1.2) — citizen vs. attorney. Every pre-rebuild row

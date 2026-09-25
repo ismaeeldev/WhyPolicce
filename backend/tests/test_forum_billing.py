@@ -339,7 +339,20 @@ class TestForumWebhook:
         session.refresh(attorney)
         assert attorney.attorney_subscription_active is False
 
-    def test_payment_failed_relocks_attorney_portal(self, client: TestClient, session, monkeypatch: pytest.MonkeyPatch):
+    def test_payment_failed_does_not_relock_attorney_portal(
+        self, client: TestClient, session, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Real bug found during a payment-feature audit: this event used
+        to be treated the same as customer.subscription.deleted, re-locking
+        the portal on the FIRST failed payment attempt. Stripe retries a
+        failed subscription payment automatically (Smart Retries, over
+        several days) before actually giving up — invoice.payment_failed
+        fires on every attempt, including ones that later succeed. An
+        attorney whose card temporarily failed but whose retry succeeded
+        would have been locked out the whole time in between, for a
+        subscription that never actually lapsed. Only
+        customer.subscription.deleted (tested separately above) should
+        re-lock — this event alone must leave the subscription untouched."""
         webhook_secret = "whsec_forum_test_4"
         monkeypatch.setattr("app.routers.forum_billing.settings.FORUM_STRIPE_WEBHOOK_SECRET", webhook_secret)
 
@@ -371,7 +384,7 @@ class TestForumWebhook:
         assert res.status_code == 200
 
         session.refresh(attorney)
-        assert attorney.attorney_subscription_active is False
+        assert attorney.attorney_subscription_active is True
 
     def test_replayed_event_is_idempotent(self, client: TestClient, session, monkeypatch: pytest.MonkeyPatch):
         """Real M3.2 Bug Fix requirement: replaying the same webhook event
