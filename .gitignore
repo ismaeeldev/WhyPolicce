@@ -35,3 +35,10 @@ secrets/
 AgentGuide/
 CLIENT_DEPLOYMENT_GUIDE.md
 Refrence/
+scratch/
+
+# Root-level docs: only README.md is tracked, everything else at root
+# (.md/.pdf) is internal/working material and stays untracked.
+/*.md
+!/README.md
+/*.pdf
