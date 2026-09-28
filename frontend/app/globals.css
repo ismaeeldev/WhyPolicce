@@ -469,6 +469,27 @@
 .wp-workspace-link:hover { color: var(--wp-text-primary); background: var(--wp-bg-subtle); }
 .wp-workspace-link-active { color: var(--wp-text-primary); background: var(--wp-accent-subtle); }
 .wp-answer-panel { scrollbar-width: thin; scrollbar-color: var(--wp-border-strong) transparent; overscroll-behavior: contain; }
+/* Real bug found by a live UI audit: modern Chromium (confirmed on
+   v153) renders NOTHING visible here with just scrollbar-width:thin +
+   scrollbar-color(--wp-border-strong) — no thumb, no track, at any
+   scroll position, even though overflow genuinely exists and IS
+   scrollable (verified via scrollHeight vs clientHeight). The
+   combination of overflow-x-hidden + overflow-y-auto inherited from the
+   shared DropdownMenuContent primitive is the most likely cause (this
+   codebase's only other user of this scrollbar pattern, .wp-answer-panel
+   below, only sets overflow-y-auto and renders correctly). Widened
+   (6px -> 8px) and switched from --wp-border-strong (too close in
+   luminance to the panel's own background to register at this width) to
+   --wp-text-muted, a genuinely higher-contrast neutral already used
+   elsewhere for secondary UI chrome — deliberately NOT the brand accent
+   color, since a loud, saturated scrollbar would be its own regression
+   against the client's original "thick, ugly, browser-default
+   scrollbar" complaint this fix exists to resolve. */
+.wp-filter-dropdown-panel { scrollbar-width: thin; scrollbar-color: var(--wp-text-muted) transparent; }
+.wp-filter-dropdown-panel::-webkit-scrollbar { width: 8px; }
+.wp-filter-dropdown-panel::-webkit-scrollbar-track { background: transparent; }
+.wp-filter-dropdown-panel::-webkit-scrollbar-thumb { background-color: var(--wp-text-muted); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+.wp-filter-dropdown-panel::-webkit-scrollbar-thumb:hover { background-color: var(--wp-text-secondary); background-clip: content-box; }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .wp-search-suggestions > button { transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease; }

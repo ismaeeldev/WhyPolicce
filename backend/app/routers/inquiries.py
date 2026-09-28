@@ -100,6 +100,48 @@ def _get_or_create_user(session: Session, current: AuthenticatedUser) -> User:
     return user
 
 
+def _block_if_unverified_attorney(user: User | None) -> None:
+    """Scope Revision 1 §5.4 (AgentGuide/newscoperev1.md) — client's own
+    three-tier table, applied literally to the citizen-inquiry-feed
+    endpoints only:
+
+      | Account type                        | Can view the inquiry feed? |
+      |--------------------------------------|-----------------------------|
+      | Logged-out visitor                   | Yes — unaffected, feed stays public per the scope PDF's transparency design |
+      | Citizen                              | Yes — unaffected |
+      | Attorney, verification_status=pending  | NO — client's own wording: "CANNOT view or access citizen incident records" |
+      | Attorney, verification_status=rejected | NO — client's own wording: "Account locked" |
+      | Attorney, verification_status=approved | Yes — client's own wording: "Full system access" (= the client's "VERIFIED") |
+
+    Scoped deliberately narrow: this blocks the ATTORNEY ACCOUNT'S OWN
+    access to the feed while it's pending/rejected, not the public feed
+    itself for everyone — the client's table describes what a
+    PENDING/VERIFIED/REJECTED *attorney* can do, never mentions citizens
+    or logged-out visitors, and the product's public-safety-transparency
+    design (every other endpoint in this router, and proxy.ts's own
+    routing) stays untouched. A citizen or visitor calling this same
+    endpoint is completely unaffected — `user` is only non-None here for
+    a real logged-in caller, and this function is a no-op for any
+    non-attorney role.
+    """
+    if user is None or user.role != Role.attorney:
+        return
+    if user.verification_status in (VerificationStatus.pending, VerificationStatus.rejected):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "attorney_not_verified",
+                "message": (
+                    "Your attorney account isn't verified yet — once a human reviewer "
+                    "approves your application, you'll have full access to the case feed."
+                    if user.verification_status == VerificationStatus.pending
+                    else "Your attorney application was not approved, so this account "
+                    "cannot access the case feed."
+                ),
+            },
+        )
+
+
 def _rate_limit_or_429(action: str, user_id: uuid.UUID) -> None:
     """Standing Implementation Discipline rule 4 — reuses the existing
     check_rate_limit/RateLimitExceeded machinery from app/services/
@@ -165,6 +207,7 @@ def _inquiry_out(inquiry: Inquiry, *, comment_count: int, has_attachments: bool,
         "precinct": inquiry.precinct,
         "statusTag": inquiry.status_tag.value,
         "tier": tier.value,
+        "isAnonymous": inquiry.is_anonymous,
         "followerCount": inquiry.follower_count,
         "commentCount": comment_count,
         "hasAttachments": has_attachments,
@@ -236,6 +279,7 @@ def list_inquiries(
             detail={"error": "unauthorized", "message": "Sign in to see your own inquiries."},
         )
     user = _get_or_create_user(session, current) if current else None
+    _block_if_unverified_attorney(user)
 
     statement = select(Inquiry)
     if mine:
@@ -351,6 +395,7 @@ def get_inquiry(
     single inquiry's thread page must work for a logged-out visitor too.
     """
     user = _get_or_create_user(session, current) if current else None
+    _block_if_unverified_attorney(user)
     not_found = HTTPException(
         status_code=404, detail={"error": "not_found", "message": "Inquiry not found."}
     )
@@ -495,6 +540,7 @@ def create_inquiry(
         precinct=body.precinct,
         status_tag=body.status_tag,
         tier=InquiryTier.free,
+        is_anonymous=body.is_anonymous,
     )
     session.add(inquiry)
     session.commit()
@@ -636,9 +682,14 @@ def get_thread(
     _get_or_create_user purely for its discarded return value (a real,
     harmless-but-pointless side effect — creating a User row on every
     anonymous read would be wrong) — only sync the user when one is
-    actually authenticated."""
+    actually authenticated.
+
+    §5.4 gate applied here too (see _block_if_unverified_attorney's own
+    docstring) — comments are part of the same "citizen incident record"
+    an inquiry's own detail exposes, so a pending/rejected attorney is
+    blocked from this exactly like get_inquiry()."""
     if current:
-        _get_or_create_user(session, current)
+        _block_if_unverified_attorney(_get_or_create_user(session, current))
     not_found = HTTPException(
         status_code=404, detail={"error": "not_found", "message": "Inquiry not found."}
     )

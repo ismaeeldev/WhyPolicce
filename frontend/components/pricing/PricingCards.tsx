@@ -1,8 +1,13 @@
 "use client";
 
+import { useUser } from "@auth0/nextjs-auth0";
 import { Check } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useState } from "react";
+
+import { BecomeAttorneyDialog } from "@/components/account/BecomeAttorneyDialog";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -27,6 +32,7 @@ const cardVariants = {
  */
 
 type Plan = {
+  id?: "become-attorney";
   audience: string;
   name: string;
   price: string;
@@ -80,6 +86,7 @@ const PLANS: Plan[] = [
     ],
   },
   {
+    id: "become-attorney",
     audience: "For attorneys",
     name: "Attorney subscription",
     price: "$149",
@@ -98,6 +105,10 @@ const PLANS: Plan[] = [
 ];
 
 export function PricingCards() {
+  const { user, isLoading } = useUser();
+  const [attorneyDialogOpen, setAttorneyDialogOpen] = useState(false);
+  const router = useRouter();
+
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-[1100px] mx-auto">
       {PLANS.map((plan, i) => (
@@ -105,8 +116,20 @@ export function PricingCards() {
           key={plan.name}
           custom={i}
           initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-40px" }}
+          // Real bug found by a live UI audit: whileInView + a real
+          // paying tier (Attorney subscription, $149/month, the third
+          // card) staying invisible on some real scroll patterns is an
+          // unacceptable risk on a pricing page, whatever the exact
+          // automation-vs-real-browser cause turns out to be — a visitor
+          // who can't see a plan can't buy it. animate="show" always
+          // renders every card immediately on mount instead of
+          // conditionally on scroll visibility; the same entrance
+          // motion still plays via the initial->show variant transition,
+          // just not gated behind an IntersectionObserver trigger that
+          // has no real product upside here (this page is short enough
+          // that "reveal on scroll" isn't hiding anything meaningfully
+          // below an unreachable fold in the first place).
+          animate="show"
           variants={cardVariants}
           className={`wp-plan-card relative rounded-lg bg-bg-elevated p-6 sm:p-8 text-left transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card-lg ${
             plan.featured
@@ -141,16 +164,33 @@ export function PricingCards() {
             <span className="text-body-sm text-text-muted">{plan.cadence}</span>
           </div>
 
-          <Link
-            href={plan.href}
-            className={`mt-6 block rounded-sm px-4 py-2.5 text-center text-body-sm font-medium transition-all active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
-              plan.ctaIsDirectAction
-                ? "bg-accent text-accent-foreground hover:bg-accent-hover"
-                : "border border-border-strong text-text-primary hover:bg-bg-subtle"
-            }`}
-          >
-            {plan.cta}
-          </Link>
+          {plan.id === "become-attorney" ? (
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => {
+                if (!user) {
+                  router.push(`/login?returnTo=${encodeURIComponent("/pricing")}`);
+                  return;
+                }
+                setAttorneyDialogOpen(true);
+              }}
+              className="mt-6 block w-full rounded-sm bg-accent px-4 py-2.5 text-center text-body-sm font-medium text-accent-foreground transition-all hover:bg-accent-hover active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {plan.cta}
+            </button>
+          ) : (
+            <Link
+              href={plan.href}
+              className={`mt-6 block rounded-sm px-4 py-2.5 text-center text-body-sm font-medium transition-all active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+                plan.ctaIsDirectAction
+                  ? "bg-accent text-accent-foreground hover:bg-accent-hover"
+                  : "border border-border-strong text-text-primary hover:bg-bg-subtle"
+              }`}
+            >
+              {plan.cta}
+            </Link>
+          )}
 
           <ul className="mt-7 flex flex-col gap-4 border-t border-border-default pt-6">
             {plan.features.map((label) => (
@@ -162,6 +202,7 @@ export function PricingCards() {
           </ul>
         </motion.div>
       ))}
+      <BecomeAttorneyDialog open={attorneyDialogOpen} onOpenChange={setAttorneyDialogOpen} />
     </div>
   );
 }

@@ -193,6 +193,7 @@ export default function AdminAttorneysPage() {
               <table className="w-full min-w-[560px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-border-default bg-bg-subtle">
+                    <th className="px-4 py-2.5 text-caption font-medium uppercase tracking-wide text-text-muted">Legal name</th>
                     <th className="px-4 py-2.5 text-caption font-medium uppercase tracking-wide text-text-muted">Email</th>
                     <th className="px-4 py-2.5 text-caption font-medium uppercase tracking-wide text-text-muted">Bar number</th>
                     <th className="px-4 py-2.5 text-caption font-medium uppercase tracking-wide text-text-muted">Jurisdiction</th>
@@ -203,6 +204,11 @@ export default function AdminAttorneysPage() {
                 <tbody className="divide-y divide-border-default bg-bg-elevated">
                   {items.map((attorney) => (
                     <tr key={attorney.id} className="transition-colors hover:bg-bg-subtle">
+                      <td className="px-4 py-3 text-body-sm text-text-primary">
+                        {attorney.legalFirstName || attorney.legalLastName
+                          ? `${attorney.legalFirstName ?? ""} ${attorney.legalLastName ?? ""}`.trim()
+                          : "—"}
+                      </td>
                       <td className="px-4 py-3 text-body-sm text-text-primary">{attorney.email}</td>
                       <td className="px-4 py-3 text-body-sm text-text-secondary">{attorney.verifiedBarNo ?? "—"}</td>
                       <td className="px-4 py-3 text-body-sm text-text-secondary">{attorney.barJurisdiction ?? "—"}</td>
@@ -268,12 +274,28 @@ export default function AdminAttorneysPage() {
 
               <div className="flex flex-col gap-3 mt-2">
                 <div className="rounded-sm border border-border-default bg-bg p-3">
+                  <p className="text-caption uppercase tracking-wide text-text-muted mb-0.5">Legal name</p>
+                  <p className="text-body-sm text-text-primary">
+                    {selected.legalFirstName || selected.legalLastName
+                      ? `${selected.legalFirstName ?? ""} ${selected.legalLastName ?? ""}`.trim()
+                      : "Not provided"}
+                  </p>
+                </div>
+                <div className="rounded-sm border border-border-default bg-bg p-3">
                   <p className="text-caption uppercase tracking-wide text-text-muted mb-0.5">Bar number</p>
                   <p className="text-body-sm text-text-primary">{selected.verifiedBarNo ?? "Not provided"}</p>
                 </div>
                 <div className="rounded-sm border border-border-default bg-bg p-3">
                   <p className="text-caption uppercase tracking-wide text-text-muted mb-0.5">Jurisdiction</p>
                   <p className="text-body-sm text-text-primary">{selected.barJurisdiction ?? "Not provided"}</p>
+                </div>
+                <div className="rounded-sm border border-border-default bg-bg p-3">
+                  <p className="text-caption uppercase tracking-wide text-text-muted mb-0.5">Firm email</p>
+                  <p className="text-body-sm text-text-primary">{selected.firmEmailAddress ?? "Not provided"}</p>
+                </div>
+                <div className="rounded-sm border border-border-default bg-bg p-3">
+                  <p className="text-caption uppercase tracking-wide text-text-muted mb-0.5">Firm website</p>
+                  <p className="text-body-sm text-text-primary">{selected.firmWebsite ?? "Not provided"}</p>
                 </div>
                 <div className="rounded-sm border border-border-default bg-bg p-3">
                   <p className="text-caption uppercase tracking-wide text-text-muted mb-0.5">Status</p>

@@ -40,6 +40,10 @@ class InquiryCreate(BaseModel):
     # rejected, not trusted at face value (M1.4's own explicit
     # "do not silently trust an unverified expanded claim" requirement).
     tier: str = Field(default="free")
+    # Scope Revision 1 §4.3 — set only at creation (client's own wording:
+    # a checkbox "on the submission form"), not editable afterward via
+    # InquiryUpdate below.
+    is_anonymous: bool = Field(default=False)
 
     @field_validator("title")
     @classmethod

@@ -77,6 +77,37 @@ def _second_user_client(session: Session) -> TestClient:
 
 
 class TestCreateAndFetchInquiry:
+    def test_create_inquiry_requires_real_auth_token(self, client: TestClient, session: Session):
+        """Scope Revision 1 §3.1's own explicit instruction: before removing
+        the frontend's route-level gate on /inquiries/new, verify the
+        backend's create_inquiry endpoint independently requires a valid
+        auth token — confirmed here by removing the test fixture's own
+        get_current_user override (which every other test in this file
+        relies on) and confirming a real, unauthenticated request still
+        401s, exactly like a real browser request with no Bearer token
+        would. This is the actual server-side security boundary the
+        frontend change in §3.1 depends on already being correct."""
+        from app.core.db import get_session
+
+        app.dependency_overrides[get_session] = lambda: (yield session)
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_optional_user, None)
+        anon_client = TestClient(app)
+
+        res = anon_client.post(
+            "/api/v1/inquiries",
+            json={
+                "title": "Should be rejected",
+                "description": "No auth token attached to this request.",
+                "state": "NY",
+                "city": "New York",
+                "status_tag": "community_trace",
+            },
+        )
+        assert res.status_code == 401, res.text
+        assert res.json()["error"] == "unauthorized"
+        app.dependency_overrides.clear()
+
     def test_create_inquiry_succeeds(self, client: TestClient):
         res = _create_inquiry(client)
         assert res.status_code == 201, res.text
@@ -476,6 +507,102 @@ class TestAttorneyGating:
         app.dependency_overrides.clear()
 
 
+class TestFeedAccessGating:
+    """Scope Revision 1 §5.4 (AgentGuide/newscoperev1.md) — client's own
+    three-tier table, applied to the feed/detail/thread endpoints
+    specifically for PENDING/REJECTED attorney accounts, while logged-out
+    visitors and citizens keep full public access exactly as before."""
+
+    def _attorney_client(self, session, auth0_sub, email, status):
+        from app.core.db import get_session
+
+        attorney = User(
+            auth0_sub=auth0_sub, email=email, role=Role.attorney, verification_status=status
+        )
+        session.add(attorney)
+        session.commit()
+
+        identity = AuthenticatedUser(auth0_sub=auth0_sub, email=email)
+        app.dependency_overrides[get_session] = lambda: (yield session)
+        app.dependency_overrides[get_current_user] = lambda: identity
+        app.dependency_overrides[get_optional_user] = lambda: identity
+        return TestClient(app)
+
+    def test_logged_out_visitor_still_sees_the_feed(self, client: TestClient, session: Session):
+        """The public feed itself is unaffected — only attorney accounts
+        with an unverified status are gated, per the client's own wording,
+        which never mentions citizens or visitors."""
+        from app.core.db import get_session
+
+        _create_inquiry(client)
+        # Same session/engine (fixture-provided), only get_current_user's
+        # override removed — a real logged-out request never authenticates
+        # at all, get_optional_user correctly returns None for it.
+        app.dependency_overrides[get_session] = lambda: (yield session)
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_optional_user, None)
+        anon_client = TestClient(app)
+        res = anon_client.get("/api/v1/inquiries")
+        assert res.status_code == 200, res.text
+        app.dependency_overrides.clear()
+
+    def test_citizen_still_sees_the_feed(self, client: TestClient):
+        _create_inquiry(client)
+        res = client.get("/api/v1/inquiries")
+        assert res.status_code == 200, res.text
+
+    def test_pending_attorney_blocked_from_feed(self, client: TestClient, session: Session):
+        created = _create_inquiry(client).json()
+        attorney_client = self._attorney_client(
+            session, "auth0|pending-feed", "pending-feed@test.example", VerificationStatus.pending
+        )
+        res = attorney_client.get("/api/v1/inquiries")
+        assert res.status_code == 403
+        assert res.json()["error"] == "attorney_not_verified"
+
+        res2 = attorney_client.get(f"/api/v1/inquiries/{created['id']}")
+        assert res2.status_code == 403
+        assert res2.json()["error"] == "attorney_not_verified"
+
+        res3 = attorney_client.get(f"/api/v1/inquiries/{created['id']}/thread")
+        assert res3.status_code == 403
+        assert res3.json()["error"] == "attorney_not_verified"
+        app.dependency_overrides.clear()
+
+    def test_rejected_attorney_blocked_from_feed(self, client: TestClient, session: Session):
+        _create_inquiry(client)
+        attorney_client = self._attorney_client(
+            session, "auth0|rejected-feed", "rejected-feed@test.example", VerificationStatus.rejected
+        )
+        res = attorney_client.get("/api/v1/inquiries")
+        assert res.status_code == 403
+        assert res.json()["error"] == "attorney_not_verified"
+        app.dependency_overrides.clear()
+
+    def test_approved_attorney_sees_the_feed(self, client: TestClient, session: Session):
+        _create_inquiry(client)
+        attorney_client = self._attorney_client(
+            session, "auth0|approved-feed", "approved-feed@test.example", VerificationStatus.approved
+        )
+        res = attorney_client.get("/api/v1/inquiries")
+        assert res.status_code == 200, res.text
+        app.dependency_overrides.clear()
+
+    def test_rejected_attorneys_citizen_level_access_is_unaffected(self, client: TestClient, session: Session):
+        """Plan's own Test line (§5.4): "Confirm a REJECTED attorney's
+        citizen-level access (if any) is unaffected." The gate only
+        applies to the read endpoints (list/detail/thread) — a rejected
+        attorney account can still post their own inquiry exactly like
+        any citizen, since create_inquiry never calls
+        _block_if_unverified_attorney at all."""
+        attorney_client = self._attorney_client(
+            session, "auth0|rejected-can-post", "rejected-can-post@test.example", VerificationStatus.rejected
+        )
+        res = _create_inquiry(attorney_client)
+        assert res.status_code == 201, res.text
+        app.dependency_overrides.clear()
+
+
 class TestConsultationResponse:
     def test_author_can_accept_request(self, client: TestClient, session: Session):
         created = _create_inquiry(client).json()
@@ -758,6 +885,25 @@ class TestReports:
         assert res.status_code == 201, res.text
         assert res.json()["status"] == "open"
 
+    def test_report_response_never_exposes_the_reported_authors_identity(self, client: TestClient):
+        """Bug-hunt item #9 (AgentGuide/newscoperev1.md Testing Strategy) —
+        client's §4.3 needs-a-decision item on whether the reporting
+        citizen should see the real author of an (especially anonymous)
+        reported post. Confirmed by reading the real response shape: it
+        never does, for ANY inquiry (anonymous or not) — the create-report
+        response only ever contains the report's own fields, no author
+        identity of any kind. This is architecturally moot, not just an
+        anonymous-posting special case."""
+        created = _create_inquiry(client).json()
+        res = client.post(
+            "/api/v1/reports",
+            json={"target_type": "inquiry", "target_id": created["id"], "reason": "spam"},
+        )
+        assert res.status_code == 201, res.text
+        body_text = str(res.json())
+        assert TEST_USER.email not in body_text
+        assert "author" not in body_text.lower()
+
     def test_report_real_comment_succeeds(self, client: TestClient):
         created = _create_inquiry(client).json()
         comment = client.post(f"/api/v1/inquiries/{created['id']}/thread", json={"body": "c"}).json()
@@ -896,8 +1042,8 @@ class TestNullColumnResilience:
         session.execute(
             text(
                 "INSERT INTO inquiries "
-                "(id, title, description, state, city, status_tag, tier, follower_count, author_id, created_at, updated_at) "
-                "VALUES (:id, :title, :description, :state, :city, :status_tag, NULL, 0, :author_id, NULL, NULL)"
+                "(id, title, description, state, city, status_tag, tier, follower_count, author_id, created_at, updated_at, is_anonymous) "
+                "VALUES (:id, :title, :description, :state, :city, :status_tag, NULL, 0, :author_id, NULL, NULL, 0)"
             ),
             {
                 "id": str(uuid.uuid4()),

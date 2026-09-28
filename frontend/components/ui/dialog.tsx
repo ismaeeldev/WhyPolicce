@@ -30,8 +30,15 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
+      // Real bug found by a live UI audit (same root cause as
+      // ui/sheet.tsx's identical fix): bg-black/10 barely dims the page
+      // behind every dialog in the app (attorney application, upgrade
+      // modals, admin review dialogs, memory notes) — content underneath
+      // stays distractingly legible. bg-black/40 matches the sheet
+      // overlay's fix for a consistent, genuinely visible scrim across
+      // both dialog types.
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate z-50 bg-black/40 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}

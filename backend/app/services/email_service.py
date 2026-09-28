@@ -113,3 +113,28 @@ def send_new_comment_email(*, to: str, inquiry_title: str, inquiry_url: str) -> 
         cta_url=inquiry_url,
         cta_label="Read the thread",
     )
+
+
+def send_attorney_rejected_email(*, to: str, account_url: str) -> None:
+    """Scope Revision 1 §5.4 (AgentGuide/newscoperev1.md) — client's own
+    follow-up message: "REJECTED: Account locked; email notified of
+    failure to validate bar status or active standing." Confirmed this
+    notification did not exist anywhere before this fix — Resend was
+    already fully wired into the app, but never called from the
+    reject-attorney admin action. Deliberately does not explain WHY the
+    application was rejected (no specific reason is captured anywhere in
+    this codebase to reference) — points back to the account page, where
+    AttorneyStatusBanner's own "Submit a new application" path already
+    lets the applicant correct and resubmit."""
+    send_email(
+        to=to,
+        subject="Update on your WhyPolice attorney application",
+        body_html=(
+            "<p style=\"margin: 0 0 16px;\">A human reviewer checked your attorney "
+            "application and was not able to approve it at this time.</p>"
+            "<p style=\"margin: 0;\">You're welcome to submit a new application with "
+            "corrected bar information from your account page.</p>"
+        ),
+        cta_url=account_url,
+        cta_label="View your account",
+    )

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlmodel import Column, DateTime, Field, SQLModel
+from sqlmodel import Column, DateTime, Field, SQLModel, UniqueConstraint
 
 
 class Tier(str, Enum):
@@ -39,6 +39,18 @@ class VerificationStatus(str, Enum):
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
+    # Scope Revision 1 §5.3 (AgentGuide/newscoperev1.md) — a real bar
+    # number is only unique WITHIN a given state's own numbering scheme,
+    # not globally across all 50 states, so the constraint is composite,
+    # not just on verified_bar_no alone. Only enforced when both values
+    # are non-null (Postgres's default NULLS DISTINCT behavior), which is
+    # correct — a citizen row (both null) must never collide with this
+    # constraint. become_attorney() below normalizes (trims + uppercases)
+    # both values before writing, so this constraint can't be bypassed by
+    # a differently-cased or whitespace-padded duplicate.
+    __table_args__ = (
+        UniqueConstraint("verified_bar_no", "bar_jurisdiction", name="uq_users_bar_no_jurisdiction"),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     auth0_sub: str = Field(unique=True, index=True)
@@ -60,7 +72,28 @@ class User(SQLModel, table=True):
     # "frictionless for launch" manual-approval decision) — a human admin
     # reviews these values, the database just stores what was typed.
     verified_bar_no: str | None = Field(default=None)
+    # A two-letter US state code (e.g. "NY"), validated against the same
+    # canonical state list the frontend's States filter and the New
+    # Inquiry form's state field both already use (frontend/lib/us-
+    # states.ts's US_STATES) — kept as a plain string column rather than a
+    # backend Python enum so there's exactly one source of truth for the
+    # 50-state-plus-DC list, not two that could drift apart.
     bar_jurisdiction: str | None = Field(default=None)
+    # Scope Revision 1 §5.1 (AgentGuide/newscoperev1.md) — three genuinely
+    # new fields (confirmed against this file before adding: no name field
+    # existed anywhere in the prior application, the app relied on the
+    # Auth0 profile name instead; no firm email field existed at all).
+    legal_first_name: str | None = Field(default=None)
+    legal_last_name: str | None = Field(default=None)
+    firm_email_address: str | None = Field(default=None)
+    # Scope Revision 1 §5.5 — client's own wording: "Ensure their
+    # firm_email_address matches their professional website domain if
+    # provided" — optional, since not every applicant has a firm website
+    # to list. A mismatch produces a warning at submission (become_attorney
+    # in routers/users.py), not a hard block — email/website domains can
+    # legitimately differ for a real firm, so this is a data-quality flag
+    # for the admin reviewer, not a rejection reason.
+    firm_website: str | None = Field(default=None)
     # Nullable, not defaulted to VerificationStatus.pending — see
     # VerificationStatus's own docstring. Only ever meaningful (non-null)
     # once a citizen actually starts the "Become an Attorney" flow, which

@@ -50,9 +50,17 @@ function ToastItem({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, transition: { duration: 0.15 } }}
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-      className="pointer-events-auto flex items-center gap-2 rounded-md border border-border-default bg-bg-elevated px-4 py-3 shadow-card"
+      // Real bug found by a live UI audit: no max-width existed here at
+      // all — every toast until now happened to be short enough that it
+      // never mattered, but Scope Revision 1 §5.5's real domain-mismatch
+      // warning is genuinely long and was rendering clipped off the
+      // right edge of the viewport (the container anchors to
+      // sm:right-4, but the item itself had nothing capping how wide it
+      // could grow). Capped to a real, readable width with proper text
+      // wrapping instead of a single unbreakable line.
+      className="pointer-events-auto flex max-w-[min(92vw,380px)] items-start gap-2 rounded-md border border-border-default bg-bg-elevated px-4 py-3 shadow-card"
     >
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success/15">
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success/15">
         <Check className="h-3 w-3 text-success" />
       </span>
       <p className="text-body-sm text-text-primary">{text}</p>

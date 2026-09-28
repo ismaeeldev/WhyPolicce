@@ -7,6 +7,7 @@ import { FeedFilterBar } from "@/components/feed/FeedFilterBar";
 import { InquiryCard } from "@/components/feed/InquiryCard";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useInquiries, type InquiriesFilters } from "@/hooks/useInquiries";
+import { ApiError } from "@/lib/api-client";
 
 const DEFAULT_FILTERS: InquiriesFilters = { region: "", status: "", sort: "newest", q: "" };
 
@@ -55,16 +56,27 @@ export function HomeFeedClient() {
       <div className="mt-6 flex flex-col gap-4">
         {query.isError && (
           <div className="rounded-md border border-danger bg-danger-subtle p-5 text-center">
-            <p className="text-body-sm text-text-primary mb-3">
-              The feed didn&apos;t load — that&apos;s on us, not you.
-            </p>
-            <button
-              type="button"
-              onClick={() => query.refetch()}
-              className="rounded-sm px-4 py-2 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-            >
-              Try again
-            </button>
+            {query.error instanceof ApiError && query.error.code === "attorney_not_verified" ? (
+              // Scope Revision 1 §5.4 — a pending/rejected attorney's own
+              // account is server-blocked from the feed; this is an
+              // expected, not-a-bug state, so no "Try again" retry button
+              // (retrying can't succeed until an admin decides the
+              // application) and the real backend message explains why.
+              <p className="text-body-sm text-text-primary">{query.error.message}</p>
+            ) : (
+              <>
+                <p className="text-body-sm text-text-primary mb-3">
+                  The feed didn&apos;t load — that&apos;s on us, not you.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => query.refetch()}
+                  className="rounded-sm px-4 py-2 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                >
+                  Try again
+                </button>
+              </>
+            )}
           </div>
         )}
 

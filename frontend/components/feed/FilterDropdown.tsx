@@ -27,11 +27,14 @@ export function FilterDropdown({
   value,
   options,
   onChange,
+  renderOptionPrefix,
 }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
+  /** Optional per-option marker (e.g. the status color dot) rendered before the label. */
+  renderOptionPrefix?: (optionValue: string) => React.ReactNode;
 }) {
   const activeLabel = options.find((o) => o.value === value)?.label ?? label;
   const isActive = value !== options[0]?.value;
@@ -53,10 +56,15 @@ export function FilterDropdown({
         {activeLabel}
         <ChevronDown className="h-3.5 w-3.5" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-40">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="wp-filter-dropdown-panel w-max min-w-40 max-w-[min(90vw,320px)] max-h-[350px] overflow-y-auto"
+      >
         <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
           {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
+            <DropdownMenuRadioItem key={option.value} value={option.value} className="whitespace-nowrap">
+              {renderOptionPrefix?.(option.value)}
               {option.label}
             </DropdownMenuRadioItem>
           ))}

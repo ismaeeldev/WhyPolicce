@@ -150,17 +150,28 @@ export default function ThreadPage() {
     if (isNotFound) {
       return <NotFoundContent />;
     }
+    // Scope Revision 1 §5.4 — same reasoning as HomeFeedClient's own fix:
+    // a pending/rejected attorney's account is server-blocked here, not a
+    // transient failure, so no pointless "Try again" retry loop.
+    const isUnverifiedAttorney =
+      inquiryErrorObj instanceof ApiError && inquiryErrorObj.code === "attorney_not_verified";
     return (
       <div className="mx-auto w-full max-w-[760px] px-5 sm:px-6 py-12 sm:py-16">
         <div className="rounded-md border border-danger bg-danger-subtle p-5 text-center">
-          <p className="text-body-sm text-text-primary mb-3">This inquiry didn&apos;t load.</p>
-          <button
-            type="button"
-            onClick={() => refetchInquiry()}
-            className="rounded-sm px-4 py-2 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-          >
-            Try again
-          </button>
+          {isUnverifiedAttorney ? (
+            <p className="text-body-sm text-text-primary">{inquiryErrorObj.message}</p>
+          ) : (
+            <>
+              <p className="text-body-sm text-text-primary mb-3">This inquiry didn&apos;t load.</p>
+              <button
+                type="button"
+                onClick={() => refetchInquiry()}
+                className="rounded-sm px-4 py-2 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+              >
+                Try again
+              </button>
+            </>
+          )}
         </div>
       </div>
     );

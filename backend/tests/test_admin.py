@@ -162,6 +162,148 @@ class TestVerifyAttorney:
         assert attorney.verification_status == VerificationStatus.rejected
 
 
+class TestRejectionEmail:
+    """Scope Revision 1 §5.4 — client's own wording: "REJECTED: Account
+    locked; email notified of failure to validate bar status or active
+    standing." Confirmed via code review this notification never existed
+    before this fix, despite Resend being fully wired elsewhere in the app."""
+
+    def test_rejecting_an_attorney_sends_a_real_email(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        sent = []
+        monkeypatch.setattr(
+            "app.routers.admin.email_service.send_attorney_rejected_email",
+            lambda **kwargs: sent.append(kwargs),
+        )
+
+        attorney = User(
+            auth0_sub="auth0|reject-email-target",
+            email="reject-email-target@test.example",
+            role=Role.attorney,
+            verification_status=VerificationStatus.pending,
+        )
+        session.add(attorney)
+        session.commit()
+        session.refresh(attorney)
+
+        res = client.post(
+            f"/api/v1/admin/attorneys/{attorney.id}/verify", json={"decision": "rejected"}
+        )
+        assert res.status_code == 200, res.text
+        assert len(sent) == 1
+        assert sent[0]["to"] == "reject-email-target@test.example"
+
+    def test_approving_an_attorney_does_not_send_a_rejection_email(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        sent = []
+        monkeypatch.setattr(
+            "app.routers.admin.email_service.send_attorney_rejected_email",
+            lambda **kwargs: sent.append(kwargs),
+        )
+
+        attorney = User(
+            auth0_sub="auth0|approve-no-email-target",
+            email="approve-no-email-target@test.example",
+            role=Role.attorney,
+            verification_status=VerificationStatus.pending,
+        )
+        session.add(attorney)
+        session.commit()
+        session.refresh(attorney)
+
+        res = client.post(
+            f"/api/v1/admin/attorneys/{attorney.id}/verify", json={"decision": "approved"}
+        )
+        assert res.status_code == 200, res.text
+        assert len(sent) == 0
+
+    def test_email_failure_does_not_break_the_rejection_itself(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Matches inquiries.py's own established guard: a notification
+        failure must never propagate back into the triggering request."""
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        def _boom(**kwargs):
+            raise RuntimeError("Resend is down")
+
+        monkeypatch.setattr("app.routers.admin.email_service.send_attorney_rejected_email", _boom)
+
+        attorney = User(
+            auth0_sub="auth0|email-failure-target",
+            email="email-failure-target@test.example",
+            role=Role.attorney,
+            verification_status=VerificationStatus.pending,
+        )
+        session.add(attorney)
+        session.commit()
+        session.refresh(attorney)
+
+        res = client.post(
+            f"/api/v1/admin/attorneys/{attorney.id}/verify", json={"decision": "rejected"}
+        )
+        assert res.status_code == 200, res.text
+        assert res.json()["verificationStatus"] == "rejected"
+
+    def test_rejecting_the_same_attorney_twice_sends_exactly_one_email(
+        self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Bug-hunt item #8 (AgentGuide/newscoperev1.md Testing Strategy) —
+        re-applying the SAME decision on an already-decided attorney is
+        documented elsewhere in this file as idempotent, not a 400
+        conflict (unlike report review). Confirms the new rejection-email
+        side effect doesn't duplicate on that second, idempotent call —
+        a real double-send risk this fix introduced that wasn't there
+        before Resend was wired into this endpoint."""
+        _make_admin(monkeypatch)
+        client.get("/api/v1/inquiries")
+
+        sent = []
+        monkeypatch.setattr(
+            "app.routers.admin.email_service.send_attorney_rejected_email",
+            lambda **kwargs: sent.append(kwargs),
+        )
+
+        attorney = User(
+            auth0_sub="auth0|double-reject-target",
+            email="double-reject-target@test.example",
+            role=Role.attorney,
+            verification_status=VerificationStatus.pending,
+        )
+        session.add(attorney)
+        session.commit()
+        session.refresh(attorney)
+
+        first = client.post(
+            f"/api/v1/admin/attorneys/{attorney.id}/verify", json={"decision": "rejected"}
+        )
+        assert first.status_code == 200, first.text
+        second = client.post(
+            f"/api/v1/admin/attorneys/{attorney.id}/verify", json={"decision": "rejected"}
+        )
+        assert second.status_code == 200, second.text
+
+        assert len(sent) == 1, (
+            "Real bug found by this exact test on first run: re-applying "
+            "the SAME already-rejected decision (idempotent by design, an "
+            "admin double-click or two admins acting near-simultaneously "
+            "is normal usage here, not an error) was sending a SECOND "
+            "duplicate email every time, since the send-check only looked "
+            "at the new state, not whether this was a genuine transition. "
+            "Fixed in verify_attorney() to only send on pending/approved "
+            "-> rejected, not on rejected -> rejected."
+        )
+
+
 class TestPendingAttorneysList:
     def test_lists_only_pending_attorneys(
         self, client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch

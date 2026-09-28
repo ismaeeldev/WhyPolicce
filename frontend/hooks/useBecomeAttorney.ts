@@ -15,11 +15,29 @@ import { apiFetch } from "@/lib/api-client";
 export function useBecomeAttorney() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { barNo: string; jurisdiction: string }) =>
-      apiFetch<{ role: string; verificationStatus: string }>("/api/me/become-attorney", {
-        method: "POST",
-        body: JSON.stringify({ bar_no: vars.barNo, jurisdiction: vars.jurisdiction }),
-      }),
+    mutationFn: (vars: {
+      barNo: string;
+      jurisdiction: string;
+      legalFirstName: string;
+      legalLastName: string;
+      firmEmail: string;
+      // Scope Revision 1 §5.5 — optional, client's own wording: "if provided".
+      firmWebsite?: string;
+    }) =>
+      apiFetch<{ role: string; verificationStatus: string; domainMismatchWarning: string | null }>(
+        "/api/me/become-attorney",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            bar_no: vars.barNo,
+            jurisdiction: vars.jurisdiction,
+            legal_first_name: vars.legalFirstName,
+            legal_last_name: vars.legalLastName,
+            firm_email_address: vars.firmEmail,
+            firm_website: vars.firmWebsite || undefined,
+          }),
+        },
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },

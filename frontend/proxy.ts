@@ -11,8 +11,7 @@ import { auth0 } from "@/lib/auth0";
  */
 // Forum rebuild, Milestone 2: /search, /history, /upgrade are the old RAG
 // product's own protected routes, kept only because their pages/routes
-// still exist and aren't being deleted this milestone. /inquiries/new
-// (submit) is the new product's protected write action; the feed
+// still exist and aren't being deleted this milestone. The feed
 // (/inquiries) and a single inquiry's thread stay public/read-only per
 // the scope PDF, so they're deliberately NOT in this list. /account stays
 // protected since both products still gate it. /attorneys/dashboard is
@@ -27,12 +26,21 @@ import { auth0 } from "@/lib/auth0";
 // since proxy.ts has no DB access and can't know who's an admin. A
 // logged-in non-admin reaching /admin gets a real "not authorized"
 // page from the admin layout itself, not a silent redirect here.
+//
+// Scope Revision 1 §3.1 (AgentGuide/newscoperev1.md): /inquiries/new is
+// intentionally NOT in this list anymore — the "deferred sign-up" flow
+// lets a logged-out visitor fill out the form and only gates on the
+// final Publish click (see app/inquiries/new/page.tsx's own auth check).
+// The backend's create_inquiry endpoint independently requires a valid
+// auth token (Depends(get_current_user)) regardless of this frontend
+// gate, so removing this prefix does not expose a new unauthenticated
+// write path — confirmed in backend/app/routers/inquiries.py before
+// this change.
 const PROTECTED_PREFIXES = [
   "/search",
   "/history",
   "/account",
   "/upgrade",
-  "/inquiries/new",
   "/attorneys/dashboard",
   "/admin",
 ];

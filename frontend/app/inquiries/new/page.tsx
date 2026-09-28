@@ -1,13 +1,15 @@
 "use client";
 
+import { useUser } from "@auth0/nextjs-auth0";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { StatusTagSelector } from "@/components/inquiries/StatusTagSelector";
 import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
 import type { StatusTag } from "@/components/feed/StatusPill";
 import { ApiError } from "@/lib/api-client";
+import { findPrecinctsByNeighborhood, type PrecinctEntry } from "@/lib/nyc-precincts";
 import { US_STATES } from "@/lib/us-states";
 import { useCreateInquiry } from "@/hooks/useInquiries";
 
@@ -30,6 +32,58 @@ type FieldErrors = {
   statusTag?: string;
 };
 
+// Scope Revision 1 §3.2 (AgentGuide/newscoperev1.md) — "deferred sign-up":
+// a logged-out visitor can fill this form; the draft is cached here across
+// the login/signup interruption and auto-published on return, so they
+// never have to retype it. sessionStorage (not localStorage) is
+// deliberate — this is meant to be a short-lived draft, not a persistent
+// one, and it naturally clears when the tab closes.
+const DRAFT_STORAGE_KEY = "whypolice:draft-inquiry";
+const DRAFT_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes — an abandoned draft should not silently auto-publish on a much later visit
+
+type DraftInquiry = {
+  title: string;
+  description: string;
+  state: string;
+  city: string;
+  precinct: string;
+  statusTag: StatusTag | null;
+  isAnonymous: boolean;
+  savedAt: number;
+};
+
+function saveDraft(draft: DraftInquiry) {
+  try {
+    sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    // sessionStorage can throw (private browsing, quota, disabled) — the
+    // worst case here is the user has to retype after login, not a crash.
+  }
+}
+
+function readDraft(): DraftInquiry | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as DraftInquiry;
+    if (Date.now() - draft.savedAt > DRAFT_MAX_AGE_MS) {
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      return null;
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {
+    // best-effort — see saveDraft's comment
+  }
+}
+
 /**
  * New inquiry form — forum rebuild, Milestone 2 Step M2.3
  * (WhyPoliceForum_MasterGuide.md). The core citizen write-action and the
@@ -47,13 +101,31 @@ type FieldErrors = {
 export default function NewInquiryPage() {
   const router = useRouter();
   const createInquiry = useCreateInquiry();
+  const { user, isLoading: userLoading } = useUser();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [state, setState] = useState("");
-  const [city, setCity] = useState("");
-  const [precinct, setPrecinct] = useState("");
-  const [statusTag, setStatusTag] = useState<StatusTag | null>(null);
+  // §3.2 — a cached draft (if present and not stale) initializes the form
+  // synchronously on first render via useState's lazy initializer, rather
+  // than being restored later inside an effect (which would require
+  // several setState calls in a row, an anti-pattern that also can't
+  // synchronously trigger the auto-submit below in the same tick).
+  const [initialDraft] = useState<DraftInquiry | null>(() => readDraft());
+  const [title, setTitle] = useState(() => initialDraft?.title ?? "");
+  const [description, setDescription] = useState(() => initialDraft?.description ?? "");
+  const [state, setState] = useState(() => initialDraft?.state ?? "");
+  const [city, setCity] = useState(() => initialDraft?.city ?? "");
+  const [precinct, setPrecinct] = useState(() => initialDraft?.precinct ?? "");
+  const [statusTag, setStatusTag] = useState<StatusTag | null>(() => initialDraft?.statusTag ?? null);
+  // Scope Revision 1 §4.3 — "Post Anonymously to Public Feed" checkbox.
+  const [isAnonymous, setIsAnonymous] = useState(() => initialDraft?.isAnonymous ?? false);
+  // Scope Revision 1 §4.2 — minimal NYC-only precinct helper. Client's own
+  // wording had no stated city scope or accuracy bar ("a lightweight
+  // location auto-complete or lookup tool"), so this starts as the
+  // smallest reasonable interpretation: a neighborhood-name lookup
+  // against NYPD's own precinct directory (already verified elsewhere in
+  // this codebase — see lib/nyc-precincts.ts's own docstring), only shown
+  // when state=NY, with no new external API or cost. Nationwide/exact-GIS
+  // coverage is explicitly out of scope for this first pass.
+  const [precinctSearch, setPrecinctSearch] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
@@ -61,6 +133,9 @@ export default function NewInquiryPage() {
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const charCount = description.length;
   const overLimit = charCount > FREE_TIER_CHAR_LIMIT;
+
+  const precinctMatches: PrecinctEntry[] =
+    state === "NY" ? findPrecinctsByNeighborhood(precinctSearch) : [];
 
   // Real double-submit guard, per M2.3's own Bug Fix requirement: a
   // double-click can fire two submit events before React's re-render
@@ -94,9 +169,11 @@ export default function NewInquiryPage() {
         city: city.trim(),
         precinct: precinct.trim() || undefined,
         statusTag,
+        isAnonymous,
       },
       {
         onSuccess: (created) => {
+          clearDraft(); // §3.2 step 4 — never resurface on a later, unrelated visit
           router.push(`/inquiries/${created.id}`);
         },
         onError: (err) => {
@@ -109,8 +186,14 @@ export default function NewInquiryPage() {
     );
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
+  // Shared by the manual Publish click AND §3.2's post-login auto-submit —
+  // deliberately the single path both go through, so validation (the
+  // 250-char free-tier check in particular) can never be bypassed by the
+  // automated resubmit. `overLimit` is read fresh from the description arg
+  // rather than closed-over state, since the auto-submit path calls this
+  // synchronously in the same tick it sets state via setDescription, before
+  // a re-render would have updated the closure's `overLimit`/`charCount`.
+  const attemptSubmit = (currentDescription: string) => {
     if (submitLockRef.current) return;
 
     setSubmitError(null);
@@ -128,13 +211,40 @@ export default function NewInquiryPage() {
     // the double-submit lock — the user needs to be able to try
     // submitting again after dismissing the modal (e.g. via "Trim my
     // post instead").
-    if (overLimit) {
+    if (currentDescription.length > FREE_TIER_CHAR_LIMIT) {
       setUpgradeModalOpen(true);
       return;
     }
 
     submitLockRef.current = true;
     submitInquiry();
+  };
+
+  // §3.2 step 3 — auto-publish once, on return from login/signup, if the
+  // form was restored from a cached draft. Waits for auth state to
+  // resolve (userLoading) so this never fires before we actually know
+  // whether the user is logged in. Guarded by a ref so a re-render (e.g.
+  // React Query refetch) can never trigger a second, duplicate publish.
+  const autoSubmitAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (!initialDraft || userLoading || !user || autoSubmitAttemptedRef.current) return;
+    autoSubmitAttemptedRef.current = true;
+    attemptSubmit(description);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once, gated by autoSubmitAttemptedRef, not on every dependency change
+  }, [user, userLoading]);
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!user) {
+      // §3.2 — deferred sign-up: cache the draft, then hand off to the
+      // existing /login?returnTo= pattern already used everywhere else in
+      // this app (proxy.ts generates this exact URL shape for every other
+      // protected route) rather than inventing a new auth-entry scheme.
+      saveDraft({ title, description, state, city, precinct, statusTag, isAnonymous, savedAt: Date.now() });
+      router.push(`/login?returnTo=${encodeURIComponent("/inquiries/new")}`);
+      return;
+    }
+    attemptSubmit(description);
   };
 
   const handleTrimInstead = () => {
@@ -259,12 +369,61 @@ export default function NewInquiryPage() {
             }`}
           />
           <p className="mt-1 min-h-[1.25rem] text-caption text-danger">{fieldErrors.precinct}</p>
+
+          {state === "NY" && (
+            <div className="mt-2">
+              <label htmlFor="precinct-helper" className="mb-1.5 block text-caption text-text-muted">
+                Don&apos;t know your precinct? Type your NYC neighborhood:
+              </label>
+              <input
+                id="precinct-helper"
+                value={precinctSearch}
+                onChange={(e) => setPrecinctSearch(e.target.value)}
+                placeholder="e.g. Harlem, Park Slope, Astoria..."
+                className="h-10 w-full rounded-sm border border-border-default bg-bg px-3 text-body-sm text-text-primary outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
+              />
+              {precinctMatches.length > 0 && (
+                <ul className="mt-1.5 flex flex-col gap-1 rounded-sm border border-border-default bg-bg-elevated p-1.5">
+                  {precinctMatches.map((match) => (
+                    <li key={match.precinct}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrecinct(match.precinct);
+                          setPrecinctSearch("");
+                        }}
+                        className="w-full rounded-sm px-2.5 py-1.5 text-left text-body-sm text-text-primary transition-colors hover:bg-bg-subtle focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                      >
+                        Precinct {match.precinct}
+                        <span className="text-text-muted"> — {match.neighborhoods}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {precinctSearch.trim().length >= 2 && precinctMatches.length === 0 && (
+                <p className="mt-1.5 text-caption text-text-muted">
+                  No match found — this covers a limited set of NYC neighborhoods for now, so it&apos;s fine to leave precinct blank or enter it yourself if you know it.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div>
           <StatusTagSelector value={statusTag} onChange={setStatusTag} />
           <p className="mt-1 min-h-[1.25rem] text-caption text-danger">{fieldErrors.statusTag}</p>
         </div>
+
+        <label className="flex items-center gap-2.5 text-body-sm text-text-secondary">
+          <input
+            type="checkbox"
+            checked={isAnonymous}
+            onChange={(e) => setIsAnonymous(e.target.checked)}
+            className="h-4 w-4 rounded-sm border-border-default accent-accent"
+          />
+          Post Anonymously to Public Feed
+        </label>
 
         {submitError && (
           <div className="rounded-md border border-danger bg-danger-subtle p-4">

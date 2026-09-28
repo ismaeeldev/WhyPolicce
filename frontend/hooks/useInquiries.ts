@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, ApiError } from "@/lib/api-client";
 import { fetchInquiriesPage, INQUIRIES_PAGE_SIZE, inquiriesQueryKey } from "@/lib/inquiries-query";
 import type { InquiriesFilters, InquiriesPage } from "@/lib/inquiries-query";
 import type { AttorneyRequestOnInquiry, AttorneyRequestStatus } from "@/hooks/useConsultationRequests";
@@ -31,6 +31,10 @@ export type Inquiry = {
   precinct: string | null;
   statusTag: StatusTag;
   tier: "free" | "expanded";
+  // Scope Revision 1 §4.3 — display-only; the real author is always
+  // recorded server-side regardless of this flag (see backend's own
+  // Inquiry.is_anonymous comment).
+  isAnonymous: boolean;
   followerCount: number;
   commentCount: number;
   hasAttachments: boolean;
@@ -87,6 +91,20 @@ export function useInquiries(filters: InquiriesFilters) {
       const nextOffset = lastPage.offset + lastPage.items.length;
       return nextOffset < lastPage.total ? nextOffset : undefined;
     },
+    // Real bug found via the E2E audit suite: Scope Revision 1 §5.4's
+    // attorney_not_verified 403 (a pending/rejected attorney's own
+    // account, permanently non-retryable — the app's own gate, not a
+    // transient failure) was hitting React Query's default 3-retry
+    // exponential backoff, leaving a real user stuck on a loading
+    // skeleton for 10-15+ seconds before the real explanatory message
+    // ever appeared. No 4xx from this endpoint is ever transient (the
+    // only other one, 401 on ?mine=true, is equally pointless to retry),
+    // so this stops retrying on any 4xx and only retries genuine
+    // 5xx/network failures, capped low rather than TanStack's default 3.
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
+      return failureCount < 2;
+    },
   });
 }
 
@@ -126,6 +144,7 @@ export type InquiryCreatePayload = {
   city: string;
   precinct?: string;
   statusTag: StatusTag;
+  isAnonymous?: boolean;
 };
 
 /**
@@ -155,6 +174,7 @@ export function useCreateInquiry() {
           city: payload.city,
           precinct: payload.precinct,
           status_tag: payload.statusTag,
+          is_anonymous: payload.isAnonymous ?? false,
         }),
       }),
     onSuccess: () => {

@@ -4,6 +4,7 @@ import { Search, X } from "lucide-react";
 import { useState } from "react";
 
 import { FilterDropdown } from "@/components/feed/FilterDropdown";
+import { STATUS_CONFIG, type StatusTag } from "@/components/feed/StatusPill";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { US_STATES } from "@/lib/us-states";
 import type { InquiriesFilters } from "@/hooks/useInquiries";
@@ -80,6 +81,11 @@ export function FeedFilterBar({
             value={filters.status}
             options={STATUS_OPTIONS}
             onChange={(status) => onFiltersChange({ status })}
+            renderOptionPrefix={(optionValue) => {
+              const config = STATUS_CONFIG[optionValue as StatusTag];
+              if (!config) return null;
+              return <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} aria-hidden="true" />;
+            }}
           />
           <FilterDropdown
             label="Sort"

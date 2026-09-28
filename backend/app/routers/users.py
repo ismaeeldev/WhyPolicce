@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
@@ -8,6 +10,31 @@ from app.core.security import AuthenticatedUser, get_current_user
 from app.models.user import Role, User, VerificationStatus
 
 router = APIRouter()
+
+# Scope Revision 1 §5.2 (AgentGuide/newscoperev1.md) — client's own
+# wording: "strictly blocking generic gmail.com or yahoo.com addresses
+# for paid accounts". Enforced server-side (not just in the frontend
+# form) since the goal is real data integrity, not just UX friction.
+GENERIC_EMAIL_DOMAINS = {
+    "gmail.com",
+    "yahoo.com",
+    "outlook.com",
+    "hotmail.com",
+    "icloud.com",
+    "aol.com",
+}
+
+# Same 50-states-plus-DC set as frontend/lib/us-states.ts's US_STATES —
+# Python can't import a .ts file, so this is a deliberate, intentionally
+# duplicated copy for server-side validation. Keep both lists in sync if
+# either ever changes (neither is expected to — US states are fixed).
+VALID_STATE_CODES = {
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI",
+    "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN",
+    "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH",
+    "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA",
+    "WV", "WI", "WY",
+}
 
 
 def _get_or_create_user(session: Session, current: AuthenticatedUser) -> User:
@@ -80,7 +107,19 @@ def get_me(
 
 class BecomeAttorneyRequest(BaseModel):
     bar_no: str = Field(min_length=1, max_length=100)
+    # A two-letter state code (e.g. "NY") — validated against the same
+    # canonical US_STATES list at the router level below, not re-declared
+    # as a second enum here, to avoid two lists drifting apart.
     jurisdiction: str = Field(min_length=1, max_length=100)
+    # Scope Revision 1 §5.1 — three new required fields (client's follow-up
+    # message: legal_first_name, legal_last_name, firm_email_address).
+    legal_first_name: str = Field(min_length=1, max_length=100)
+    legal_last_name: str = Field(min_length=1, max_length=100)
+    firm_email_address: str = Field(min_length=1, max_length=254)
+    # Scope Revision 1 §5.5 — optional, client's own wording: "if
+    # provided". No min_length, since an empty string/omitted field must
+    # be treated as "not provided", not a validation error.
+    firm_website: str | None = Field(default=None, max_length=254)
 
 
 @router.post("/api/me/become-attorney")
@@ -130,15 +169,93 @@ def become_attorney(
             },
         )
 
+    # §5.1 — jurisdiction is now a fixed state code, not free text; reject
+    # anything outside the real 50-states-plus-DC set rather than silently
+    # storing a typo the admin reviewer would have to catch by hand.
+    jurisdiction = body.jurisdiction.strip().upper()
+    if jurisdiction not in VALID_STATE_CODES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_jurisdiction",
+                "message": "Jurisdiction must be a valid US state or DC.",
+            },
+        )
+
+    # §5.2 — client's own wording: block generic email providers at
+    # submission time, not deferred to admin review (an applicant who
+    # tries to submit with a personal address gets immediate, actionable
+    # feedback instead of a silent rejection later).
+    email_domain = body.firm_email_address.strip().lower().rsplit("@", 1)[-1]
+    if email_domain in GENERIC_EMAIL_DOMAINS:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "generic_email_domain",
+                "message": "Please use your firm's work email address, not a personal email provider.",
+            },
+        )
+
+    # §5.3 — normalize before the uniqueness check so an untrimmed or
+    # differently-cased duplicate can't slip past the DB constraint (e.g.
+    # " ny1234567 " vs "NY1234567" would otherwise look distinct).
+    bar_no = body.bar_no.strip().upper()
+
+    # §5.5 — client's own wording: "Ensure their firm_email_address
+    # matches their professional website domain if provided." A mismatch
+    # is a warning surfaced back to the applicant, not a hard block — a
+    # real firm can legitimately use a different domain for email vs.
+    # website (e.g. a vanity marketing domain), so rejecting outright
+    # would block legitimate applicants over a non-fatal inconsistency.
+    firm_website = body.firm_website.strip() if body.firm_website else None
+    domain_mismatch_warning: str | None = None
+    if firm_website:
+        website_domain = urlparse(
+            firm_website if "://" in firm_website else f"https://{firm_website}"
+        ).netloc.lower().removeprefix("www.")
+        if website_domain and website_domain != email_domain:
+            domain_mismatch_warning = (
+                "Your firm email and website domains don't match — this is fine if "
+                "your firm genuinely uses different domains, but double-check for a typo."
+            )
+
     user.role = Role.attorney
-    user.verified_bar_no = body.bar_no
-    user.bar_jurisdiction = body.jurisdiction
+    user.verified_bar_no = bar_no
+    user.bar_jurisdiction = jurisdiction
+    user.legal_first_name = body.legal_first_name.strip()
+    user.legal_last_name = body.legal_last_name.strip()
+    user.firm_email_address = body.firm_email_address.strip()
+    user.firm_website = firm_website
     user.verification_status = VerificationStatus.pending
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        # Real bug found running the actual test suite (SQLite, used in
+        # tests, vs. Postgres, used in production): the two dialects
+        # phrase a unique-constraint violation completely differently —
+        # Postgres includes the constraint name itself
+        # ("uq_users_bar_no_jurisdiction"), SQLite instead names the
+        # columns ("UNIQUE constraint failed: users.verified_bar_no,
+        # users.bar_jurisdiction"). Checking for either substring instead
+        # of only the constraint name makes this correct under both.
+        error_text = str(exc.orig)
+        if "uq_users_bar_no_jurisdiction" in error_text or (
+            "verified_bar_no" in error_text and "bar_jurisdiction" in error_text
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "duplicate_bar_registration",
+                    "message": "This bar number is already registered to another account.",
+                },
+            ) from exc
+        raise
     session.refresh(user)
 
     return {
         "role": user.role.value,
         "verificationStatus": user.verification_status.value,
+        "domainMismatchWarning": domain_mismatch_warning,
     }

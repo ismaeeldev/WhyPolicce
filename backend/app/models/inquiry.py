@@ -82,6 +82,15 @@ class Inquiry(SQLModel, table=True):
         default=InquiryTier.free,
         sa_column=Column(SAEnum(InquiryTier, name="inquiry_tier")),
     )
+    # Scope Revision 1 §4.3 (AgentGuide/newscoperev1.md) — client's own
+    # wording: "Post Anonymously to Public Feed" checkbox, "for citizen
+    # safety". Display-only: the real author_id above is ALWAYS recorded
+    # (never null/anonymized in the database itself) — only the public-
+    # facing serializer (_inquiry_out() in routers/inquiries.py) suppresses
+    # the author's name/avatar when this is true. The author's own
+    # ownership/edit/delete rights are completely unaffected, since those
+    # checks compare against author_id directly, never this display flag.
+    is_anonymous: bool = Field(default=False)
     # Denormalized counter only — the real per-user follow records live in
     # inquiry_follows (M1.3). This field alone cannot answer "does user X
     # follow this inquiry," which M1.4/M2.2 both need via a separate query

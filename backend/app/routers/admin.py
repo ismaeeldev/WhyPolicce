@@ -10,6 +10,7 @@ resolve one, making the client's own "rely on community flags instead of
 pre-moderation" answer aspirational rather than real.
 """
 
+import logging
 import uuid
 
 from pydantic import BaseModel
@@ -23,8 +24,10 @@ from app.core.timeutil import to_utc_iso
 from app.models.inquiry import Inquiry, ThreadComment
 from app.models.report import Report, ReportStatus, ReportTargetType
 from app.models.user import Role, User, VerificationStatus
+from app.services import email_service
 
 router = APIRouter(prefix="/api/v1/admin")
+logger = logging.getLogger("whypolice.admin")
 
 _DEFAULT_PAGE_SIZE = 20
 _MAX_PAGE_SIZE = 100
@@ -124,10 +127,38 @@ def verify_attorney(
     # (an admin re-clicking, or two admins acting near-simultaneously,
     # is normal usage); applying the OPPOSITE decision is a real,
     # supported revision, not a conflict.
+    was_already_rejected = target.verification_status == VerificationStatus.rejected
     target.verification_status = VerificationStatus(body.decision)
     session.add(target)
     session.commit()
     session.refresh(target)
+
+    # §5.4 — client's own wording: "REJECTED: Account locked; email
+    # notified of failure to validate bar status or active standing."
+    # Matches inquiries.py's own established pattern for a notification
+    # that must never break the request it's attached to — send_email()
+    # itself already catches provider errors, this is the second,
+    # independent guard around the call site.
+    #
+    # Real bug found by the E2E audit's bug-hunt item #8: re-applying the
+    # SAME "rejected" decision (idempotent by design, per the comment
+    # above — a double-click or two admins acting near-simultaneously is
+    # normal usage, not an error) was sending a SECOND duplicate email
+    # to the applicant every time, since this check only looked at the
+    # NEW state, not whether it was actually a transition. Only send on
+    # a genuine pending/approved -> rejected transition now.
+    if (
+        target.verification_status == VerificationStatus.rejected
+        and not was_already_rejected
+        and target.email
+    ):
+        try:
+            email_service.send_attorney_rejected_email(
+                to=target.email, account_url=f"{settings.FRONTEND_URL}/account"
+            )
+        except Exception:
+            logger.exception("Failed to send rejection email to attorney %s", target.id)
+
     return {"id": str(target.id), "verificationStatus": target.verification_status.value}
 
 
@@ -222,6 +253,13 @@ def _attorney_out(u: User) -> dict:
         "email": u.email,
         "verifiedBarNo": u.verified_bar_no,
         "barJurisdiction": u.bar_jurisdiction,
+        # Scope Revision 1 §5.1/§5.6 — surfaced here so the admin has
+        # everything needed to manually cross-check against the official
+        # state bar directory in one place, without a second screen.
+        "legalFirstName": u.legal_first_name,
+        "legalLastName": u.legal_last_name,
+        "firmEmailAddress": u.firm_email_address,
+        "firmWebsite": u.firm_website,
         "verificationStatus": u.verification_status.value if u.verification_status else None,
         "createdAt": to_utc_iso(u.created_at),
     }

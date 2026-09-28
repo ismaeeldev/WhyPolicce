@@ -56,6 +56,13 @@ export type AdminAttorney = {
   email: string;
   verifiedBarNo: string | null;
   barJurisdiction: string | null;
+  // Scope Revision 1 §5.1/§5.6 — new attorney-application fields, surfaced
+  // here so the admin review screen has everything needed to manually
+  // cross-check a bar registration in one place.
+  legalFirstName: string | null;
+  legalLastName: string | null;
+  firmEmailAddress: string | null;
+  firmWebsite: string | null;
   verificationStatus: VerificationStatus | null;
   createdAt: string;
 };

@@ -8,7 +8,7 @@
  */
 export type StatusTag = "community_trace" | "awaiting_police_statement";
 
-const STATUS_CONFIG: Record<StatusTag, { label: string; bg: string; text: string; dot: string }> = {
+export const STATUS_CONFIG: Record<StatusTag, { label: string; bg: string; text: string; dot: string }> = {
   community_trace: {
     label: "Community Trace",
     bg: "bg-warning-subtle",

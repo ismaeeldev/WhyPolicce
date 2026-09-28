@@ -33,8 +33,8 @@ import { useUser as useMe } from "@/hooks/useUser";
 // destination would contradict this Navbar's own existing minimal-nav
 // philosophy (previously just About/Pricing) for no real benefit.
 const NAV_LINKS = [
-  { href: "/attorneys/dashboard", label: "For Attorneys" },
-  { href: "/pricing", label: "Pricing" },
+  { key: "for-attorneys", href: "/pricing", label: "For Attorneys" },
+  { key: "upgrade", href: "/pricing", label: "Upgrade" },
 ];
 
 /**
@@ -92,7 +92,7 @@ export function Navbar() {
             const isActive = pathname === link.href;
             return (
               <Link
-                key={link.href}
+                key={link.key}
                 href={link.href}
                 aria-current={isActive ? "page" : undefined}
                 className={`group relative text-body-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm ${
@@ -243,7 +243,7 @@ export function Navbar() {
                 const isActive = pathname === link.href;
                 return (
                   <SheetClose
-                    key={link.href}
+                    key={link.key}
                     render={
                       <Link
                         href={link.href}

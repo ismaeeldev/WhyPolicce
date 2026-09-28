@@ -27,8 +27,15 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
   return (
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
+      // Real bug found by a live UI audit: bg-black/10 (10% opacity) is
+      // too light to visually separate this sheet from the page content
+      // still showing through behind it — confirmed live at 375px width
+      // on the mobile filters sheet (FeedFilterBar.tsx) and the mobile
+      // nav menu (Navbar.tsx), the only two consumers of this shared
+      // primitive, both genuinely affected. bg-black/40 gives a real,
+      // visible dimming without going fully opaque/heavy.
       className={cn(
-        "fixed inset-0 z-50 bg-black/10 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
+        "fixed inset-0 z-50 bg-black/40 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
         className
       )}
       {...props}
