@@ -28,7 +28,12 @@ const TABS: { key: VerificationStatus; label: string }[] = [
   { key: "rejected", label: "Rejected" },
 ];
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 /**
  * Admin attorney review — new admin panel (client's explicit request):

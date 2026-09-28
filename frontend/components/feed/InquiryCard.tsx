@@ -10,7 +10,12 @@ import { useFollowInquiry, useUnfollowInquiry } from "@/hooks/useFollowInquiry";
 import type { Inquiry } from "@/hooks/useInquiries";
 import { useToastStore } from "@/stores/useToastStore";
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 /**
  * Home feed inquiry card — forum rebuild, Milestone 2 Step M2.2
@@ -87,7 +92,7 @@ export function InquiryCard({
 
       <Link
         href={`/inquiries/${inquiry.id}`}
-        className="mt-3 block rounded-sm text-body font-medium text-text-primary decoration-accent decoration-1 underline-offset-4 transition-colors hover:text-accent hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+        className="mt-3 block rounded-sm text-body font-medium text-text-primary decoration-accent decoration-1 underline-offset-4 transition-colors hover:text-accent hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none [overflow-wrap:anywhere]"
       >
         {inquiry.title}
       </Link>

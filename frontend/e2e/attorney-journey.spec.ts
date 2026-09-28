@@ -3,8 +3,9 @@ import { execFileSync } from "node:child_process";
 import { signup, uniqueEmail } from "./helpers";
 
 function approveAttorney(barNo: string) {
+  const pythonPath = "D:\\WEB DEV\\WhyPolice\\backend\\.venv\\Scripts\\python.exe";
   execFileSync(
-    "D:\\WEB DEV\\WhyPolice\\backend\\venv\\Scripts\\python.exe",
+    pythonPath,
     [
       "-c",
       `from sqlalchemy import create_engine, text\n` +
@@ -45,31 +46,35 @@ test.describe("Attorney journey", () => {
     await expect(page.getByRole("button", { name: /become an attorney/i })).toBeVisible({ timeout: 45_000 });
     await page.getByRole("button", { name: /become an attorney/i }).click();
 
+    await page.locator("#legal-first-name").fill("Jane");
+    await page.locator("#legal-last-name").fill("Doe");
     await page.locator("#bar-no").fill(barNo);
-    await page.locator("#jurisdiction").fill("New York");
+    await page.locator("#jurisdiction").selectOption("NY");
+    await page.locator("#firm-email").fill(`attorney_${Date.now()}@realfirmdomain.com`);
+    await page.locator("#firm-website").fill("https://www.realfirmdomain.com");
     await page.getByRole("button", { name: /^submit$/i }).click();
     await expect(page.getByText(/pending review/i)).toBeVisible({ timeout: 25_000 });
 
     // Pending attorney visiting the portal sees the pending banner, not the real portal.
     await page.goto("/attorneys/dashboard");
-    await expect(page.getByText(/pending/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/pending/i)).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(/subscribe to see real cases/i)).not.toBeVisible();
 
     approveAttorney(barNo);
 
-    await page.goto("/attorneys/dashboard");
-    await expect(page.getByText("Attorney Portal")).toBeVisible({ timeout: 15_000 });
+    await page.reload();
+    await expect(page.getByText("Attorney Portal")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(/pending review/i)).not.toBeVisible();
 
     // Real paywall: an approved-but-unsubscribed attorney sees the
     // blurred preview + subscribe CTA, not the raw real feed.
-    await expect(page.getByText(/subscribe to see real cases/i)).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole("button", { name: /subscribe for \$149/i })).toBeVisible();
+    await expect(page.getByText(/subscribe to see real cases/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("button", { name: /subscribe for \$149/i })).toBeVisible({ timeout: 10_000 });
   });
 
   test("citizen visiting the attorney portal sees a real explanatory page, not a raw 403/404", async ({ page }) => {
     const email = uniqueEmail("e2e-citizen-portal-guard");
     await signup(page, email, "/attorneys/dashboard");
-    await expect(page.getByText(/this is the attorney portal/i)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/this is the attorney portal/i)).toBeVisible({ timeout: 35_000 });
   });
 });

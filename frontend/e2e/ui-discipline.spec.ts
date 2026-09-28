@@ -6,13 +6,19 @@ import { signup, uniqueEmail, ensureFeedLoaded } from "./helpers";
  * guards, hard-refresh shell persistence.
  */
 test.describe("Redirect logic", () => {
-  test("logged-out visitor hitting /inquiries/new is redirected to login with returnTo preserved", async ({ page }) => {
-    await page.goto("/inquiries/new");
+  test("logged-out visitor hitting /account is redirected to login with returnTo preserved", async ({ page }) => {
+    await page.goto("/account");
     await page.waitForURL((url) => url.pathname.includes("/login") || url.hostname !== "localhost", {
       timeout: 15_000,
     });
     const url = page.url();
     expect(url).toContain("returnTo");
+  });
+
+  test("logged-out visitor can access /inquiries/new directly for deferred signup", async ({ page }) => {
+    await page.goto("/inquiries/new");
+    await expect(page).toHaveURL("/inquiries/new");
+    await expect(page.locator("#title")).toBeVisible({ timeout: 10_000 });
   });
 
   test("logged-out visitor hitting /attorneys/dashboard is redirected to login", async ({ page }) => {

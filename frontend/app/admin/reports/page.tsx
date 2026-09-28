@@ -15,7 +15,12 @@ import { ApiError } from "@/lib/api-client";
 import { ADMIN_PAGE_SIZE, useAdminReports, useReviewReport, type AdminReport } from "@/hooks/useAdmin";
 import { useToastStore } from "@/stores/useToastStore";
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 function targetPreview(report: AdminReport): string {
   if (report.target === null) {

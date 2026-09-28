@@ -33,6 +33,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
   year: "numeric",
+  timeZone: "UTC",
 });
 
 /**
@@ -252,7 +253,7 @@ export default function ThreadPage() {
           <p className="mt-4 mb-1.5 text-caption font-medium uppercase tracking-wide text-text-muted">
             The original inquiry
           </p>
-          <h1 className="border-l-2 border-accent/40 pl-3 text-h3 font-semibold text-text-primary">
+          <h1 className="border-l-2 border-accent/40 pl-3 text-h3 font-semibold text-text-primary [overflow-wrap:anywhere]">
             {inquiry.title}
           </h1>
           <p className="mt-3 border-l-2 border-accent/40 pl-3 text-body text-text-secondary whitespace-pre-wrap [overflow-wrap:anywhere]">
