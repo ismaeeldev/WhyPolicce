@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 
 import { trackEvent } from "@/lib/analytics";
 import { useSupportedStates } from "@/hooks/useSupportedStates";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 const PENDING_QUERY_KEY = "wp_pending_query";
 
@@ -238,20 +239,35 @@ export function SearchBar({
             WhyPolice actually has real integrated data for, and stays
             correct automatically as future city-expansion phases land. */}
         {onStateChange && (
-          <select
+          <Select
             value={selectedState ?? ""}
-            onChange={(e) => onStateChange(e.target.value || null)}
+            onValueChange={(v) => onStateChange((v as string) || null)}
             disabled={disabled}
-            aria-label="Select U.S. State"
-            className="min-h-10 rounded-full border border-border-default bg-bg-elevated px-3.5 py-2 text-body-sm text-text-secondary transition-colors hover:border-border-strong focus-visible:ring-2 focus-visible:ring-accent outline-none disabled:opacity-60 cursor-pointer"
           >
-            <option value="">All states</option>
-            {supportedStates?.map((s) => (
-              <option key={s.code} value={s.code}>
-                {s.name} ({s.code})
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              aria-label="Select U.S. State"
+              className="h-10 min-h-10 w-auto rounded-full border-border-default bg-bg-elevated px-3.5 py-2 text-body-sm text-text-secondary hover:border-border-strong"
+            >
+              <SelectValue placeholder="All states">
+                {(value: string) =>
+                  !value
+                    ? "All states"
+                    : (() => {
+                        const s = supportedStates?.find((s) => s.code === value);
+                        return s ? `${s.name} (${s.code})` : value;
+                      })()
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All states</SelectItem>
+              {supportedStates?.map((s) => (
+                <SelectItem key={s.code} value={s.code}>
+                  {s.name} ({s.code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
         {onDeepSearchChange && (
           <button

@@ -89,7 +89,17 @@ export function Navbar() {
 
         <nav aria-label="Main navigation" className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((link) => {
-            const isActive = pathname === link.href;
+            // "For Attorneys" and "Upgrade" both intentionally point to
+            // /pricing (two labeled entry points to the same page — see
+            // the comment above NAV_LINKS). Real bug found during a UI
+            // audit: pathname-based active-matching lit up BOTH links at
+            // once on /pricing, since neither is more "correct" than the
+            // other from the URL alone. Never highlight a link whose href
+            // is shared by another nav link — showing no active state is
+            // honest; showing two is not.
+            const hrefIsAmbiguous =
+              NAV_LINKS.filter((l) => l.href === link.href).length > 1;
+            const isActive = !hrefIsAmbiguous && pathname === link.href;
             return (
               <Link
                 key={link.key}
@@ -240,7 +250,10 @@ export function Navbar() {
                 </span>
               </SheetClose>
               {NAV_LINKS.map((link) => {
-                const isActive = pathname === link.href;
+                // Same fix as the desktop nav above — see that comment.
+                const hrefIsAmbiguous =
+                  NAV_LINKS.filter((l) => l.href === link.href).length > 1;
+                const isActive = !hrefIsAmbiguous && pathname === link.href;
                 return (
                   <SheetClose
                     key={link.key}

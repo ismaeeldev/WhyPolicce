@@ -7,6 +7,7 @@ import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
 import type { StatusTag } from "@/components/feed/StatusPill";
 import { ApiError } from "@/lib/api-client";
 import { US_STATES } from "@/lib/us-states";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useInquiryUpgradeCheckout } from "@/hooks/useForumBilling";
 import { useUpdateInquiry, type Inquiry } from "@/hooks/useInquiries";
 
@@ -137,17 +138,20 @@ export function InquiryEditForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-body-sm text-text-secondary">State</label>
-          <select
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-            className="h-11 w-full rounded-sm border border-border-default bg-bg px-3 text-body text-text-primary outline-none focus:border-accent"
-          >
-            {US_STATES.map((s) => (
-              <option key={s.code} value={s.code}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <Select value={state} onValueChange={(v) => setState(v as string)}>
+            <SelectTrigger>
+              <SelectValue>
+                {(value: string) => US_STATES.find((s) => s.code === value)?.name ?? value}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {US_STATES.map((s) => (
+                <SelectItem key={s.code} value={s.code}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <label className="mb-1.5 block text-body-sm text-text-secondary">City</label>

@@ -63,7 +63,7 @@ export function CommentEditDeleteControls({
             <AlertDialogDescription>This can&apos;t be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteComment.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
                 deleteComment.mutate(commentId, {
@@ -72,9 +72,10 @@ export function CommentEditDeleteControls({
                   },
                 })
               }
-              className="bg-danger text-danger-foreground hover:bg-danger/90"
+              disabled={deleteComment.isPending}
+              className="bg-danger text-danger-foreground hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Delete
+              {deleteComment.isPending ? "Deleting…" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

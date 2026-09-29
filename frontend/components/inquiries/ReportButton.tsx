@@ -87,7 +87,8 @@ export function ReportButton({
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Why are you reporting this?"
-        className="h-8 w-full rounded-sm border border-border-default bg-bg px-2.5 text-caption text-text-primary outline-none focus:border-accent"
+        disabled={reportMutation.isPending}
+        className="h-8 w-full rounded-sm border border-border-default bg-bg px-2.5 text-caption text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
       />
       {error && <p className="text-caption text-danger">{error}</p>}
       <div className="flex items-center gap-2">
@@ -97,7 +98,7 @@ export function ReportButton({
           disabled={!reason.trim() || reportMutation.isPending}
           className="rounded-sm bg-accent px-2.5 py-1 text-caption font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
         >
-          Submit report
+          {reportMutation.isPending ? "Submitting…" : "Submit report"}
         </button>
         <button
           type="button"
@@ -106,7 +107,8 @@ export function ReportButton({
             setReason("");
             setError(null);
           }}
-          className="text-caption text-text-muted hover:text-text-primary transition-colors rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+          disabled={reportMutation.isPending}
+          className="text-caption text-text-muted hover:text-text-primary transition-colors rounded-sm disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
         >
           Cancel
         </button>

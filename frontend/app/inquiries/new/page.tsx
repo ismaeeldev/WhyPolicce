@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { StatusTagSelector } from "@/components/inquiries/StatusTagSelector";
 import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { StatusTag } from "@/components/feed/StatusPill";
 import { ApiError } from "@/lib/api-client";
 import { findPrecinctsByNeighborhood, type PrecinctEntry } from "@/lib/nyc-precincts";
@@ -320,21 +322,26 @@ export default function NewInquiryPage() {
             <label htmlFor="state" className="mb-1.5 block text-body-sm text-text-secondary">
               State
             </label>
-            <select
-              id="state"
+            <Select
               value={state}
-              onChange={(e) => setState(e.target.value)}
-              className={`h-11 w-full rounded-sm border bg-bg-elevated px-3 text-body text-text-primary outline-none focus:border-accent ${
-                fieldErrors.state ? "border-danger" : "border-border-default"
-              }`}
+              onValueChange={(value) => setState(value as string)}
             >
-              <option value="">Select a state</option>
-              {US_STATES.map((s) => (
-                <option key={s.code} value={s.code}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                id="state"
+                className={fieldErrors.state ? "border-danger" : undefined}
+              >
+                <SelectValue placeholder="Select a state">
+                  {(value: string) => US_STATES.find((s) => s.code === value)?.name ?? value}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {US_STATES.map((s) => (
+                  <SelectItem key={s.code} value={s.code}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="mt-1 min-h-[1.25rem] text-caption text-danger">{fieldErrors.state}</p>
           </div>
 
@@ -416,11 +423,9 @@ export default function NewInquiryPage() {
         </div>
 
         <label className="flex items-center gap-2.5 text-body-sm text-text-secondary">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={isAnonymous}
-            onChange={(e) => setIsAnonymous(e.target.checked)}
-            className="h-4 w-4 rounded-sm border-border-default accent-accent"
+            onCheckedChange={(checked) => setIsAnonymous(checked === true)}
           />
           Post Anonymously to Public Feed
         </label>

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { useBecomeAttorney } from "@/hooks/useBecomeAttorney";
 import { US_STATES } from "@/lib/us-states";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useToastStore } from "@/stores/useToastStore";
 
 /**
@@ -195,21 +196,26 @@ export function BecomeAttorneyDialog({
             >
               Jurisdiction
             </label>
-            <select
-              id="jurisdiction"
+            <Select
               value={jurisdiction}
-              onChange={(e) => setJurisdiction(e.target.value)}
-              className={`h-11 w-full rounded-sm border bg-bg px-3 text-body text-text-primary outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 ${
-                jurisdictionError ? "border-danger" : "border-border-default"
-              }`}
+              onValueChange={(value) => setJurisdiction(value as string)}
             >
-              <option value="">Select a state</option>
-              {US_STATES.map((s) => (
-                <option key={s.code} value={s.code}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                id="jurisdiction"
+                className={jurisdictionError ? "border-danger" : undefined}
+              >
+                <SelectValue placeholder="Select a state">
+                  {(value: string) => US_STATES.find((s) => s.code === value)?.name ?? value}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {US_STATES.map((s) => (
+                  <SelectItem key={s.code} value={s.code}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="mt-1 min-h-[1.25rem] text-caption text-danger">
               {jurisdictionError}
             </p>

@@ -93,9 +93,13 @@ export function InquiryEditDeleteControls({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-danger text-danger-foreground hover:bg-danger/90">
-              Delete
+            <AlertDialogCancel disabled={deleteInquiry.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteInquiry.isPending}
+              className="bg-danger text-danger-foreground hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deleteInquiry.isPending ? "Deleting…" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

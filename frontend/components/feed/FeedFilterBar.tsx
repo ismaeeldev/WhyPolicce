@@ -6,6 +6,7 @@ import { useState } from "react";
 import { FilterDropdown } from "@/components/feed/FilterDropdown";
 import { STATUS_CONFIG, type StatusTag } from "@/components/feed/StatusPill";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { US_STATES } from "@/lib/us-states";
 import type { InquiriesFilters } from "@/hooks/useInquiries";
 
@@ -209,19 +210,22 @@ function MobileFilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5">
       <span className="text-body-sm text-text-secondary">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-11 rounded-sm border border-border-default bg-bg-elevated px-3 text-body text-text-primary outline-none focus:border-accent"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      <Select value={value} onValueChange={(v) => onChange(v as string)}>
+        <SelectTrigger>
+          <SelectValue>
+            {(v: string) => options.find((o) => o.value === v)?.label ?? v}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
