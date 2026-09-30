@@ -99,9 +99,19 @@ export function FeedFilterBar({
         <button
           type="button"
           onClick={() => setMobileFiltersOpen(true)}
-          className="md:hidden flex h-12 items-center gap-1.5 rounded-lg border border-border-default bg-bg-elevated px-4 text-body-sm text-text-secondary shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+          className={`md:hidden flex h-12 items-center gap-1.5 rounded-lg border px-4 text-body-sm shadow-card shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+            hasActiveFilters
+              ? "border-accent bg-accent-subtle text-text-primary"
+              : "border-border-default bg-bg-elevated text-text-secondary"
+          }`}
         >
-          Filters
+          {/* Same monospace-label treatment as the desktop FilterDropdown
+              triggers (see that component's own comment) — this was left
+              as a plain generic pill when the desktop ones were unified,
+              a real inconsistency found during a fresh audit. */}
+          <span className="font-mono text-caption uppercase tracking-[0.08em] text-text-muted">
+            Filter
+          </span>
           {hasActiveFilters && (
             <>
               <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />

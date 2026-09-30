@@ -121,7 +121,17 @@ export function HomeFeedClient() {
         )}
 
         {!query.isLoading &&
-          allItems.map((inquiry) => <InquiryCard key={inquiry.id} inquiry={inquiry} />)}
+          allItems.map((inquiry, index) => (
+            <InquiryCard
+              key={inquiry.id}
+              inquiry={inquiry}
+              // Only the true first record of an unfiltered, newest-first
+              // view — never guessed from position alone (see
+              // InquiryCard's own isLatest docstring for why a filtered/
+              // searched/re-sorted list must never show this).
+              isLatest={index === 0 && !hasAnyFilterOrSearch}
+            />
+          ))}
 
         {query.hasNextPage && (
           <div className="flex justify-center py-2">

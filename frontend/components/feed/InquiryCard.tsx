@@ -33,9 +33,19 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 export function InquiryCard({
   inquiry,
   extraAction,
+  isLatest,
 }: {
   inquiry: Inquiry;
   extraAction?: React.ReactNode;
+  /** Scope Revision 3 follow-up — a real visual-monotony gap found during
+   * a fresh audit at realistic scale (80+ cards): every card shared the
+   * exact same shape/border/accent treatment with no rhythm break, which
+   * read as repetitive rather than "sharp, minimalist, authoritative."
+   * Only the caller (HomeFeedClient) knows whether this card is genuinely
+   * the most recent unfiltered record — never guessed here from card
+   * position alone, since that would be wrong on page 2 or under an
+   * active filter/search. */
+  isLatest?: boolean;
 }) {
   const [pressed, setPressed] = useState(false);
   const followMutation = useFollowInquiry();
@@ -81,15 +91,28 @@ export function InquiryCard({
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       onMouseLeave={() => setPressed(false)}
-      className={`wp-surface-card group relative overflow-hidden rounded-md border border-border-default bg-bg-elevated pl-6 pr-5 py-5 sm:pl-7 sm:pr-7 sm:py-6 shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card-lg ${
-        pressed ? "translate-y-0 scale-[0.997] shadow-card" : ""
-      }`}
+      className={`wp-surface-card group relative overflow-hidden rounded-md border bg-bg-elevated pl-6 pr-5 py-5 sm:pl-7 sm:pr-7 sm:py-6 shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card-lg ${
+        isLatest ? "border-accent/40" : "border-border-default"
+      } ${pressed ? "translate-y-0 scale-[0.997] shadow-card" : ""}`}
     >
       {/* Status-keyed accent bar — reads as a case-file tab, giving each
           record a clear at-a-glance category marker even before reading
           the pill text, reinforcing the "structured ledger" identity the
           client asked for over a generic social-post card look. */}
       <span aria-hidden="true" className={`absolute left-0 top-0 h-full w-1 ${accentClass}`} />
+
+      {/* "Latest" marker — real visual-rhythm fix found during a fresh
+          audit at realistic scale: a feed of 80+ visually-identical cards
+          read as monotonous, not "sharp, minimalist, authoritative." Only
+          ever the single most recent record in an unfiltered, newest-first
+          view (isLatest is computed by the caller, never guessed from
+          card position), so this never misleads on page 2 or under an
+          active filter/search. */}
+      {isLatest && (
+        <span className="absolute right-0 top-0 rounded-bl-md bg-accent px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-[0.1em] text-accent-foreground">
+          Latest
+        </span>
+      )}
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
