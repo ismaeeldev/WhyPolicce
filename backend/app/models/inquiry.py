@@ -54,6 +54,21 @@ class InquiryTier(str, Enum):
 
     free = "free"
     expanded = "expanded"
+    # Scope Revision 2 §4.1 (AgentGuide/newscoperev2.md) — the "Pay $2.99
+    # to Publish Full Post" pre-publish button, Option A (save-then-pay):
+    # an over-250-character submission is saved immediately in this
+    # state rather than rejected outright, then flipped to `expanded` by
+    # the Stripe webhook (forum_billing.py) on confirmed payment — never
+    # by this app's own create/update endpoints. A pending_payment
+    # inquiry is NEVER publicly visible (excluded from list_inquiries'
+    # feed query and from GET /inquiries/{id} for any viewer except its
+    # own author) until payment completes; if payment is never
+    # completed, the row simply stays hidden and undeletable-by-no-one-
+    # but-its-author forever — the author can delete it like any other
+    # inquiry via the existing DELETE endpoint, which is this codebase's
+    # only "cleanup" path (no cron/scheduled-job mechanism exists here
+    # to add an automated sweep).
+    pending_payment = "pending_payment"
 
 
 class Inquiry(SQLModel, table=True):

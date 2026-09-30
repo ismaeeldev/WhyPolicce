@@ -25,9 +25,15 @@ from app.services import media_service
 router = APIRouter(prefix="/api/v1")
 
 # Tier limits per M3.1's own spec — free: 1 file / 5MB, expanded: 5 files / 50MB.
+# pending_payment (Scope Revision 2 §4.1 Option A: an over-limit inquiry
+# saved while its Stripe Checkout is in flight, not yet paid) is
+# deliberately capped at the SAME limits as free — it has not paid yet,
+# so it gets no more than a free-tier inquiry until the webhook flips it
+# to expanded.
 _TIER_LIMITS = {
     InquiryTier.free: {"max_files": 1, "max_total_bytes": 5 * 1024 * 1024},
     InquiryTier.expanded: {"max_files": 5, "max_total_bytes": 50 * 1024 * 1024},
+    InquiryTier.pending_payment: {"max_files": 1, "max_total_bytes": 5 * 1024 * 1024},
 }
 
 _NOT_CONFIGURED = HTTPException(

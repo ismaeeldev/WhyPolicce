@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { PricingCards } from "@/components/pricing/PricingCards";
+import { ActiveInquiriesGate } from "@/components/pricing/ActiveInquiriesGate";
 
 export const metadata: Metadata = {
   title: "Pricing — WhyPolice",
@@ -29,20 +30,22 @@ export default function PricingPage() {
         }}
       />
       <div className="wp-page-intro relative mx-auto max-w-[680px] text-center mb-12">
-        <p className="wp-eyebrow justify-center mb-4">Simple, no surprises</p>
         <div>
           <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] mb-4">
-            Free to post. Pay only for what you need.
+            Transparent, Equitable Access.
           </h1>
           <p className="text-body-lg text-text-secondary">
-            Citizens post for free, always. Upgrade a single post when you need more
-            room to explain. Attorneys subscribe to reach the cases that need them.
+            No hidden fees. Post for free, upgrade only when necessary. Citizens may post
+            and track inquiries at no cost. Upgrade individual posts for expanded text and
+            media capacity. Verified attorneys subscribe to connect with active public
+            inquiries.
           </p>
         </div>
       </div>
       <div className="relative">
         <PricingCards />
       </div>
+      <ActiveInquiriesGate />
     </div>
   );
 }

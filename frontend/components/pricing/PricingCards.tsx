@@ -63,10 +63,10 @@ const PLANS: Plan[] = [
     href: "/inquiries/new",
     ctaIsDirectAction: true,
     features: [
-      "Publish an inquiry up to 250 characters",
-      "Edit or delete your own posts anytime",
-      "Follow other inquiries and get replies",
-      "Attach 1 photo or document up to 5MB",
+      "Publish inquiries up to 250 characters",
+      "Edit or delete your inquiries at any time",
+      "Follow active inquiries and receive updates",
+      "Attach 1 photo or document (up to 5MB)",
     ],
   },
   {
@@ -79,10 +79,10 @@ const PLANS: Plan[] = [
     href: "/inquiries/new",
     featured: true,
     features: [
-      "Publish past the 250-character limit",
-      "Attach up to 5 files, 50MB total",
-      "Applies once, to the specific inquiry you upgrade",
-      "No subscription — pay only when you need it",
+      "Remove the 250-character limit for comprehensive detail",
+      "Attach up to 5 files (maximum 50MB total)",
+      "One-time fee applied exclusively to the selected inquiry",
+      "Non-recurring; pay only as needed",
     ],
   },
   {
@@ -96,10 +96,10 @@ const PLANS: Plan[] = [
     href: "/account",
     ctaIsDirectAction: true,
     features: [
-      "See every real case in the feed, not a preview",
-      "Request a consultation directly on any inquiry",
-      "Track your requests and their status in one place",
-      "Requires a verified bar number and jurisdiction",
+      "Full access to the comprehensive case ledger",
+      "Submit formal consultation requests for active inquiries",
+      "Centralized tracking for all active client requests",
+      "Subject to active bar number and jurisdiction verification.",
     ],
   },
 ];
@@ -131,7 +131,7 @@ export function PricingCards() {
           // below an unreachable fold in the first place).
           animate="show"
           variants={cardVariants}
-          className={`wp-plan-card relative rounded-lg bg-bg-elevated p-6 sm:p-8 text-left transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card-lg ${
+          className={`wp-surface-card wp-plan-card relative rounded-lg bg-bg-elevated p-6 sm:p-8 text-left transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card-lg ${
             plan.featured
               ? "border border-accent shadow-card"
               : "border border-border-default"

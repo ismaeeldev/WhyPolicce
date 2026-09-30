@@ -23,7 +23,7 @@ export function ThemeToggle() {
       <button
         type="button"
         aria-label="Toggle theme"
-        className="flex h-9 w-9 items-center justify-center rounded-sm text-text-secondary"
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-default text-text-secondary"
         disabled
       />
     );
@@ -36,7 +36,14 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="relative flex h-9 w-9 items-center justify-center rounded-sm text-text-secondary hover:bg-bg-subtle hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+      // Real visual gap found during a fresh audit: this used to be a
+      // borderless icon floating between the accent "New Inquiry" button
+      // and the avatar/Log-in controls, with nothing tying it visually to
+      // either — it read as a stray icon, not a deliberate control. A
+      // bordered chip (matching FilterDropdown's own rounded-lg/border
+      // treatment) gives it the same "this is a real control" weight as
+      // every other interactive chip on the page.
+      className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border-default text-text-secondary transition-colors hover:border-border-strong hover:bg-bg-subtle hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
     >
       <motion.span
         key={isDark ? "moon" : "sun"}

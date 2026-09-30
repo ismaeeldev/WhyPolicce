@@ -53,7 +53,13 @@ export function HomeFeedClient() {
         onClearAll={handleClearAll}
       />
 
-      <div className="mt-6 flex flex-col gap-4">
+      {!query.isError && (query.isLoading || allItems.length > 0) && (
+        <p className="mt-5 mb-1 font-mono text-caption tabular-nums text-text-muted">
+          {query.isLoading ? "Loading records…" : `${total} record${total === 1 ? "" : "s"} on file`}
+        </p>
+      )}
+
+      <div className="mt-2 flex flex-col gap-4">
         {query.isError && (
           <div className="rounded-md border border-danger bg-danger-subtle p-5 text-center">
             {query.error instanceof ApiError && query.error.code === "attorney_not_verified" ? (
@@ -97,7 +103,7 @@ export function HomeFeedClient() {
         {query.isLoading && (
           <div className="flex flex-col gap-4" role="status" aria-label="Loading inquiries">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6 animate-pulse">
+              <div key={i} className="rounded-md border border-border-default bg-bg-elevated pl-6 pr-5 py-5 sm:pl-7 sm:pr-7 sm:py-6 animate-pulse">
                 <div className="h-5 w-32 rounded-full bg-bg-subtle" />
                 <div className="mt-3 h-5 w-2/3 rounded bg-bg-subtle" />
                 <div className="mt-3 h-4 w-full rounded bg-bg-subtle" />

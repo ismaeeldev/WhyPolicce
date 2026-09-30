@@ -67,6 +67,47 @@ export function useInquiryUpgradeCheckout() {
   };
 }
 
+/**
+ * Scope Revision 2 §4.1 Option A — the pre-publish modal's "Pay $2.99 to
+ * Publish Full Post" button. Takes an ALREADY-CREATED pending_payment
+ * inquiry's id (the inquiry is created first via POST /inquiries with
+ * accept_pending_payment=true, then this hook starts its checkout) —
+ * deliberately not reusing useInquiryUpgradeCheckout's mutationFn even
+ * though the request shape is identical, since the two hit different
+ * backend endpoints with different tier-state preconditions (see
+ * forum_billing.py's create_inquiry_publish_checkout's own docstring).
+ */
+export function useInquiryPublishCheckout() {
+  const showToast = useToastStore((s) => s.show);
+  const lockRef = useRef(false);
+  const mutation = useMutation({
+    mutationFn: (inquiryId: string) =>
+      apiFetch<{ checkoutUrl: string }>("/api/v1/billing/checkout/inquiry-publish", {
+        method: "POST",
+        body: JSON.stringify({ inquiry_id: inquiryId }),
+      }),
+    onSuccess: ({ checkoutUrl }) => {
+      window.location.href = checkoutUrl;
+    },
+    onError: (error) => {
+      lockRef.current = false;
+      showToast(
+        isCheckoutNotConfigured(error)
+          ? "Upgrades aren't fully set up yet — check back soon."
+          : "Couldn't start checkout — try again shortly.",
+      );
+    },
+  });
+  return {
+    ...mutation,
+    mutate: (inquiryId: string) => {
+      if (lockRef.current) return;
+      lockRef.current = true;
+      mutation.mutate(inquiryId);
+    },
+  };
+}
+
 export function useAttorneySubscriptionCheckout() {
   const showToast = useToastStore((s) => s.show);
   const lockRef = useRef(false);

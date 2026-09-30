@@ -284,6 +284,13 @@ def list_inquiries(
     statement = select(Inquiry)
     if mine:
         statement = statement.where(Inquiry.author_id == user.id)
+    else:
+        # Scope Revision 2 §4.1 Option A: a pending_payment inquiry is a
+        # draft awaiting a real Stripe payment, never public. Only
+        # excluded on the public/nationwide branch above — mine=true
+        # (the author's own "My Inquiries" view) must still show it, so
+        # they can see it exists and retry/delete it.
+        statement = statement.where(Inquiry.tier != InquiryTier.pending_payment)
     if region:
         statement = statement.where(Inquiry.state == region.strip().upper())
     if status:
@@ -402,6 +409,14 @@ def get_inquiry(
     inquiry = session.get(Inquiry, _parse_uuid(inquiry_id, not_found))
     if inquiry is None:
         raise not_found
+    # Scope Revision 2 §4.1 Option A: a pending_payment inquiry doesn't
+    # exist publicly yet — 404, not 403, so a guessed/shared link never
+    # even confirms a pending draft exists for someone other than its
+    # own author.
+    if inquiry.tier == InquiryTier.pending_payment and (
+        user is None or inquiry.author_id != user.id
+    ):
+        raise not_found
 
     comment_count = session.exec(
         select(func.count()).where(ThreadComment.inquiry_id == inquiry.id)
@@ -519,7 +534,8 @@ def create_inquiry(
     # app/routers/forum_billing.py's Stripe webhook, after a real,
     # verified $2.99 payment — never this endpoint, and never based on
     # anything the client claims in the request body.
-    if len(body.description) > _FREE_TIER_CHAR_LIMIT:
+    is_over_limit = len(body.description) > _FREE_TIER_CHAR_LIMIT
+    if is_over_limit and not body.accept_pending_payment:
         raise HTTPException(
             status_code=403,
             detail={
@@ -531,6 +547,13 @@ def create_inquiry(
             },
         )
 
+    # Scope Revision 2 §4.1 Option A: accept_pending_payment only ever
+    # produces InquiryTier.pending_payment here — never expanded. Exactly
+    # the same non-negotiable rule as the free-tier default above: the
+    # ONLY path allowed to set tier=expanded is forum_billing.py's Stripe
+    # webhook, after a real, verified payment. A pending_payment row is
+    # invisible to every other viewer (see list_inquiries/get_inquiry's
+    # own tier checks) until that webhook flips it.
     inquiry = Inquiry(
         author_id=user.id,
         title=body.title,
@@ -539,7 +562,7 @@ def create_inquiry(
         city=body.city,
         precinct=body.precinct,
         status_tag=body.status_tag,
-        tier=InquiryTier.free,
+        tier=InquiryTier.pending_payment if is_over_limit else InquiryTier.free,
         is_anonymous=body.is_anonymous,
     )
     session.add(inquiry)

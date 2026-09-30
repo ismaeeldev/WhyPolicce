@@ -45,7 +45,7 @@ export function FilterDropdown({
         render={
           <button
             type="button"
-            className={`flex items-center gap-1.5 rounded-sm border px-3.5 py-2 text-body-sm transition-all duration-150 ease-out focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+            className={`flex h-12 items-center gap-1.5 rounded-lg border px-3.5 text-body-sm shadow-card transition-all duration-150 ease-out focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
               isActive
                 ? "border-accent bg-accent-subtle text-text-primary hover:bg-accent-subtle/80"
                 : "border-border-default bg-bg-elevated text-text-secondary hover:border-border-strong hover:bg-bg-subtle"
@@ -53,8 +53,17 @@ export function FilterDropdown({
           />
         }
       >
-        {activeLabel}
-        <ChevronDown className="h-3.5 w-3.5" />
+        {/* Monospace field label + value, echoing the record cards' own
+            date/counter typography (InquiryCard.tsx, HomeFeedClient.tsx)
+            so the filter bar reads as part of the same "ledger" system
+            rather than a generic dropdown pill — a real, deliberate tie
+            to the client's own "structured record" framing, not just
+            decoration. */}
+        <span className="font-mono text-caption uppercase tracking-[0.08em] text-text-muted">
+          {label}
+        </span>
+        <span className="max-w-[12ch] truncate">{activeLabel}</span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"

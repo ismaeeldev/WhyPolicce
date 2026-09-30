@@ -24,8 +24,8 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "WhyPolice",
-  description: "A public forum for police interactions and local incidents. Post, get real replies, connect with a verified attorney.",
+  title: "WhyPolice — National Public Inquiry Ledger",
+  description: "A public archive tracking unresolved incidents, community traces, and official records across all jurisdictions.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

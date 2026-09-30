@@ -461,7 +461,7 @@
 .wp-search-suggestions > button { max-width: 100%; overflow-wrap: anywhere; }
 .wp-page-intro { border-bottom: 1px solid var(--wp-border); padding-bottom: 1.5rem; margin-bottom: 2.5rem; }
 .wp-page-intro h1 { letter-spacing: -.035em; margin-bottom: 0; }
-.wp-plan-card { background-image: linear-gradient(145deg, color-mix(in srgb, var(--wp-accent-subtle) 20%, transparent), transparent 50%); }
+.wp-surface-card { background-image: linear-gradient(145deg, color-mix(in srgb, var(--wp-accent-subtle) 20%, transparent), transparent 50%); }
 .wp-auth-card { position: relative; }
 .wp-auth-card::before { content: ''; position: absolute; height: 1px; top: 0; left: 20%; right: 20%; background: linear-gradient(90deg, transparent, var(--wp-accent), transparent); }
 .wp-workspace-nav { display: flex; justify-content: center; flex-wrap: wrap; gap: .25rem; padding: 1rem; border-bottom: 1px solid var(--wp-border); }

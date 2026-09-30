@@ -44,6 +44,15 @@ class InquiryCreate(BaseModel):
     # a checkbox "on the submission form"), not editable afterward via
     # InquiryUpdate below.
     is_anonymous: bool = Field(default=False)
+    # Scope Revision 2 §4.1 Option A — the frontend sets this ONLY when
+    # the citizen has actually clicked "Pay $2.99 to Publish Full Post"
+    # in the pre-publish modal, never implicitly. It does not itself
+    # grant anything (see the router's own enforcement) — it just tells
+    # create_inquiry the over-limit submission should be saved as
+    # pending_payment instead of hard-rejected with upgrade_required, so
+    # the frontend can immediately send the citizen to a real Stripe
+    # Checkout session tied to this row's id.
+    accept_pending_payment: bool = Field(default=False)
 
     @field_validator("title")
     @classmethod

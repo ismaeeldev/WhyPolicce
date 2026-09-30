@@ -14,6 +14,7 @@ import { ApiError } from "@/lib/api-client";
 import { findPrecinctsByNeighborhood, type PrecinctEntry } from "@/lib/nyc-precincts";
 import { US_STATES } from "@/lib/us-states";
 import { useCreateInquiry } from "@/hooks/useInquiries";
+import { useInquiryPublishCheckout } from "@/hooks/useForumBilling";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const FREE_TIER_CHAR_LIMIT = 250;
@@ -103,6 +104,7 @@ function clearDraft() {
 export default function NewInquiryPage() {
   const router = useRouter();
   const createInquiry = useCreateInquiry();
+  const publishCheckout = useInquiryPublishCheckout();
   const { user, isLoading: userLoading } = useUser();
 
   // §3.2 — a cached draft (if present and not stale) initializes the form
@@ -254,6 +256,48 @@ export default function NewInquiryPage() {
     // must be able to see and edit their own full original text down
     // themselves (M2.3's own explicit requirement), never silently cut.
     descriptionRef.current?.focus();
+  };
+
+  // Scope Revision 2 §4.1 Option A — "Pay $2.99 to Publish Full Post".
+  // Re-validates the rest of the form (title/state/city/etc.) exactly
+  // like the normal Publish path — the modal only ever opens because
+  // the description was over the limit, but every OTHER field still
+  // needs to be valid before creating a real row. Creates the inquiry
+  // as pending_payment, then immediately starts its Stripe Checkout with
+  // the id the backend just returned; on any failure here the pending
+  // row still exists (visible only to its author via My Inquiries) so
+  // nothing is lost, they can just retry from the modal again.
+  const handlePayToPublish = () => {
+    if (!user) return;
+    const errors = validate();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    if (!statusTag) return;
+
+    setSubmitError(null);
+    createInquiry.mutate(
+      {
+        title: title.trim(),
+        description: description.trim(),
+        state,
+        city: city.trim(),
+        precinct: precinct.trim() || undefined,
+        statusTag,
+        isAnonymous,
+        acceptPendingPayment: true,
+      },
+      {
+        onSuccess: (created) => {
+          clearDraft();
+          publishCheckout.mutate(created.id);
+        },
+        onError: (err) => {
+          setSubmitError(
+            err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+          );
+        },
+      },
+    );
   };
 
   return (
@@ -448,7 +492,14 @@ export default function NewInquiryPage() {
       <UpgradeModal
         open={upgradeModalOpen}
         onOpenChange={setUpgradeModalOpen}
-        onTrimInstead={handleTrimInstead}
+        title="This post exceeds 250 characters"
+        description="Free posts are capped at 250 characters. You can either trim your text to post for free, or complete the one-time $2.99 upgrade now to publish your full text and unlock heavy attachments."
+        secondaryAction={{ label: "Trim Text Instead", onClick: handleTrimInstead }}
+        primaryAction={{
+          label: "Pay $2.99 to Publish Full Post",
+          onClick: handlePayToPublish,
+          isPending: createInquiry.isPending || publishCheckout.isPending,
+        }}
         descriptionTextareaRef={descriptionRef}
       />
     </div>

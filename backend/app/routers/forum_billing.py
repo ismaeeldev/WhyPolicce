@@ -157,6 +157,13 @@ def _handle_inquiry_upgrade_completed(session: Session, checkout_object: dict) -
         logger.warning("checkout.session.completed (inquiry upgrade): no inquiry for id %s", inquiry_id)
         return
 
+    # Scope Revision 2 §4.1 Option A: this same completion event also
+    # finalizes a pending_payment inquiry created via the pre-publish
+    # "Pay $2.99 to Publish Full Post" flow (create_inquiry_publish_
+    # checkout below uses the identical {"inquiry_id": ...} metadata
+    # shape as the existing post-hoc upgrade flow, so this one handler
+    # covers both — the inquiry's CURRENT tier, not which endpoint
+    # created the checkout session, is what's being flipped here).
     inquiry.tier = InquiryTier.expanded
     session.add(inquiry)
     logger.info("Inquiry %s upgraded to expanded via Stripe checkout", inquiry_id)
@@ -274,6 +281,84 @@ def create_inquiry_upgrade_checkout(
         )
     except stripe.StripeError as exc:
         logger.exception("Forum Stripe inquiry-upgrade checkout session creation failed")
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "stripe_error", "message": "Couldn't start checkout — try again shortly."},
+        ) from exc
+
+    return {"checkoutUrl": checkout_session.url}
+
+
+@router.post("/checkout/inquiry-publish")
+def create_inquiry_publish_checkout(
+    body: dict,
+    current: AuthenticatedUser = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Scope Revision 2 §4.1 Option A — the pre-publish "Pay $2.99 to
+    Publish Full Post" modal's checkout, for an inquiry that was just
+    created via POST /inquiries with accept_pending_payment=true (so it
+    already exists, in InquiryTier.pending_payment, rather than the
+    "inquiry doesn't exist yet" problem this same section's own planning
+    doc originally flagged as blocking). body: {inquiry_id}.
+
+    Deliberately a SEPARATE endpoint from create_inquiry_upgrade_checkout
+    above rather than reusing it: that one is reachable for any of the
+    author's own free-tier inquiries at any time ("Upgrade This Post"),
+    while this one only makes sense for a pending_payment row and 404s
+    otherwise — conflating the two would let a citizen "pay to publish"
+    an inquiry that was never actually over the limit, or silently
+    accept an upgrade-checkout POST against a pending draft with
+    different-shaped assumptions than this flow's own caller expects.
+    """
+    user = _get_or_create_user(session, current)
+
+    inquiry_id_raw = body.get("inquiry_id")
+    not_found = HTTPException(
+        status_code=404, detail={"error": "not_found", "message": "Inquiry not found."}
+    )
+    try:
+        inquiry_id = uuid.UUID(str(inquiry_id_raw))
+    except (ValueError, TypeError):
+        raise not_found from None
+    inquiry = session.get(Inquiry, inquiry_id)
+    if inquiry is None:
+        raise not_found
+    if inquiry.author_id != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "forbidden", "message": "You can only publish your own inquiries."},
+        )
+    if inquiry.tier != InquiryTier.pending_payment:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "not_pending",
+                "message": "This inquiry isn't awaiting payment.",
+            },
+        )
+
+    if not settings.FORUM_STRIPE_SECRET_KEY or not settings.FORUM_STRIPE_INQUIRY_UPGRADE_PRICE_ID:
+        raise _NOT_CONFIGURED
+
+    # Same process-global stripe.api_key race as the other checkout
+    # endpoints in this file — see create_inquiry_upgrade_checkout's own
+    # comment. Same price id as that flow too: this is the identical
+    # one-time $2.99 upgrade product, just reached from a different UI
+    # moment (pre-publish vs. post-publish), so a separate Stripe price
+    # would be a real, unjustified product-catalog split.
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            mode="payment",
+            line_items=[{"price": settings.FORUM_STRIPE_INQUIRY_UPGRADE_PRICE_ID, "quantity": 1}],
+            metadata={"inquiry_id": str(inquiry.id), "user_id": str(user.id)},
+            customer_email=user.email or None,
+            success_url=f"{settings.FRONTEND_URL}/inquiries/{inquiry.id}?upgraded=1",
+            cancel_url=f"{settings.FRONTEND_URL}/inquiries/{inquiry.id}",
+            api_key=settings.FORUM_STRIPE_SECRET_KEY,
+        )
+    except stripe.StripeError as exc:
+        logger.exception("Forum Stripe inquiry-publish checkout session creation failed")
         raise HTTPException(
             status_code=502,
             detail={"error": "stripe_error", "message": "Couldn't start checkout — try again shortly."},

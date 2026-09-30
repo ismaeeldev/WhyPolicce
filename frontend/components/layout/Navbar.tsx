@@ -34,7 +34,7 @@ import { useUser as useMe } from "@/hooks/useUser";
 // philosophy (previously just About/Pricing) for no real benefit.
 const NAV_LINKS = [
   { key: "for-attorneys", href: "/pricing", label: "For Attorneys" },
-  { key: "upgrade", href: "/pricing", label: "Upgrade" },
+  { key: "upgrade", href: "/pricing", label: "Pricing & Upgrades" },
 ];
 
 /**

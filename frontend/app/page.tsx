@@ -55,8 +55,26 @@ export default async function HomeFeedPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-6 py-8 sm:py-12">
-      <div className="mx-auto max-w-[760px]">
-        <h1 className="font-display text-h1 text-text-primary mb-6">Community Forum</h1>
+      <div className="mx-auto max-w-[760px] relative">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-0 h-[320px] w-[320px] -translate-y-1/3 rounded-full opacity-[0.12] blur-3xl"
+          style={{
+            background: "radial-gradient(circle, var(--wp-accent-bright) 0%, transparent 70%)",
+          }}
+        />
+        <div className="wp-page-intro relative">
+          <p className="mb-2 font-mono text-caption uppercase tracking-[0.14em] text-text-muted">
+            Public Record · Nationwide Coverage
+          </p>
+          <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1]">
+            National Public Inquiry Ledger
+          </h1>
+          <p className="mt-3 text-body-lg text-text-secondary">
+            A public archive tracking unresolved incidents, community traces, and official
+            records across all jurisdictions.
+          </p>
+        </div>
         <HydrationBoundary state={dehydrate(queryClient)}>
           <HomeFeedClient />
         </HydrationBoundary>

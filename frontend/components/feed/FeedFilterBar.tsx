@@ -213,7 +213,7 @@ function MobileFilterSelect({
     <div className="flex flex-col gap-1.5">
       <span className="text-body-sm text-text-secondary">{label}</span>
       <Select value={value} onValueChange={(v) => onChange(v as string)}>
-        <SelectTrigger>
+        <SelectTrigger className="h-12 rounded-lg shadow-card">
           <SelectValue>
             {(v: string) => options.find((o) => o.value === v)?.label ?? v}
           </SelectValue>

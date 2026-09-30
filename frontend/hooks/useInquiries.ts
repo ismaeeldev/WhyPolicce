@@ -145,6 +145,12 @@ export type InquiryCreatePayload = {
   precinct?: string;
   statusTag: StatusTag;
   isAnonymous?: boolean;
+  // Scope Revision 2 §4.1 Option A — set ONLY when the citizen has
+  // clicked "Pay $2.99 to Publish Full Post" in the pre-publish modal;
+  // never set as a side effect of just being over the limit. See
+  // backend/app/schemas/inquiry.py's own field docstring for why this
+  // doesn't itself grant anything server-side.
+  acceptPendingPayment?: boolean;
 };
 
 /**
@@ -157,9 +163,11 @@ export type InquiryCreatePayload = {
  * that field's own backend docstring is explicit that a client-sent
  * "expanded" claim is not trusted at face value without a real
  * webhook-confirmed upgrade (Milestone 3), so this mutation only ever
- * creates a free-tier submission; the $2.99 upgrade path is entirely a
- * client-side gate on submission (intercept before ever calling this),
- * not something this endpoint call itself unlocks.
+ * creates a free-tier (or, with acceptPendingPayment, a pending_payment)
+ * submission; the $2.99 upgrade path is entirely a client-side gate on
+ * submission (intercept before ever calling this, or set
+ * acceptPendingPayment explicitly), never something this endpoint call
+ * itself unlocks.
  */
 export function useCreateInquiry() {
   const queryClient = useQueryClient();
@@ -175,6 +183,7 @@ export function useCreateInquiry() {
           precinct: payload.precinct,
           status_tag: payload.statusTag,
           is_anonymous: payload.isAnonymous ?? false,
+          accept_pending_payment: payload.acceptPendingPayment ?? false,
         }),
       }),
     onSuccess: () => {
