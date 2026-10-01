@@ -239,6 +239,38 @@ def _comment_out(comment: ThreadComment) -> dict:
     }
 
 
+@router.get("/inquiries/stats")
+def get_inquiry_stats(session: Session = Depends(get_session)) -> dict:
+    """Scope Revision 3 follow-up — a real gap found during a fresh home-
+    page audit: the client's own ask was "the homepage should look like a
+    home page," and the page as shipped was still just a title + a bare
+    feed list with nothing establishing scale or trust before the raw
+    records. A small, honest stats strip needs real numbers, not
+    placeholders — this is that data, three cheap aggregate queries, no
+    new tables. Public, no auth (same reasoning as list_inquiries: reading
+    the forum, including its headline numbers, needs no login).
+
+    Deliberately registered BEFORE GET /inquiries/{inquiry_id} below —
+    FastAPI matches routes in declaration order, and "stats" would
+    otherwise be swallowed by {inquiry_id}'s path parameter and 404
+    inside _parse_uuid instead of ever reaching this handler.
+    """
+    total_records = session.exec(select(func.count()).select_from(Inquiry)).one()
+    total_states = session.exec(
+        select(func.count(func.distinct(Inquiry.state)))
+    ).one()
+    verified_attorneys = session.exec(
+        select(func.count())
+        .select_from(User)
+        .where(User.role == Role.attorney, User.verification_status == VerificationStatus.approved)
+    ).one()
+    return {
+        "totalRecords": total_records,
+        "totalStates": total_states,
+        "verifiedAttorneys": verified_attorneys,
+    }
+
+
 @router.get("/inquiries")
 def list_inquiries(
     region: str | None = Query(default=None),

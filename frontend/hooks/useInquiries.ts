@@ -137,6 +137,28 @@ export function useMyInquiries() {
   });
 }
 
+export type InquiryStats = {
+  totalRecords: number;
+  totalStates: number;
+  verifiedAttorneys: number;
+};
+
+/**
+ * Scope Revision 3 follow-up — the home page's new stats strip (real
+ * record/state/attorney counts, not placeholders) needs real numbers
+ * from GET /api/v1/inquiries/stats. A separate plain useQuery, not
+ * folded into useInquiries' infinite-query cache — this is a single,
+ * unpaginated snapshot with its own cache lifetime, not another page
+ * of the feed.
+ */
+export function useInquiryStats() {
+  return useQuery({
+    queryKey: ["inquiries", "stats"],
+    queryFn: () => apiFetch<InquiryStats>("/api/v1/inquiries/stats"),
+    staleTime: 60_000,
+  });
+}
+
 export type InquiryCreatePayload = {
   title: string;
   description: string;

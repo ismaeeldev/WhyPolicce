@@ -53,9 +53,20 @@ export function HomeFeedClient() {
         onClearAll={handleClearAll}
       />
 
-      {!query.isError && (query.isLoading || allItems.length > 0) && (
+      {/* Real conflict found during a fresh home-page audit: the new
+          StatsStrip above (app/page.tsx) already shows the true,
+          unfiltered total record count — showing this line unconditionally
+          too, worded almost identically ("N records on file" vs. "N
+          Records Tracked"), read as two different, seemingly contradictory
+          totals stacked right on top of each other whenever a free-tier
+          author's pending_payment row was excluded here but counted there.
+          This line's real job is different: feedback for an active filter/
+          search ("12 results for your filters"), which only matters once
+          the user has actually narrowed the list — so it's suppressed on
+          the plain default view where it would just restate the strip. */}
+      {!query.isError && hasAnyFilterOrSearch && (query.isLoading || allItems.length > 0) && (
         <p className="mt-5 mb-1 font-mono text-caption tabular-nums text-text-muted">
-          {query.isLoading ? "Loading records…" : `${total} record${total === 1 ? "" : "s"} on file`}
+          {query.isLoading ? "Searching…" : `${total} result${total === 1 ? "" : "s"} for your filters`}
         </p>
       )}
 

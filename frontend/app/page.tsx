@@ -1,9 +1,11 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 
 import { HomeFeedClient } from "@/components/feed/HomeFeedClient";
+import { StatsStrip } from "@/components/feed/StatsStrip";
 import { serverApiFetch } from "@/lib/api-server-fetch";
 import { getQueryClient } from "@/lib/get-query-client";
 import { fetchInquiriesPage, inquiriesQueryKey } from "@/lib/inquiries-query";
+import type { InquiryStats } from "@/hooks/useInquiries";
 
 const DEFAULT_FILTERS = { region: "", status: "", sort: "newest" as const, q: "" };
 
@@ -47,11 +49,20 @@ export const dynamic = "force-dynamic";
  */
 export default async function HomeFeedPage() {
   const queryClient = getQueryClient();
-  await queryClient.prefetchInfiniteQuery({
-    queryKey: inquiriesQueryKey(DEFAULT_FILTERS),
-    queryFn: ({ pageParam }) => fetchInquiriesPage(DEFAULT_FILTERS, pageParam as number, serverApiFetch),
-    initialPageParam: 0,
-  });
+  await Promise.all([
+    queryClient.prefetchInfiniteQuery({
+      queryKey: inquiriesQueryKey(DEFAULT_FILTERS),
+      queryFn: ({ pageParam }) => fetchInquiriesPage(DEFAULT_FILTERS, pageParam as number, serverApiFetch),
+      initialPageParam: 0,
+    }),
+    // Scope Revision 3 follow-up — same server-prefetch treatment as the
+    // feed itself, so the new stats strip has real numbers on first
+    // paint rather than popping in after a client-side fetch.
+    queryClient.prefetchQuery({
+      queryKey: ["inquiries", "stats"],
+      queryFn: () => serverApiFetch<InquiryStats>("/api/v1/inquiries/stats"),
+    }),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-6 py-8 sm:py-12">
@@ -76,6 +87,7 @@ export default async function HomeFeedPage() {
           </p>
         </div>
         <HydrationBoundary state={dehydrate(queryClient)}>
+          <StatsStrip />
           <HomeFeedClient />
         </HydrationBoundary>
       </div>
