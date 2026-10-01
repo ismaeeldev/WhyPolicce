@@ -67,9 +67,18 @@ export default async function HomeFeedPage() {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-6 py-8 sm:py-12">
       <div className="mx-auto max-w-[760px] relative">
+        {/* Real fix found during a fresh audit: this glow used to sit at
+            top-0 with -translate-y-1/3, pushing most of its 320px circle
+            above this container's own top edge — on the actual page (this
+            container starts right at the viewport top under the navbar)
+            that meant roughly a third of it rendered off-screen and the
+            rest was too faint to register at opacity-[0.12]. Repositioned
+            to sit fully within the header's own bounds and nudged to
+            opacity-20 — a real, visible ambient touch now, not dead
+            styling that was technically present but never actually seen. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-0 h-[320px] w-[320px] -translate-y-1/3 rounded-full opacity-[0.12] blur-3xl"
+          className="pointer-events-none absolute -left-10 top-0 h-[360px] w-[360px] rounded-full opacity-20 blur-3xl"
           style={{
             background: "radial-gradient(circle, var(--wp-accent-bright) 0%, transparent 70%)",
           }}

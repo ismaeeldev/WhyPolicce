@@ -255,9 +255,21 @@ def get_inquiry_stats(session: Session = Depends(get_session)) -> dict:
     otherwise be swallowed by {inquiry_id}'s path parameter and 404
     inside _parse_uuid instead of ever reaching this handler.
     """
-    total_records = session.exec(select(func.count()).select_from(Inquiry)).one()
+    # Real bug found during a fresh adversarial audit: this used to count
+    # EVERY row, including tier=pending_payment drafts that are invisible
+    # everywhere else (excluded from the public feed, from search, from
+    # direct lookup by anyone but their own author — see list_inquiries'
+    # own filter and get_inquiry's own 404-for-non-authors check above).
+    # A pending draft is private, unpaid, possibly-abandoned content; the
+    # headline "Records Tracked" number is exactly the kind of trust
+    # signal the client asked this page to carry, so it must only ever
+    # count what the public can actually see and click into — never
+    # inflated by content nobody but its own author knows exists.
+    total_records = session.exec(
+        select(func.count()).select_from(Inquiry).where(Inquiry.tier != InquiryTier.pending_payment)
+    ).one()
     total_states = session.exec(
-        select(func.count(func.distinct(Inquiry.state)))
+        select(func.count(func.distinct(Inquiry.state))).where(Inquiry.tier != InquiryTier.pending_payment)
     ).one()
     verified_attorneys = session.exec(
         select(func.count())
@@ -657,6 +669,20 @@ def update_inquiry(
                     ),
                 },
             )
+        # Real bug found during a fresh adversarial audit: a pending_payment
+        # row (created via the pre-publish "Pay $2.99" flow, Scope Revision
+        # 2 §4.1 Option A) that the author never actually paid for, then
+        # trimmed back under the free limit here, used to stay
+        # pending_payment forever — nothing ever flipped it back, so a
+        # citizen's now-perfectly-valid free-tier post stayed permanently
+        # invisible in the public feed (list_inquiries' own pending_payment
+        # exclusion) and 404'd for every other viewer (get_inquiry's own
+        # pending_payment check), with no way out except abandoning it and
+        # posting again. Mirrors create_inquiry's own tier-assignment logic
+        # exactly: once genuinely within the free limit, it's a real free
+        # post again — this never touches an already-expanded (paid) row.
+        if inquiry.tier == InquiryTier.pending_payment and len(body.description) <= _FREE_TIER_CHAR_LIMIT:
+            inquiry.tier = InquiryTier.free
         inquiry.description = body.description
     if body.state is not None:
         inquiry.state = body.state
