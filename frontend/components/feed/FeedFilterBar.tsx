@@ -98,6 +98,7 @@ export function FeedFilterBar({
 
         <button
           type="button"
+          aria-label="Filters"
           onClick={() => setMobileFiltersOpen(true)}
           className={`md:hidden flex h-12 items-center gap-1.5 rounded-lg border px-4 text-body-sm shadow-card shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
             hasActiveFilters

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, func, select
+from sqlmodel import Session, func, or_, select
 
 from app.core.config import settings
 from app.core.db import get_session
@@ -334,7 +334,9 @@ def list_inquiries(
         # excluded on the public/nationwide branch above — mine=true
         # (the author's own "My Inquiries" view) must still show it, so
         # they can see it exists and retry/delete it.
-        statement = statement.where(Inquiry.tier != InquiryTier.pending_payment)
+        statement = statement.where(
+            or_(Inquiry.tier != InquiryTier.pending_payment, Inquiry.tier == None)  # noqa: E711
+        )
     if region:
         statement = statement.where(Inquiry.state == region.strip().upper())
     if status:

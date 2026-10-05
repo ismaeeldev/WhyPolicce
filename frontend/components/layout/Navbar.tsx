@@ -82,9 +82,17 @@ export function Navbar() {
         scrolled ? "border-b border-border-default" : "border-b border-transparent"
       }`}
     >
-      <div className="mx-auto max-w-[1200px] px-5 sm:px-6 h-20 flex items-center justify-between">
-        <Link href="/" className="font-display text-2xl tracking-tight text-text-primary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
-          WhyPolice<span className="text-accent">.</span>
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 font-display text-2xl tracking-tight text-text-primary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm group"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 border border-accent/40 text-accent shadow-sm group-hover:border-accent group-hover:bg-accent/25 transition-all">
+            <ShieldCheck className="h-4 w-4 fill-accent/20 text-accent" />
+          </div>
+          <span>
+            WhyPolice<span className="text-accent">.</span>
+          </span>
         </Link>
 
         <nav aria-label="Main navigation" className="hidden md:flex items-center gap-8">

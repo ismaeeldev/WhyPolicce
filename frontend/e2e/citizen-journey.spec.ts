@@ -59,7 +59,8 @@ test.describe("Citizen journey", () => {
 
     await page.locator("#title").fill("E2E premium-pass test inquiry");
     await page.locator("#description").fill("x".repeat(300));
-    await page.locator("#state").selectOption("NY");
+    await page.locator("#state").click();
+    await page.getByRole("option", { name: "New York" }).click();
     await page.locator("#city").fill("Testville");
     await page.getByRole("button", { name: "Community Trace" }).click();
 
@@ -81,7 +82,8 @@ test.describe("Citizen journey", () => {
 
     await page.locator("#title").fill("E2E thread interaction test");
     await page.locator("#description").fill("A short description for thread interaction testing.");
-    await page.locator("#state").selectOption("CA");
+    await page.locator("#state").click();
+    await page.getByRole("option", { name: "California" }).click();
     await page.locator("#city").fill("Testburg");
     await page.getByRole("button", { name: "Community Trace" }).click();
     await page.getByRole("button", { name: /post inquiry/i }).click();

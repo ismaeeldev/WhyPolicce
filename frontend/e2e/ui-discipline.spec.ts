@@ -54,7 +54,7 @@ test.describe("Responsive (375px)", () => {
     // per the dedicated mobile-sheet pattern) — getByText's default
     // visibility filter can still resolve to the hidden one first, so
     // assert on the real select element actually visible on screen.
-    await expect(page.locator("select").filter({ hasText: /all states/i }).first()).toBeVisible({
+    await expect(page.getByRole("dialog").getByText(/all states/i).first()).toBeVisible({
       timeout: 5_000,
     });
   });
@@ -116,7 +116,8 @@ test.describe("Privacy", () => {
     await signup(pageA, emailA, "/inquiries/new");
     await pageA.locator("#title").fill("E2E privacy-check inquiry");
     await pageA.locator("#description").fill("A short description for the privacy check.");
-    await pageA.locator("#state").selectOption("NY");
+    await pageA.locator("#state").click();
+    await pageA.getByRole("option", { name: "New York" }).click();
     await pageA.locator("#city").fill("Privacyville");
     await pageA.getByRole("button", { name: "Community Trace" }).click();
     await pageA.getByRole("button", { name: /post inquiry/i }).click();

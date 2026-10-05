@@ -117,6 +117,15 @@ export function InquiryCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
           <StatusPill status={inquiry.statusTag} />
+          {inquiry.isAnonymous ? (
+            <span className="inline-flex items-center gap-1 rounded bg-bg-subtle px-2 py-0.5 text-[10px] font-mono text-text-muted border border-border-default/50">
+              Anonymous Submission
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded bg-accent/10 px-2 py-0.5 text-[10px] font-mono font-medium text-accent border border-accent/20">
+              Verified Inquiry
+            </span>
+          )}
           <span className="font-mono text-caption tabular-nums text-text-muted">
             {dateLabel}
           </span>
@@ -134,7 +143,7 @@ export function InquiryCard({
         {inquiry.title}
       </Link>
 
-      <p className="mt-1.5 flex items-center gap-1.5 text-caption text-text-muted">
+      <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-caption text-text-muted">
         <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
           {metaParts.map((part, i) => (
             <span key={i}>
@@ -144,9 +153,9 @@ export function InquiryCard({
           ))}
         </span>
         {inquiry.hasAttachments && (
-          <span className="flex shrink-0 items-center gap-1">
-            <span aria-hidden="true">•</span>
+          <span className="inline-flex items-center gap-1 rounded bg-bg-subtle px-2 py-0.5 text-[10px] font-mono text-accent border border-accent/20">
             <Paperclip className="h-3 w-3" />
+            <span>Media Evidence Attached</span>
           </span>
         )}
       </p>
@@ -160,7 +169,7 @@ export function InquiryCard({
           href={`/inquiries/${inquiry.id}`}
           className="text-body-sm font-medium text-accent hover:text-accent-hover transition-colors rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
         >
-          View Thread &amp; Timeline
+          View Thread &amp; Timeline &rarr;
         </Link>
 
         <div className="flex items-center gap-2">
