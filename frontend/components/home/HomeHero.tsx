@@ -49,7 +49,7 @@ export function HomeHero() {
             </div>
 
             {/* Headline */}
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.5rem] font-medium leading-[1.08] text-text-primary tracking-tight">
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.5rem] font-medium leading-[1.08] text-white tracking-tight">
               Democratizing{" "}
               <span className="text-accent">
                 Accountability.
@@ -61,46 +61,46 @@ export function HomeHero() {
             </h1>
 
             {/* Subtitle */}
-            <p className="mt-5 max-w-xl text-body-lg text-text-secondary leading-relaxed">
+            <p className="mt-5 max-w-xl text-body-lg text-white/80 leading-relaxed">
               WhyPolice bridges the gap between communities and legal support, making accountability transparent,{" "}
-              <span className="underline decoration-accent/60 underline-offset-4 text-text-primary">accessible</span>, and actionable.
+              <span className="underline decoration-accent underline-offset-4 text-white font-medium">accessible</span>, and actionable.
             </p>
 
             {/* Stat Counters Row */}
-            <div className="mt-8 flex flex-wrap items-center gap-6 sm:gap-10 border-y border-border-default/60 py-4 w-full max-w-xl backdrop-blur-sm">
+            <div className="mt-8 flex flex-wrap items-center gap-6 sm:gap-10 border-y border-white/15 py-4 w-full max-w-xl backdrop-blur-sm">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/40 bg-accent/15 text-accent">
                   <Users className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="font-mono text-lg sm:text-xl font-bold text-text-primary tabular-nums">
+                  <div className="font-mono text-lg sm:text-xl font-bold text-white tabular-nums">
                     {totalInquiries}
                   </div>
-                  <div className="text-[11px] text-text-muted leading-tight">Public Inquiries</div>
+                  <div className="text-[11px] text-white/60 leading-tight">Public Inquiries</div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/40 bg-accent/15 text-accent">
                   <Scale className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="font-mono text-lg sm:text-xl font-bold text-text-primary tabular-nums">
+                  <div className="font-mono text-lg sm:text-xl font-bold text-white tabular-nums">
                     {legalAdvocates}
                   </div>
-                  <div className="text-[11px] text-text-muted leading-tight">Legal Advocates</div>
+                  <div className="text-[11px] text-white/60 leading-tight">Legal Advocates</div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/40 bg-accent/15 text-accent">
                   <FileText className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="font-mono text-lg sm:text-xl font-bold text-text-primary tabular-nums">
+                  <div className="font-mono text-lg sm:text-xl font-bold text-white tabular-nums">
                     {resolvedCases}
                   </div>
-                  <div className="text-[11px] text-text-muted leading-tight">Resolved Cases</div>
+                  <div className="text-[11px] text-white/60 leading-tight">Resolved Cases</div>
                 </div>
               </div>
             </div>
@@ -116,7 +116,7 @@ export function HomeHero() {
               </Link>
               <Link
                 href="/pricing"
-                className="inline-flex items-center gap-2 rounded-lg border border-border-strong bg-bg-elevated/70 backdrop-blur-md px-6 py-3.5 text-body-sm font-medium text-text-primary hover:bg-bg-subtle hover:border-accent/50 transition-all hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 backdrop-blur-md px-6 py-3.5 text-body-sm font-medium text-white transition-all hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
               >
                 <ShieldCheck className="h-4 w-4 text-accent" />
                 <span>Explore Legal Network</span>
@@ -126,12 +126,12 @@ export function HomeHero() {
 
           {/* Right Column: Floating Quote Box positioned over courthouse pillars */}
           <div className="lg:col-span-5 relative flex justify-end lg:pr-2">
-            <div className="w-full max-w-[320px] rounded-xl border border-border-strong/80 bg-bg-elevated/85 backdrop-blur-md p-5 shadow-2xl transition-transform hover:-translate-y-1 duration-300">
+            <div className="w-full max-w-[320px] rounded-xl border border-white/15 bg-black/60 backdrop-blur-md p-5 shadow-2xl transition-transform hover:-translate-y-1 duration-300">
               <div className="font-serif text-2xl text-accent leading-none mb-1">&ldquo;</div>
-              <p className="text-body-sm font-medium text-text-primary italic leading-snug">
+              <p className="text-body-sm font-medium text-white italic leading-snug">
                 Transparency builds safer communities.
               </p>
-              <p className="mt-2 text-[11px] text-text-muted">
+              <p className="mt-2 text-[11px] text-white/70">
                 A stronger tomorrow, through accountability.
               </p>
               <div className="mt-3 h-0.5 w-10 rounded-full bg-accent" />

@@ -76,6 +76,8 @@ export function Navbar() {
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   if (isAdminRoute) return null;
 
+  const isHeroNav = pathname === "/" && !scrolled;
+
   return (
     <header
       className={`sticky top-0 z-40 transition-all duration-300 ${
@@ -87,7 +89,9 @@ export function Navbar() {
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         <Link
           href="/"
-          className="flex items-center gap-2.5 font-display text-2xl tracking-tight text-text-primary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm group"
+          className={`flex items-center gap-2.5 font-display text-2xl tracking-tight transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm group ${
+            isHeroNav ? "text-white" : "text-text-primary"
+          }`}
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 border border-accent/40 text-accent shadow-sm group-hover:border-accent group-hover:bg-accent/25 transition-all">
             <ShieldCheck className="h-4 w-4 fill-accent/20 text-accent" />
@@ -99,14 +103,6 @@ export function Navbar() {
 
         <nav aria-label="Main navigation" className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((link) => {
-            // "For Attorneys" and "Upgrade" both intentionally point to
-            // /pricing (two labeled entry points to the same page — see
-            // the comment above NAV_LINKS). Real bug found during a UI
-            // audit: pathname-based active-matching lit up BOTH links at
-            // once on /pricing, since neither is more "correct" than the
-            // other from the URL alone. Never highlight a link whose href
-            // is shared by another nav link — showing no active state is
-            // honest; showing two is not.
             const hrefIsAmbiguous =
               NAV_LINKS.filter((l) => l.href === link.href).length > 1;
             const isActive = !hrefIsAmbiguous && pathname === link.href;
@@ -116,7 +112,13 @@ export function Navbar() {
                 href={link.href}
                 aria-current={isActive ? "page" : undefined}
                 className={`group relative text-body-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm ${
-                  isActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
+                  isHeroNav
+                    ? isActive
+                      ? "text-white font-medium"
+                      : "text-white/80 hover:text-white"
+                    : isActive
+                      ? "text-text-primary font-medium"
+                      : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 {link.label}
@@ -211,7 +213,11 @@ export function Navbar() {
             <>
               <Link
                 href="/login"
-                className="rounded-sm px-3.5 py-2 text-body-sm text-text-secondary hover:bg-bg-subtle hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                className={`rounded-sm px-3.5 py-2 text-body-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+                  isHeroNav
+                    ? "text-white/85 hover:bg-white/10 hover:text-white"
+                    : "text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
+                }`}
               >
                 Log in
               </Link>
@@ -232,7 +238,9 @@ export function Navbar() {
             aria-label="Open menu"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(true)}
-            className="md:hidden flex h-11 w-11 items-center justify-center rounded-sm hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            className={`md:hidden flex h-11 w-11 items-center justify-center rounded-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+              isHeroNav ? "text-white hover:bg-white/10" : "text-text-primary hover:bg-bg-subtle"
+            }`}
           >
             <Menu className="h-5 w-5" />
           </button>
