@@ -20,8 +20,8 @@ export function HomeHero() {
     : "4,115";
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-border-default/80 bg-[#080806] shadow-2xl">
-      {/* Background Wide Cinematic Image */}
+    <section className="relative overflow-hidden -mt-20 pt-20 sm:pt-24 rounded-2xl sm:rounded-3xl border border-border-default/70 bg-[#080806] shadow-2xl">
+      {/* Background Wide Cinematic Image extending behind the navbar */}
       <div className="absolute inset-0 pointer-events-none">
         <Image
           src="/images/hero-justice-wide.jpg"
@@ -33,10 +33,10 @@ export function HomeHero() {
         />
         {/* Dark gradient fade on the left to guarantee 100% crisp text readability */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#080806] via-[#080806]/90 md:via-[#080806]/80 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#080806] via-transparent to-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#080806] via-transparent to-black/40" />
       </div>
 
-      <div className="relative z-10 px-6 sm:px-10 lg:px-12 py-10 sm:py-12 lg:py-14">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-12 pt-6 sm:pt-8 pb-10 sm:pb-12 lg:pb-14">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           {/* Left Column: Messaging & CTAs */}
           <div className="lg:col-span-7 flex flex-col items-start">

@@ -27,7 +27,7 @@ export default async function HomeFeedPage() {
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-8">
+    <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 pb-8 sm:pb-12 space-y-8">
       <HydrationBoundary state={dehydrate(queryClient)}>
         {/* Modern Civic Action Hero */}
         <HomeHero />

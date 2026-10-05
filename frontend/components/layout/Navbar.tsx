@@ -78,8 +78,10 @@ export function Navbar() {
 
   return (
     <header
-      className={`sticky top-0 z-30 bg-bg/90 backdrop-blur-xl transition-colors duration-200 ${
-        scrolled ? "border-b border-border-default" : "border-b border-transparent"
+      className={`sticky top-0 z-40 transition-all duration-300 ${
+        scrolled
+          ? "bg-bg/90 backdrop-blur-xl border-b border-border-default shadow-lg"
+          : "bg-transparent border-b border-transparent backdrop-blur-[2px]"
       }`}
     >
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
