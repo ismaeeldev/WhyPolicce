@@ -38,12 +38,12 @@ export function HomeFeedClient() {
     !!filters.region || !!filters.status || filters.sort !== "newest" || !!debouncedSearch;
 
   return (
-    <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Main Feed Column (Left / Center) */}
-      <div className="lg:col-span-8 flex flex-col">
+      <div className="lg:col-span-8 flex flex-col min-w-0">
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>
-            <h2 className="font-display text-xl sm:text-2xl font-semibold text-text-primary">
+            <h2 className="font-display text-xl sm:text-2xl font-semibold text-text-primary tracking-tight">
               Recent Community Inquiries
             </h2>
             <p className="text-caption text-text-muted mt-0.5">
@@ -54,7 +54,7 @@ export function HomeFeedClient() {
             <button
               type="button"
               onClick={handleClearAll}
-              className="text-[11px] font-mono text-accent hover:underline"
+              className="text-[11px] font-mono text-accent hover:underline px-2 py-1 rounded bg-accent/10 border border-accent/20 transition-colors"
             >
               Reset Filters
             </button>
@@ -70,14 +70,14 @@ export function HomeFeedClient() {
         />
 
         {!query.isError && hasAnyFilterOrSearch && (query.isLoading || allItems.length > 0) && (
-          <p className="mt-5 mb-1 font-mono text-caption tabular-nums text-text-muted">
+          <p className="mt-4 mb-1 font-mono text-caption tabular-nums text-text-muted">
             {query.isLoading ? "Searching…" : `${total} result${total === 1 ? "" : "s"} for your filters`}
           </p>
         )}
 
         <div className="mt-4 flex flex-col gap-4">
           {query.isError && (
-            <div className="rounded-md border border-danger bg-danger-subtle p-5 text-center">
+            <div className="rounded-xl border border-danger/60 bg-danger-subtle p-6 text-center shadow-card">
               {query.error instanceof ApiError && query.error.code === "attorney_not_verified" ? (
                 <p className="text-body-sm text-text-primary">{query.error.message}</p>
               ) : (
@@ -88,7 +88,7 @@ export function HomeFeedClient() {
                   <button
                     type="button"
                     onClick={() => query.refetch()}
-                    className="rounded-sm px-4 py-2 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                    className="rounded-lg border border-accent/40 bg-accent/10 px-4 py-2 text-body-sm font-medium text-accent hover:bg-accent hover:text-accent-foreground transition-colors outline-none"
                   >
                     Try again
                   </button>
@@ -141,7 +141,7 @@ export function HomeFeedClient() {
             ))}
 
           {query.hasNextPage && (
-            <div className="flex justify-center py-2">
+            <div className="flex justify-center py-4">
               {query.isFetchingNextPage ? (
                 <div
                   className="h-8 w-8 animate-spin rounded-full border-2 border-border-default border-t-accent"
@@ -152,24 +152,24 @@ export function HomeFeedClient() {
                 <button
                   type="button"
                   onClick={() => query.fetchNextPage()}
-                  className="rounded-sm border border-border-strong px-5 py-2.5 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                  className="rounded-lg border border-border-strong bg-bg-elevated px-6 py-2.5 text-body-sm font-medium text-text-primary hover:bg-bg-subtle hover:border-accent/40 transition-colors focus-visible:ring-2 focus-visible:ring-accent outline-none shadow-sm"
                 >
-                  Load more
+                  Load more inquiries
                 </button>
               )}
             </div>
           )}
 
           {!query.hasNextPage && allItems.length > 0 && (
-            <p className="py-2 text-center text-caption text-text-muted">
-              {total} {total === 1 ? "inquiry" : "inquiries"} total
+            <p className="py-4 text-center text-caption font-mono text-text-muted">
+              ✓ All {total} {total === 1 ? "inquiry" : "inquiries"} loaded
             </p>
           )}
         </div>
       </div>
 
-      {/* Right Column: Sticky Sidebar Widgets */}
-      <div className="lg:col-span-4 sticky top-6">
+      {/* Right Column: Sticky Sidebar Widgets (sticks cleanly under navbar) */}
+      <div className="lg:col-span-4 sticky top-24 self-start space-y-6">
         <HomeSidebar onSelectPrecinct={handleSelectPrecinct} />
       </div>
     </div>
