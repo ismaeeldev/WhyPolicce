@@ -301,15 +301,24 @@ export default function NewInquiryPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[640px] px-5 sm:px-6 py-12 sm:py-16">
-      <motion.h1
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: EASE }}
-        className="font-display text-h1 text-text-primary mb-8"
-      >
-        New Inquiry
-      </motion.h1>
+    <div className="mx-auto w-full max-w-[720px] px-4 sm:px-6 py-10 sm:py-14">
+      <div className="mb-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/15 px-3 py-0.5 text-[11px] font-mono font-medium uppercase tracking-[0.14em] text-accent mb-3 backdrop-blur-sm">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+          Civic Incident Intake
+        </div>
+        <motion.h1
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: EASE }}
+          className="font-display text-3xl sm:text-4xl font-semibold text-text-primary tracking-tight"
+        >
+          Submit Public Inquiry
+        </motion.h1>
+        <p className="mt-2 text-body-sm text-text-secondary">
+          Post an incident summary to request public accountability, community corroboration, or licensed legal review.
+        </p>
+      </div>
 
       <motion.form
         initial={{ opacity: 0, y: 12 }}
@@ -317,18 +326,19 @@ export default function NewInquiryPage() {
         transition={{ duration: 0.3, delay: 0.05, ease: EASE }}
         onSubmit={handleSubmit}
         noValidate
-        className="flex flex-col gap-5 rounded-md border border-border-default bg-bg-elevated p-5 sm:p-7 shadow-card"
+        className="flex flex-col gap-6 rounded-2xl border border-border-default/80 bg-bg-elevated/90 backdrop-blur-md p-6 sm:p-8 shadow-card-lg"
       >
         <div>
-          <label htmlFor="title" className="mb-1.5 block text-body-sm text-text-secondary">
-            Title
+          <label htmlFor="title" className="mb-1.5 block text-caption font-mono uppercase tracking-wider text-text-secondary font-medium">
+            Incident Headline / Title *
           </label>
           <input
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={TITLE_MAX_LENGTH}
-            className={`h-11 w-full rounded-sm border bg-bg-elevated px-3.5 text-body text-text-primary outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+            placeholder="e.g. Unreasonable search during routine traffic stop"
+            className={`h-11 w-full rounded-lg border bg-bg px-3.5 text-body text-text-primary outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 ${
               fieldErrors.title ? "border-danger" : "border-border-default"
             }`}
           />
@@ -336,8 +346,8 @@ export default function NewInquiryPage() {
         </div>
 
         <div>
-          <label htmlFor="description" className="mb-1.5 block text-body-sm text-text-secondary">
-            Description
+          <label htmlFor="description" className="mb-1.5 block text-caption font-mono uppercase tracking-wider text-text-secondary font-medium">
+            Incident Description &amp; Details *
           </label>
           <textarea
             id="description"
@@ -345,19 +355,26 @@ export default function NewInquiryPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={6}
-            className={`w-full rounded-sm border bg-bg-elevated px-3.5 py-2.5 text-body text-text-primary outline-none resize-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+            placeholder="Describe what occurred with as much factual detail, time sequence, and officer statements as possible…"
+            className={`w-full rounded-lg border bg-bg px-3.5 py-2.5 text-body text-text-primary outline-none resize-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 ${
               fieldErrors.description ? "border-danger" : "border-border-default"
             }`}
           />
-          <div className="mt-1 flex items-start justify-between gap-2">
+          <div className="mt-1 flex items-center justify-between gap-2">
             <p className="min-h-[1.25rem] text-caption text-danger">{fieldErrors.description}</p>
-            {/* Plain page-background counter text, not on a colored chip
-                — the §1.4 warning-on-warning-subtle contrast concern only
-                applies to text sitting ON --warning-subtle, which this
-                isn't, so --warning text here is genuinely safe. */}
-            <p className={`shrink-0 text-caption tabular-nums ${overLimit ? "text-warning" : "text-text-muted"}`}>
-              {charCount}/{FREE_TIER_CHAR_LIMIT}
-            </p>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-24 rounded-full bg-bg-subtle overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    overLimit ? "bg-warning" : "bg-accent"
+                  }`}
+                  style={{ width: `${Math.min(100, (charCount / FREE_TIER_CHAR_LIMIT) * 100)}%` }}
+                />
+              </div>
+              <p className={`shrink-0 text-caption font-mono tabular-nums ${overLimit ? "text-warning font-semibold" : "text-text-muted"}`}>
+                {charCount}/{FREE_TIER_CHAR_LIMIT}
+              </p>
+            </div>
           </div>
         </div>
 

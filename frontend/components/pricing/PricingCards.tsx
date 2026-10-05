@@ -131,14 +131,14 @@ export function PricingCards() {
           // below an unreachable fold in the first place).
           animate="show"
           variants={cardVariants}
-          className={`wp-surface-card wp-plan-card relative rounded-lg bg-bg-elevated p-6 sm:p-8 text-left transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card-lg ${
+          className={`wp-surface-card wp-plan-card relative rounded-2xl bg-bg-elevated/90 backdrop-blur-sm p-6 sm:p-8 text-left transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-card-lg flex flex-col justify-between ${
             plan.featured
-              ? "border border-accent shadow-card"
-              : "border border-border-default"
+              ? "border-2 border-accent/60 shadow-card ring-1 ring-accent/20"
+              : "border border-border-default/80 hover:border-border-strong"
           }`}
         >
           {!plan.featured && (
-            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
               <div
                 aria-hidden="true"
                 className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.06]"
@@ -148,58 +148,62 @@ export function PricingCards() {
           )}
 
           {plan.featured && (
-            <span className="absolute -top-3 left-6 rounded-full bg-accent-subtle px-2.5 py-0.5 text-caption font-medium text-text-primary">
-              Most useful
-            </span>
+            <div className="absolute -top-3.5 left-6 rounded-full bg-gradient-to-r from-accent to-accent-hover px-3 py-0.5 text-caption font-semibold text-accent-foreground shadow-sm">
+              ★ Most popular
+            </div>
           )}
 
-          <p className="text-caption font-medium uppercase tracking-wide text-text-muted">
-            {plan.audience}
-          </p>
-          <h2 className="mt-1.5 text-h2 font-semibold">{plan.name}</h2>
-          <p className="mt-1 text-body-sm text-text-secondary">{plan.description}</p>
+          <div>
+            <p className="text-caption font-semibold uppercase tracking-wider text-accent-bright">
+              {plan.audience}
+            </p>
+            <h2 className="mt-1.5 text-h2 font-serif font-semibold text-text-primary">{plan.name}</h2>
+            <p className="mt-1 text-body-sm text-text-secondary leading-relaxed">{plan.description}</p>
 
-          <div className="mt-7 flex items-baseline gap-2">
-            <span className="font-display text-display-lg text-text-primary">{plan.price}</span>
-            <span className="text-body-sm text-text-muted">{plan.cadence}</span>
+            <div className="mt-6 flex items-baseline gap-2">
+              <span className="font-display text-display-lg text-text-primary tracking-tight">{plan.price}</span>
+              <span className="text-body-sm text-text-muted">{plan.cadence}</span>
+            </div>
           </div>
 
-          {plan.id === "become-attorney" ? (
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={() => {
-                if (!user) {
-                  router.push(`/login?returnTo=${encodeURIComponent("/pricing")}`);
-                  return;
-                }
-                setAttorneyDialogOpen(true);
-              }}
-              className="mt-6 block w-full rounded-sm bg-accent px-4 py-2.5 text-center text-body-sm font-medium text-accent-foreground transition-all hover:bg-accent-hover active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {plan.cta}
-            </button>
-          ) : (
-            <Link
-              href={plan.href}
-              className={`mt-6 block rounded-sm px-4 py-2.5 text-center text-body-sm font-medium transition-all active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
-                plan.ctaIsDirectAction
-                  ? "bg-accent text-accent-foreground hover:bg-accent-hover"
-                  : "border border-border-strong text-text-primary hover:bg-bg-subtle"
-              }`}
-            >
-              {plan.cta}
-            </Link>
-          )}
+          <div>
+            {plan.id === "become-attorney" ? (
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => {
+                  if (!user) {
+                    router.push(`/login?returnTo=${encodeURIComponent("/pricing")}`);
+                    return;
+                  }
+                  setAttorneyDialogOpen(true);
+                }}
+                className="mt-6 block w-full rounded-xl bg-accent px-4 py-3 text-center text-body-sm font-semibold text-accent-foreground transition-all duration-200 hover:bg-accent-hover hover:shadow-md active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {plan.cta}
+              </button>
+            ) : (
+              <Link
+                href={plan.href}
+                className={`mt-6 block rounded-xl px-4 py-3 text-center text-body-sm font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+                  plan.ctaIsDirectAction
+                    ? "bg-accent text-accent-foreground hover:bg-accent-hover hover:shadow-md"
+                    : "border border-border-strong text-text-primary hover:bg-bg-subtle hover:border-accent/40"
+                }`}
+              >
+                {plan.cta}
+              </Link>
+            )}
 
-          <ul className="mt-7 flex flex-col gap-4 border-t border-border-default pt-6">
-            {plan.features.map((label) => (
-              <li key={label} className="flex items-start gap-2.5 text-body-sm">
-                <Check className="h-4 w-4 shrink-0 mt-0.5 text-accent-bright" />
-                <span className="text-text-primary">{label}</span>
-              </li>
-            ))}
-          </ul>
+            <ul className="mt-7 flex flex-col gap-3.5 border-t border-border-default/70 pt-6">
+              {plan.features.map((label) => (
+                <li key={label} className="flex items-start gap-2.5 text-body-sm">
+                  <Check className="h-4 w-4 shrink-0 mt-0.5 text-accent-bright" />
+                  <span className="text-text-primary leading-normal">{label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </motion.div>
       ))}
       <BecomeAttorneyDialog open={attorneyDialogOpen} onOpenChange={setAttorneyDialogOpen} />

@@ -20,6 +20,9 @@ import { useMyInquiries } from "@/hooks/useInquiries";
  * inline form on that same page); duplicating a second, list-context
  * version would fork behavior for no real benefit here.
  */
+import Link from "next/link";
+import { Plus, Sparkles } from "lucide-react";
+
 export default function MyInquiriesPage() {
   const query = useMyInquiries();
 
@@ -29,7 +32,25 @@ export default function MyInquiriesPage() {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-6 py-8 sm:py-12">
       <div className="mx-auto max-w-[760px]">
-        <h1 className="font-display text-h1 text-text-primary mb-6">My Inquiries</h1>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-default/60 pb-6">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-subtle/50 px-3 py-0.5 text-caption font-medium text-accent-bright mb-2">
+              <Sparkles className="h-3 w-3 text-accent" />
+              <span>Personal Ledger</span>
+            </div>
+            <h1 className="font-display text-h1 text-text-primary tracking-tight">My Inquiries</h1>
+            <p className="mt-1 text-body-sm text-text-secondary">
+              Review, manage, and track community and legal responses to your posts.
+            </p>
+          </div>
+          <Link
+            href="/inquiries/new"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-body-sm font-semibold text-accent-foreground transition-all duration-200 hover:bg-accent-hover hover:shadow-md shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Inquiry</span>
+          </Link>
+        </div>
 
         <div className="flex flex-col gap-4">
           {query.isError && (

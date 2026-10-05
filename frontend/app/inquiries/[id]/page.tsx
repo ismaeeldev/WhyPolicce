@@ -241,55 +241,75 @@ export default function ThreadPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: EASE }}
-          className="group relative rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6"
+          className="group relative rounded-xl border border-border-default/80 bg-bg-elevated/90 backdrop-blur-md p-6 sm:p-8 shadow-card"
         >
-          <div className="flex items-center justify-between gap-3">
-            <StatusPill status={inquiry.statusTag} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default/60 pb-4">
+            <div className="flex items-center gap-2.5">
+              <StatusPill status={inquiry.statusTag} />
+              {inquiry.isAnonymous ? (
+                <span className="inline-flex items-center gap-1 rounded bg-bg-subtle px-2 py-0.5 text-[10px] font-mono text-text-muted border border-border-default/50">
+                  Anonymous Submission
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded bg-accent/10 px-2 py-0.5 text-[10px] font-mono font-medium text-accent border border-accent/20">
+                  Verified Inquiry
+                </span>
+              )}
+            </div>
             {inquiry.isAuthor && (
               <InquiryEditDeleteControls inquiryId={inquiry.id} onEditClick={() => setEditingInquiry(true)} />
             )}
           </div>
 
-          <p className="mt-4 mb-1.5 text-caption font-medium uppercase tracking-wide text-text-muted">
-            The original inquiry
-          </p>
-          <h1 className="border-l-2 border-accent/40 pl-3 text-h3 font-semibold text-text-primary [overflow-wrap:anywhere]">
-            {inquiry.title}
-          </h1>
-          <p className="mt-3 border-l-2 border-accent/40 pl-3 text-body text-text-secondary whitespace-pre-wrap [overflow-wrap:anywhere]">
-            {inquiry.description}
-          </p>
+          <div className="mt-5">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-accent font-medium">
+              Official Inquiry File
+            </span>
+            <h1 className="font-display text-2xl sm:text-3xl font-semibold text-text-primary mt-1 mb-4 leading-snug [overflow-wrap:anywhere]">
+              {inquiry.title}
+            </h1>
+            <div className="rounded-lg bg-bg-subtle/50 border border-border-default/40 p-4 sm:p-5 text-body text-text-secondary whitespace-pre-wrap leading-relaxed [overflow-wrap:anywhere]">
+              {inquiry.description}
+            </div>
+          </div>
 
-          <p className="mt-4 text-caption text-text-muted">
-            {dateFormatter.format(new Date(inquiry.createdAt))} &middot; {inquiry.city}, {inquiry.state}
-            {inquiry.precinct ? ` · ${inquiry.precinct}` : ""}
+          <p className="mt-4 text-caption font-mono text-text-muted flex flex-wrap items-center gap-2">
+            <span>{dateFormatter.format(new Date(inquiry.createdAt))}</span>
+            <span>&middot;</span>
+            <span>{inquiry.city}, {inquiry.state}</span>
+            {inquiry.precinct && (
+              <>
+                <span>&middot;</span>
+                <span className="text-accent">{inquiry.precinct}</span>
+              </>
+            )}
           </p>
 
           {inquiry.isAuthor ? (
-            <div className="mt-4">
+            <div className="mt-5 pt-4 border-t border-border-default/60">
               <EvidenceUploadField inquiryId={inquiry.id} attachments={inquiry.attachments ?? []} tier={inquiry.tier} />
             </div>
           ) : (
             inquiry.attachments && inquiry.attachments.length > 0 && (
-              <div className="mt-4">
+              <div className="mt-5 pt-4 border-t border-border-default/60">
                 <AttachmentList attachments={inquiry.attachments} />
               </div>
             )
           )}
 
-          <div className="mt-4 flex items-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-3 pt-4 border-t border-border-default/60">
             <button
               type="button"
               onClick={handleFollowClick}
               disabled={followMutation.isPending || unfollowMutation.isPending}
-              className={`flex items-center gap-1.5 rounded-sm px-3.5 py-1.5 text-body-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:cursor-not-allowed ${
+              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-body-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:cursor-not-allowed ${
                 inquiry.isFollowing
-                  ? "bg-accent-subtle text-text-primary hover:bg-accent-subtle/80"
-                  : "border border-border-strong text-text-primary hover:bg-bg-subtle"
+                  ? "bg-accent text-accent-foreground shadow-sm"
+                  : "border border-border-strong text-text-primary hover:bg-bg-subtle hover:border-accent/40"
               }`}
             >
-              {inquiry.isFollowing ? "Following" : "Follow"}
-              <span className="inline-block min-w-[2ch] text-right tabular-nums">
+              {inquiry.isFollowing ? "Following Inquiry" : "Follow Inquiry"}
+              <span className="inline-block min-w-[2ch] text-right font-mono tabular-nums text-xs">
                 {inquiry.followerCount}
               </span>
             </button>
@@ -298,9 +318,9 @@ export default function ThreadPage() {
               <button
                 type="button"
                 onClick={() => setUpgradeModalOpen(true)}
-                className="rounded-sm border border-border-strong px-3.5 py-1.5 text-body-sm font-medium text-text-primary transition-colors hover:bg-bg-subtle focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                className="rounded-lg border border-accent/40 bg-accent/10 px-4 py-2 text-body-sm font-medium text-accent hover:bg-accent hover:text-accent-foreground transition-all focus-visible:ring-2 focus-visible:ring-accent outline-none"
               >
-                Upgrade this post
+                Upgrade this post ($2.99)
               </button>
             )}
           </div>
@@ -364,7 +384,7 @@ export default function ThreadPage() {
           {thread?.items.map((comment) => (
             <div
               key={comment.id}
-              className="group flex flex-col gap-1.5 rounded-md border border-border-default bg-bg-elevated p-4 transition-colors duration-150 hover:border-border-strong"
+              className="group flex flex-col gap-2 rounded-xl border border-border-default/80 bg-bg-elevated/90 backdrop-blur-sm p-4 sm:p-5 shadow-sm transition-all duration-200 hover:border-border-strong hover:shadow-card"
             >
               {editingCommentId === comment.id ? (
                 <div className="flex flex-col gap-2">
@@ -373,21 +393,21 @@ export default function ThreadPage() {
                     value={editDraft}
                     onChange={(e) => setEditDraft(e.target.value)}
                     rows={3}
-                    className="w-full rounded-sm border border-border-default bg-bg-elevated px-3.5 py-2.5 text-body text-text-primary outline-none resize-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    className="w-full rounded-lg border border-border-default bg-bg px-3.5 py-2.5 text-body text-text-primary outline-none resize-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={saveCommentEdit}
                       disabled={updateComment.isPending || !editDraft.trim()}
-                      className="rounded-sm bg-accent px-3 py-1.5 text-caption font-medium text-accent-foreground hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                      className="rounded-md bg-accent px-3.5 py-1.5 text-caption font-medium text-accent-foreground hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-accent outline-none"
                     >
                       Save
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingCommentId(null)}
-                      className="text-caption text-text-muted hover:text-text-primary transition-colors rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+                      className="text-caption text-text-muted hover:text-text-primary transition-colors px-2 py-1.5 rounded outline-none"
                     >
                       Cancel
                     </button>
@@ -395,10 +415,15 @@ export default function ThreadPage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-caption text-text-muted">
-                      {dateFormatter.format(new Date(comment.createdAt))}
-                    </p>
+                  <div className="flex items-center justify-between gap-2 border-b border-border-default/40 pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-full bg-accent/15 border border-accent/30 text-accent font-mono text-[10px] font-bold flex items-center justify-center">
+                        C
+                      </div>
+                      <p className="text-caption font-mono text-text-muted">
+                        {dateFormatter.format(new Date(comment.createdAt))}
+                      </p>
+                    </div>
                     {me?.id === comment.authorId && (
                       <CommentEditDeleteControls
                         inquiryId={inquiryId}
@@ -407,17 +432,22 @@ export default function ThreadPage() {
                       />
                     )}
                   </div>
-                  <p className="text-body text-text-primary whitespace-pre-wrap [overflow-wrap:anywhere]">
+                  <p className="text-body text-text-primary whitespace-pre-wrap leading-relaxed [overflow-wrap:anywhere] pt-1">
                     {comment.body}
                   </p>
-                  <ReportButton targetType="thread_comment" targetId={comment.id} />
+                  <div className="flex justify-end pt-1">
+                    <ReportButton targetType="thread_comment" targetId={comment.id} />
+                  </div>
                 </>
               )}
             </div>
           ))}
 
           {thread && thread.items.length === 0 && !threadError && (
-            <p className="text-body-sm text-text-muted">No comments yet. Be the first to reply.</p>
+            <div className="rounded-xl border border-dashed border-border-default/80 p-8 text-center bg-bg-elevated/40">
+              <p className="text-body-sm text-text-muted">No public statements or community comments recorded yet.</p>
+              <p className="text-caption text-text-muted/80 mt-1">Be the first verified advocate or citizen to respond.</p>
+            </div>
           )}
 
           {threadHasNextPage && (
@@ -425,43 +455,41 @@ export default function ThreadPage() {
               type="button"
               onClick={() => fetchNextThreadPage()}
               disabled={threadFetchingNextPage}
-              className="self-center rounded-sm border border-border-strong px-4 py-2 text-body-sm font-medium text-text-primary transition-colors hover:bg-bg-subtle disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+              className="self-center rounded-lg border border-border-strong bg-bg-elevated px-5 py-2.5 text-body-sm font-medium text-text-primary transition-all hover:bg-bg-subtle hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent outline-none shadow-sm"
             >
               {threadFetchingNextPage ? "Loading…" : "Load more comments"}
             </button>
           )}
         </div>
 
-        {/* Real bug found during a state-handling audit: this compose
-            box stayed fully enabled even while the thread itself failed
-            to load. Posting still succeeded server-side, but the
-            success invalidation just re-ran the SAME failing thread
-            query, so the user's own comment never appeared — they'd
-            reasonably conclude the post failed and try again,
-            duplicating it. Hidden entirely while the thread can't be
-            displayed; the error box above already offers Try again. */}
         {!threadError && (
-          <div className="mt-6">
+          <div className="mt-6 rounded-xl border border-border-default/80 bg-bg-elevated p-4 sm:p-5 shadow-card">
+            <label htmlFor="comment-input" className="block text-caption font-mono uppercase tracking-wider text-text-muted mb-2">
+              Add Statement / Community Trace
+            </label>
             <textarea
+              id="comment-input"
               value={commentDraft}
               onChange={(e) => setCommentDraft(e.target.value)}
-              placeholder="Add a comment…"
+              placeholder="Contribute relevant observations, official records, or timeline updates…"
               rows={3}
-              className="w-full rounded-sm border border-border-default bg-bg-elevated px-3.5 py-2.5 text-body text-text-primary outline-none resize-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="w-full rounded-lg border border-border-default bg-bg px-3.5 py-2.5 text-body text-text-primary outline-none resize-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
             {commentError && (
-              <div className="mt-2 rounded-md border border-danger bg-danger-subtle p-3">
+              <div className="mt-2 rounded-lg border border-danger/60 bg-danger-subtle p-3">
                 <p className="text-body-sm text-text-primary">{commentError}</p>
               </div>
             )}
-            <button
-              type="button"
-              onClick={handlePostComment}
-              disabled={!commentDraft.trim() || createComment.isPending}
-              className="mt-2 rounded-sm bg-accent px-4 py-2 text-body-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-bg-subtle disabled:text-text-muted disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
-            >
-              {createComment.isPending ? "Posting…" : "Post Comment"}
-            </button>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={handlePostComment}
+                disabled={!commentDraft.trim() || createComment.isPending}
+                className="rounded-lg bg-accent px-5 py-2.5 text-body-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:bg-bg-subtle disabled:text-text-muted disabled:cursor-not-allowed transition-all focus-visible:ring-2 focus-visible:ring-accent outline-none shadow-sm"
+              >
+                {createComment.isPending ? "Submitting…" : "Post Comment"}
+              </button>
+            </div>
           </div>
         )}
       </div>

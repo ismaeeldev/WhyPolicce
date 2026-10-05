@@ -130,21 +130,30 @@ function ApprovedAttorneyPortal({ subscribed }: { subscribed: boolean }) {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-6 py-8 sm:py-12">
       <div className="mx-auto max-w-[760px]">
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <motion.h1
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: EASE }}
-            className="font-display text-h1"
-          >
-            Attorney Portal
-          </motion.h1>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-default/60 pb-6">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-subtle/50 px-3 py-0.5 text-caption font-medium text-accent-bright mb-2">
+              <Scale className="h-3.5 w-3.5 text-accent" />
+              <span>Attorney Console</span>
+            </div>
+            <motion.h1
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: EASE }}
+              className="font-display text-h1 text-text-primary tracking-tight"
+            >
+              Attorney Portal
+            </motion.h1>
+            <p className="mt-1 text-body-sm text-text-secondary">
+              Review active jurisdiction cases and initiate direct citizen consultations.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setShowingRequests((v) => !v)}
-            className="rounded-sm border border-border-default px-3.5 py-2 text-body-sm text-text-secondary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+            className="rounded-xl border border-border-default/90 bg-bg-elevated px-4 py-2.5 text-body-sm font-semibold text-text-primary hover:border-accent/40 hover:bg-bg-subtle transition-all duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none shadow-sm"
           >
-            {showingRequests ? "Back to cases" : "My Requests"}
+            {showingRequests ? "← Back to Case Feed" : "My Consultations"}
           </button>
         </div>
 
@@ -181,29 +190,20 @@ function AttorneyCaseFeed({
     return (
       <div className="flex flex-col gap-4">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-32 w-full rounded-md" />
+          <Skeleton key={i} className="h-36 w-full rounded-2xl" />
         ))}
       </div>
     );
   }
 
   if (isError) {
-    // Real bug found during a state-handling audit: this component only
-    // ever destructured `data`/`isLoading`, so a failed feed fetch fell
-    // through with `items` defaulting to [] and rendered the SAME empty
-    // state as "the forum genuinely has zero inquiries" — a $149/month
-    // attorney hitting an API blip was told the product has no content,
-    // with no way to retry. Worse, this false-empty rendered blurred
-    // behind the subscribe paywall for an unsubscribed attorney,
-    // making the product look empty right as it's trying to sell them
-    // on subscribing to it.
     return (
-      <div className="rounded-md border border-danger bg-danger-subtle p-5 text-center">
+      <div className="rounded-2xl border border-danger/40 bg-danger-subtle p-6 text-center shadow-sm">
         <p className="text-body-sm text-text-primary mb-3">The case feed didn&apos;t load.</p>
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-sm px-4 py-2 text-body-sm font-medium text-text-primary hover:bg-bg-subtle transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+          className="rounded-xl bg-accent px-4 py-2 text-body-sm font-semibold text-accent-foreground hover:bg-accent-hover transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
         >
           Try again
         </button>
@@ -214,7 +214,7 @@ function AttorneyCaseFeed({
   if (!subscribed) {
     return (
       <div className="relative">
-        <div aria-hidden="true" className="pointer-events-none blur-sm select-none opacity-60">
+        <div aria-hidden="true" className="pointer-events-none blur-sm select-none opacity-50">
           <div className="flex flex-col gap-4">
             {items.slice(0, 3).map((inquiry) => (
               <InquiryCard key={inquiry.id} inquiry={inquiry} />
@@ -223,11 +223,13 @@ function AttorneyCaseFeed({
           </div>
         </div>
         <div className="absolute inset-0 flex items-center justify-center px-4">
-          <div className="flex w-[min(320px,100%)] flex-col items-center gap-3 rounded-md border border-accent/30 bg-bg-elevated p-6 sm:p-8 text-center shadow-card-lg">
-            <p className="text-body font-medium text-text-primary">Subscribe to see real cases</p>
-            <p className="max-w-xs text-body-sm text-text-secondary">
-              A $149/month subscription gives you full access to every inquiry and lets you
-              request consultations directly.
+          <div className="flex w-[min(380px,100%)] flex-col items-center gap-3.5 rounded-2xl border-2 border-accent/40 bg-bg-elevated/95 p-6 sm:p-8 text-center shadow-2xl backdrop-blur-md">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/15 text-accent-bright ring-1 ring-accent/30">
+              <Scale className="h-6 w-6" />
+            </div>
+            <p className="text-h3 font-serif font-semibold text-text-primary">Subscribe to Access Real Cases</p>
+            <p className="max-w-xs text-body-sm text-text-secondary leading-relaxed">
+              A $149/month subscription gives you full unredacted access to every community inquiry and direct client consultation outreach.
             </p>
             <SubscribeButton />
           </div>
@@ -265,9 +267,9 @@ function SubscribeButton() {
       type="button"
       onClick={() => checkout.mutate()}
       disabled={checkout.isPending}
-      className="mt-1 rounded-sm bg-accent px-5 py-2.5 text-body-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+      className="mt-2 w-full rounded-xl bg-accent px-5 py-3 text-body-sm font-semibold text-accent-foreground hover:bg-accent-hover hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
     >
-      {checkout.isPending ? "Redirecting…" : "Subscribe for $149/month"}
+      {checkout.isPending ? "Redirecting to Stripe…" : "Subscribe for $149/month"}
     </button>
   );
 }

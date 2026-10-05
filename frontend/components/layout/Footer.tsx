@@ -17,26 +17,35 @@ import { usePathname } from "next/navigation";
  * everywhere a user can land, including the thread and attorney-portal
  * pages, not just the feed.
  */
+import { Shield } from "lucide-react";
+
 export function Footer() {
   const pathname = usePathname();
-  // Same reasoning as Navbar: the admin panel has its own dedicated
-  // shell and isn't part of the public forum this footer belongs to.
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   if (isAdminRoute) return null;
 
   return (
-    <footer className="border-t border-border-default mt-auto">
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center gap-4 text-body-sm text-text-muted">
-        <p className="text-center">
-          WhyPolice.com is an independent public archive &amp; forum. Not 911.
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
-          <span>&copy; {new Date().getFullYear()} WhyPolice. All rights reserved.</span>
-          <nav aria-label="Legal" className="flex items-center gap-5">
-            <Link href="/privacy" className="hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
+    <footer className="border-t border-border-default/70 bg-bg-surface/50 backdrop-blur-sm mt-auto">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-10 flex flex-col items-center gap-6 text-body-sm text-text-muted">
+        <div className="flex items-center gap-2 text-text-secondary">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/15 text-accent ring-1 ring-accent/30">
+            <Shield className="h-3.5 w-3.5" />
+          </div>
+          <span className="font-serif font-medium text-text-primary">WhyPolice</span>
+          <span className="text-border-strong">•</span>
+          <span className="text-caption text-text-muted">Independent public archive &amp; community ledger. Not 911.</span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full border-t border-border-default/40 pt-6">
+          <span className="text-caption">&copy; {new Date().getFullYear()} WhyPolice. All rights reserved.</span>
+          <nav aria-label="Legal" className="flex items-center gap-6">
+            <Link href="/pricing" className="text-caption hover:text-accent transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
+              Pricing
+            </Link>
+            <Link href="/privacy" className="text-caption hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
               Privacy
             </Link>
-            <Link href="/terms" className="hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
+            <Link href="/terms" className="text-caption hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none rounded-sm">
               Terms
             </Link>
           </nav>
