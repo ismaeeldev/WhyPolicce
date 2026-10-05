@@ -26,7 +26,7 @@ export function Footer() {
 
   return (
     <footer className="border-t border-border-default mt-auto">
-      <div className="mx-auto max-w-[1200px] px-5 sm:px-6 py-7 flex flex-col items-center gap-4 text-body-sm text-text-muted">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center gap-4 text-body-sm text-text-muted">
         <p className="text-center">
           WhyPolice.com is an independent public archive &amp; forum. Not 911.
         </p>

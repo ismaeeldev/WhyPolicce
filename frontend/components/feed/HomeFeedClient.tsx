@@ -5,6 +5,7 @@ import { useState } from "react";
 import { FeedEmptyStateNoInquiries, FeedEmptyStateNoResults } from "@/components/feed/FeedEmptyState";
 import { FeedFilterBar } from "@/components/feed/FeedFilterBar";
 import { InquiryCard } from "@/components/feed/InquiryCard";
+import { BentoGrid } from "@/components/home/BentoGrid";
 import { HomeSidebar } from "@/components/home/HomeSidebar";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useInquiries, type InquiriesFilters } from "@/hooks/useInquiries";
@@ -38,7 +39,12 @@ export function HomeFeedClient() {
     !!filters.region || !!filters.status || filters.sort !== "newest" || !!debouncedSearch;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div className="space-y-8">
+      {/* 4-Tile Bento Intelligence Matrix with live precinct synchronization */}
+      <BentoGrid onSelectPrecinct={handleSelectPrecinct} />
+
+      {/* Dynamic Split Dashboard: Feed & Sticky Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Main Feed Column (Left / Center) */}
       <div className="lg:col-span-8 flex flex-col min-w-0">
         <div className="flex items-center justify-between gap-3 mb-4">
@@ -173,5 +179,6 @@ export function HomeFeedClient() {
         <HomeSidebar onSelectPrecinct={handleSelectPrecinct} />
       </div>
     </div>
+  </div>
   );
 }
