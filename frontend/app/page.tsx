@@ -27,17 +27,18 @@ export default async function HomeFeedPage() {
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 pb-8 sm:pb-12 space-y-8">
-      <HydrationBoundary state={dehydrate(queryClient)}>
-        {/* Modern Civic Action Hero */}
-        <HomeHero />
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      {/* Modern Civic Action Hero - Full Bleed Edge-to-Edge */}
+      <HomeHero />
 
+      {/* Main Page Content Container */}
+      <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
         {/* 4-Tile Bento Intelligence Matrix */}
         <BentoGrid />
 
         {/* Dynamic Split Dashboard Feed & Sidebar */}
         <HomeFeedClient />
-      </HydrationBoundary>
-    </div>
+      </div>
+    </HydrationBoundary>
   );
 }

@@ -20,34 +20,36 @@ export function HomeHero() {
     : "4,115";
 
   return (
-    <section className="relative overflow-hidden -mt-20 pt-20 sm:pt-24 rounded-2xl sm:rounded-3xl border border-border-default/70 bg-[#080806] shadow-2xl">
-      {/* Background Wide Cinematic Image extending behind the navbar */}
+    <section className="relative w-full overflow-hidden -mt-20 pt-24 sm:pt-28 pb-14 sm:pb-20 border-b border-border-default/60 bg-[#060605] shadow-2xl">
+      {/* Background Wide Cinematic Image stretching edge-to-edge behind navbar */}
       <div className="absolute inset-0 pointer-events-none">
         <Image
           src="/images/hero-justice-wide.jpg"
           alt="Civic Justice Background"
           fill
           priority
-          className="object-cover object-right-top opacity-90 hidden md:block"
-          sizes="(max-width: 1400px) 100vw, 1400px"
+          className="object-cover object-right md:object-right opacity-90 hidden sm:block"
+          sizes="100vw"
         />
-        {/* Dark gradient fade on the left to guarantee 100% crisp text readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#080806] via-[#080806]/90 md:via-[#080806]/80 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#080806] via-transparent to-black/40" />
+        {/* Cinematic dark gradients to guarantee 100% crisp typography and contrast */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#060605] via-[#060605]/95 md:via-[#060605]/80 via-60% to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#060605] via-transparent to-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060605]/80 via-transparent to-[#060605]/90" />
       </div>
 
-      <div className="relative z-10 px-6 sm:px-10 lg:px-12 pt-6 sm:pt-8 pb-10 sm:pb-12 lg:pb-14">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      {/* Centered Content Container */}
+      <div className="relative z-10 mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           {/* Left Column: Messaging & CTAs */}
           <div className="lg:col-span-7 flex flex-col items-start">
             {/* Pill Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/15 px-3.5 py-1 text-[11px] font-mono font-medium uppercase tracking-[0.14em] text-accent mb-5 backdrop-blur-md">
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/15 px-3.5 py-1 text-[11px] font-mono font-medium uppercase tracking-[0.14em] text-accent mb-6 backdrop-blur-md shadow-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
               Citizen Powered Justice
             </div>
 
             {/* Headline */}
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.25rem] font-semibold leading-[1.1] text-text-primary tracking-tight">
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.5rem] font-medium leading-[1.08] text-text-primary tracking-tight">
               Democratizing{" "}
               <span className="text-accent">
                 Accountability.
@@ -65,7 +67,7 @@ export function HomeHero() {
             </p>
 
             {/* Stat Counters Row */}
-            <div className="mt-8 flex flex-wrap items-center gap-6 sm:gap-10 border-y border-border-default/60 py-4 w-full max-w-xl">
+            <div className="mt-8 flex flex-wrap items-center gap-6 sm:gap-10 border-y border-border-default/60 py-4 w-full max-w-xl backdrop-blur-sm">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
                   <Users className="h-4 w-4" />
@@ -122,7 +124,7 @@ export function HomeHero() {
             </div>
           </div>
 
-          {/* Right Column: Floating Quote Box positioned over the courthouse columns */}
+          {/* Right Column: Floating Quote Box positioned over courthouse pillars */}
           <div className="lg:col-span-5 relative flex justify-end lg:pr-2">
             <div className="w-full max-w-[320px] rounded-xl border border-border-strong/80 bg-bg-elevated/85 backdrop-blur-md p-5 shadow-2xl transition-transform hover:-translate-y-1 duration-300">
               <div className="font-serif text-2xl text-accent leading-none mb-1">&ldquo;</div>
