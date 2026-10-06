@@ -114,7 +114,7 @@ export function HomeSidebar() {
             </div>
           ))}
           <p className="text-[10px] font-mono text-text-muted pt-1">
-            Share of {total.toLocaleString()} public records across {stats?.totalStates ?? "—"} states.
+            Share of {total.toLocaleString()} public {total === 1 ? "record" : "records"} across {stats?.totalStates ?? "—"} {stats?.totalStates === 1 ? "state" : "states"}.
           </p>
         </div>
       </div>

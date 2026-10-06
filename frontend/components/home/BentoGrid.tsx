@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, CheckCircle2, ChevronRight, Database, Eye, Globe, Lock, MapPin, Navigation, Search, Shield, Users } from "lucide-react";
+import { Activity, CheckCircle2, ChevronRight, EyeOff, Flag, Lock, Mail, MapPin, Navigation, Search, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -24,21 +24,9 @@ export function BentoGrid({
   const { data: attorneys, isLoading: attorneysLoading } = useVerifiedAttorneys(4);
   const fmt = (n: number | undefined) => (n === undefined ? "—" : n.toLocaleString());
 
-  const [toggles, setToggles] = useState({
-    sanitizeHistory: true,
-    securityToggles: false,
-    communityAddress: true,
-    groupSecurity: false,
-    dataRedaction: true,
-  });
-
   // Unsent typing only; once submitted (or reset) the feed's own state is the source of truth.
   const [draft, setDraft] = useState<string | null>(null);
   const precinctQuery = draft ?? activeQuery;
-
-  const handleToggle = (key: keyof typeof toggles) => {
-    setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   return (
     <section className="w-full">
@@ -147,7 +135,7 @@ export function BentoGrid({
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-0.5 text-[9px] font-medium text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-1 py-0.5 rounded shrink-0">
+                  <div className="flex items-center gap-0.5 text-[9px] font-medium text-success bg-success/10 border border-success/30 px-1 py-0.5 rounded shrink-0">
                     <CheckCircle2 className="h-2.5 w-2.5" />
                     <span>Verified</span>
                   </div>
@@ -184,53 +172,33 @@ export function BentoGrid({
               </Link>
             </div>
 
-            {/* Interactive Toggle List */}
-            <div className="space-y-1.5 mt-2">
+            {/* Protections that are actually enforced by the platform */}
+            <ul className="space-y-1.5 mt-2">
               {[
-                { key: "sanitizeHistory", label: "Sanitize search history", icon: Eye },
-                { key: "securityToggles", label: "Security & data toggles", icon: Shield },
-                { key: "communityAddress", label: "Community address obfuscation", icon: Globe },
-                { key: "groupSecurity", label: "Group members protection", icon: Users },
-                { key: "dataRedaction", label: "Data redaction tracking", icon: Database },
-              ].map((item, idx) => {
-                const isChecked = toggles[item.key as keyof typeof toggles];
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => handleToggle(item.key as keyof typeof toggles)}
-                    className="flex items-center justify-between p-1.5 rounded-lg bg-bg-subtle/50 hover:bg-bg-subtle cursor-pointer transition-colors border border-border-default/30"
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                      <item.icon className="h-3 w-3 text-accent shrink-0" />
-                      <span className="text-[10px] text-text-secondary truncate">{item.label}</span>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={isChecked}
-                      className={`relative inline-flex h-3.5 w-7 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        isChecked ? "bg-accent" : "bg-border-strong"
-                      }`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={`pointer-events-none inline-block h-2.5 w-2.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          isChecked ? "translate-x-3.5" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+                { label: "Anonymous posting available", icon: EyeOff },
+                { label: "Inquiry authors' identities never published", icon: Lock },
+                { label: "Attorney credentials reviewed by an admin", icon: Shield },
+                { label: "Attorney emails never shown publicly", icon: Mail },
+                { label: "Reported content reviewed by admins", icon: Flag },
+              ].map((item) => (
+                <li
+                  key={item.label}
+                  className="flex items-center gap-1.5 p-1.5 rounded-lg bg-bg-subtle/50 border border-border-default/30"
+                >
+                  <item.icon className="h-3 w-3 text-accent shrink-0" />
+                  <span className="text-[10px] text-text-secondary">{item.label}</span>
+                  <CheckCircle2 className="ml-auto h-3 w-3 shrink-0 text-success" aria-hidden="true" />
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="mt-3 pt-2.5 border-t border-border-default/60">
             <div className="flex items-center justify-between text-[10px] text-text-muted font-mono">
-              <span>Status: Protected</span>
-              <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> 100% Active
-              </span>
+              <span>Privacy by design</span>
+              <Link href="/privacy" className="text-accent hover:underline">
+                Read policy
+              </Link>
             </div>
           </div>
         </div>
@@ -244,7 +212,7 @@ export function BentoGrid({
                 <span>Precinct Finder</span>
               </div>
               <span className="text-[10px] font-mono text-text-muted bg-bg-subtle px-1.5 py-0.5 rounded border border-border-default/40">
-                {fmt(stats?.totalStates)} states
+                {fmt(stats?.totalStates)} {stats?.totalStates === 1 ? "state" : "states"}
               </span>
             </div>
 

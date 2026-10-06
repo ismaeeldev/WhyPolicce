@@ -101,7 +101,7 @@ export function Navbar() {
           </span>
         </Link>
 
-        <nav aria-label="Main navigation" className="hidden md:flex items-center gap-8">
+        <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-8">
           {NAV_LINKS.map((link) => {
             const hrefIsAmbiguous =
               NAV_LINKS.filter((l) => l.href === link.href).length > 1;
@@ -132,7 +132,7 @@ export function Navbar() {
           })}
         </nav>
 
-        <div className="hidden md:flex items-center gap-2">
+        <div className="hidden lg:flex items-center gap-2">
           {/* "+ New Inquiry" CTA — visible to everyone, including logged-out
               visitors (client's own "citizens post for free" positioning:
               hiding the CTA entirely would make the product's core action
@@ -238,7 +238,7 @@ export function Navbar() {
             aria-label="Open menu"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(true)}
-            className={`md:hidden flex h-11 w-11 items-center justify-center rounded-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
+            className={`lg:hidden flex h-11 w-11 items-center justify-center rounded-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
               isHeroNav ? "text-white hover:bg-white/10" : "text-text-primary hover:bg-bg-subtle"
             }`}
           >

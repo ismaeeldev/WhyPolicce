@@ -130,7 +130,7 @@ export function InquiryCard({
             {dateLabel}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-1 text-caption text-text-muted tabular-nums">
+        <div className={`flex shrink-0 items-center gap-1 text-caption text-text-muted tabular-nums ${isLatest ? "mt-5 sm:mt-0" : ""}`}>
           <MessageSquare className="h-3.5 w-3.5" />
           <span className="inline-block min-w-[1.5ch] text-right">{inquiry.commentCount}</span>
         </div>
