@@ -13,6 +13,10 @@ import { ApiError } from "@/lib/api-client";
 
 const DEFAULT_FILTERS: InquiriesFilters = { region: "", status: "", sort: "newest", q: "" };
 
+function scrollToFeed() {
+  document.getElementById("feed")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 export function HomeFeedClient() {
   const [searchInput, setSearchInput] = useState("");
   const [filters, setFilters] = useState<InquiriesFilters>(DEFAULT_FILTERS);
@@ -29,8 +33,17 @@ export function HomeFeedClient() {
     setFilters(DEFAULT_FILTERS);
   };
 
-  const handleSelectPrecinct = (precinct: string) => {
-    setSearchInput(precinct);
+  // Precinct Finder: free-text goes to the real `q` search (title/city/precinct);
+  // a top-state chip applies the real `region` filter instead.
+  const handleSelectPrecinct = (query: string) => {
+    setSearchInput(query);
+    scrollToFeed();
+  };
+
+  const handleSelectRegion = (stateCode: string) => {
+    setSearchInput("");
+    setFilters((prev) => ({ ...prev, region: stateCode }));
+    scrollToFeed();
   };
 
   const allItems = query.data?.pages.flatMap((page) => page.items) ?? [];
@@ -41,12 +54,17 @@ export function HomeFeedClient() {
   return (
     <div className="space-y-8">
       {/* 4-Tile Bento Intelligence Matrix with live precinct synchronization */}
-      <BentoGrid onSelectPrecinct={handleSelectPrecinct} />
+      <BentoGrid
+        onSelectPrecinct={handleSelectPrecinct}
+        onSelectRegion={handleSelectRegion}
+        activeQuery={searchInput}
+        activeRegion={filters.region}
+      />
 
       {/* Dynamic Split Dashboard: Feed & Sticky Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Main Feed Column (Left / Center) */}
-      <div className="lg:col-span-8 flex flex-col min-w-0">
+      <div id="feed" className="lg:col-span-8 flex flex-col min-w-0 scroll-mt-24">
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="font-display text-xl sm:text-2xl font-semibold text-text-primary tracking-tight">
@@ -176,7 +194,7 @@ export function HomeFeedClient() {
 
       {/* Right Column: Sticky Sidebar Widgets (sticks cleanly under navbar) */}
       <div className="lg:col-span-4 sticky top-24 self-start space-y-6">
-        <HomeSidebar onSelectPrecinct={handleSelectPrecinct} />
+        <HomeSidebar />
       </div>
     </div>
   </div>

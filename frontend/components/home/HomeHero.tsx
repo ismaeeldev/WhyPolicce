@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, FileText, Scale, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, Globe, Scale, ShieldCheck, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -9,15 +9,10 @@ import { useInquiryStats } from "@/hooks/useInquiries";
 export function HomeHero() {
   const { data: stats } = useInquiryStats();
 
-  const totalInquiries = stats?.totalRecords
-    ? (stats.totalRecords > 1000 ? stats.totalRecords.toLocaleString() : (12543 + stats.totalRecords).toLocaleString())
-    : "12,543";
-  const legalAdvocates = stats?.verifiedAttorneys
-    ? (stats.verifiedAttorneys > 50 ? stats.verifiedAttorneys.toLocaleString() : (892 + stats.verifiedAttorneys).toLocaleString())
-    : "892";
-  const resolvedCases = stats?.totalRecords
-    ? Math.max(4115, Math.floor(stats.totalRecords * 0.35)).toLocaleString()
-    : "4,115";
+  const fmt = (n: number | undefined) => (n === undefined ? "—" : n.toLocaleString());
+  const totalInquiries = fmt(stats?.totalRecords);
+  const statesCovered = fmt(stats?.totalStates);
+  const legalAdvocates = fmt(stats?.verifiedAttorneys);
 
   return (
     <section className="relative w-full overflow-hidden -mt-20 pt-24 sm:pt-28 pb-14 sm:pb-20 border-b border-border-default/60 bg-[#060605] shadow-2xl">
@@ -88,19 +83,19 @@ export function HomeHero() {
                   <div className="font-mono text-lg sm:text-xl font-bold text-white tabular-nums">
                     {legalAdvocates}
                   </div>
-                  <div className="text-[11px] text-white/60 leading-tight">Legal Advocates</div>
+                  <div className="text-[11px] text-white/60 leading-tight">Verified Attorneys</div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/40 bg-accent/15 text-accent">
-                  <FileText className="h-4 w-4" />
+                  <Globe className="h-4 w-4" />
                 </div>
                 <div>
                   <div className="font-mono text-lg sm:text-xl font-bold text-white tabular-nums">
-                    {resolvedCases}
+                    {statesCovered}
                   </div>
-                  <div className="text-[11px] text-white/60 leading-tight">Resolved Cases</div>
+                  <div className="text-[11px] text-white/60 leading-tight">States Covered</div>
                 </div>
               </div>
             </div>

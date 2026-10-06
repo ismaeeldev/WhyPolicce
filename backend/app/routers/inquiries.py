@@ -8,11 +8,11 @@ duplicated _get_or_create_user, _parse_*_id 404-not-500 UUID parsing.
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, func, or_, select
+from sqlmodel import Session, exists, func, or_, select
 
 from app.core.config import settings
 from app.core.db import get_session
@@ -265,21 +265,76 @@ def get_inquiry_stats(session: Session = Depends(get_session)) -> dict:
     # signal the client asked this page to carry, so it must only ever
     # count what the public can actually see and click into — never
     # inflated by content nobody but its own author knows exists.
-    total_records = session.exec(
-        select(func.count()).select_from(Inquiry).where(Inquiry.tier != InquiryTier.pending_payment)
+    # Each query is a network round trip to a remote Postgres, so every scalar
+    # count below is folded into ONE statement instead of one query apiece.
+    public = Inquiry.tier != InquiryTier.pending_payment
+
+    def _count(*conditions):
+        return select(func.count()).select_from(Inquiry).where(public, *conditions).scalar_subquery()
+
+    (
+        total_records,
+        total_states,
+        verified_attorneys,
+        community_trace,
+        awaiting_police,
+        last_30_days,
+    ) = session.exec(
+        select(
+            _count(),
+            select(func.count(func.distinct(Inquiry.state))).where(public).scalar_subquery(),
+            select(func.count())
+            .select_from(User)
+            .where(User.role == Role.attorney, User.verification_status == VerificationStatus.approved)
+            .scalar_subquery(),
+            _count(Inquiry.status_tag == StatusTag.community_trace),
+            _count(Inquiry.status_tag == StatusTag.awaiting_police_statement),
+            _count(Inquiry.created_at >= datetime.now(timezone.utc) - timedelta(days=30)),
+        )
     ).one()
-    total_states = session.exec(
-        select(func.count(func.distinct(Inquiry.state))).where(Inquiry.tier != InquiryTier.pending_payment)
-    ).one()
-    verified_attorneys = session.exec(
-        select(func.count())
-        .select_from(User)
-        .where(User.role == Role.attorney, User.verification_status == VerificationStatus.approved)
-    ).one()
+    top_states = session.exec(
+        select(Inquiry.state, func.count().label("n"))
+        .where(public)
+        .group_by(Inquiry.state)
+        .order_by(func.count().desc(), Inquiry.state)
+        .limit(5)
+    ).all()
     return {
         "totalRecords": total_records,
         "totalStates": total_states,
         "verifiedAttorneys": verified_attorneys,
+        "communityTrace": community_trace,
+        "awaitingPoliceStatement": awaiting_police,
+        "last30Days": last_30_days,
+        "topStates": [{"state": state, "count": count} for state, count in top_states],
+    }
+
+
+@router.get("/attorneys/verified")
+def list_verified_attorneys(
+    limit: int = Query(default=4, ge=1, le=12),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Public showcase list for the home page — only admin-approved
+    attorneys, and only fields an attorney would put on a public profile
+    (name, bar jurisdiction, firm website). Never email or bar number."""
+    rows = session.exec(
+        select(User)
+        .where(User.role == Role.attorney, User.verification_status == VerificationStatus.approved)
+        .order_by(User.created_at.desc(), User.id)
+        .limit(limit)
+    ).all()
+    return {
+        "items": [
+            {
+                "id": str(u.id),
+                "firstName": u.legal_first_name or "",
+                "lastName": u.legal_last_name or "",
+                "barJurisdiction": u.bar_jurisdiction,
+                "firmWebsite": u.firm_website,
+            }
+            for u in rows
+        ]
     }
 
 
@@ -360,24 +415,19 @@ def list_inquiries(
         statement = statement.order_by(Inquiry.created_at.desc(), Inquiry.id)
 
     total = session.exec(select(func.count()).select_from(statement.subquery())).one()
-    rows = session.exec(statement.offset(offset).limit(limit)).all()
+    comment_count_sq = (
+        select(func.count()).select_from(ThreadComment).where(ThreadComment.inquiry_id == Inquiry.id).scalar_subquery()
+    )
+    has_attachments_sq = exists().where(EvidenceAttachment.inquiry_id == Inquiry.id)
+    page_rows = session.execute(
+        statement.add_columns(comment_count_sq, has_attachments_sq).offset(offset).limit(limit)
+    ).all()
+    rows = [r[0] for r in page_rows]
+    comment_counts = {r[0].id: r[1] for r in page_rows}
+    attachment_inquiry_ids = {r[0].id for r in page_rows if r[2]}
 
     inquiry_ids = [r.id for r in rows]
     if inquiry_ids:
-        comment_counts = dict(
-            session.exec(
-                select(ThreadComment.inquiry_id, func.count())
-                .where(ThreadComment.inquiry_id.in_(inquiry_ids))
-                .group_by(ThreadComment.inquiry_id)
-            ).all()
-        )
-        attachment_inquiry_ids = set(
-            session.exec(
-                select(EvidenceAttachment.inquiry_id).where(
-                    EvidenceAttachment.inquiry_id.in_(inquiry_ids)
-                )
-            ).all()
-        )
         following_inquiry_ids = (
             set(
                 session.exec(
@@ -413,7 +463,7 @@ def list_inquiries(
             else {}
         )
     else:
-        comment_counts, attachment_inquiry_ids, following_inquiry_ids = {}, set(), set()
+        following_inquiry_ids = set()
         my_request_status_by_inquiry = {}
 
     items = []

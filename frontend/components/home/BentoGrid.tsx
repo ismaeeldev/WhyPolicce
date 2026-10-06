@@ -1,11 +1,29 @@
 "use client";
 
-import { Activity, CheckCircle2, ChevronDown, ChevronRight, Database, Eye, Globe, Lock, MapPin, Navigation, Search, Shield, Users } from "lucide-react";
+import { Activity, CheckCircle2, ChevronRight, Database, Eye, Globe, Lock, MapPin, Navigation, Search, Shield, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
-export function BentoGrid({ onSelectPrecinct }: { onSelectPrecinct?: (precinct: string) => void }) {
+import { useInquiryStats } from "@/hooks/useInquiries";
+import { attorneyDisplayName, attorneyInitials, useVerifiedAttorneys } from "@/hooks/useVerifiedAttorneys";
+
+export function BentoGrid({
+  onSelectPrecinct,
+  onSelectRegion,
+  activeQuery = "",
+  activeRegion = "",
+}: {
+  onSelectPrecinct?: (query: string) => void;
+  onSelectRegion?: (stateCode: string) => void;
+  /** The feed's live search text / state filter, so this tile never shows stale input after a reset. */
+  activeQuery?: string;
+  activeRegion?: string;
+}) {
+  const { data: stats } = useInquiryStats();
+  const { data: attorneys, isLoading: attorneysLoading } = useVerifiedAttorneys(4);
+  const fmt = (n: number | undefined) => (n === undefined ? "—" : n.toLocaleString());
+
   const [toggles, setToggles] = useState({
     sanitizeHistory: true,
     securityToggles: false,
@@ -14,17 +32,13 @@ export function BentoGrid({ onSelectPrecinct }: { onSelectPrecinct?: (precinct: 
     dataRedaction: true,
   });
 
-  const [precinctQuery, setPrecinctQuery] = useState("");
+  // Unsent typing only; once submitted (or reset) the feed's own state is the source of truth.
+  const [draft, setDraft] = useState<string | null>(null);
+  const precinctQuery = draft ?? activeQuery;
 
   const handleToggle = (key: keyof typeof toggles) => {
     setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
   };
-
-  const popularPrecincts = [
-    { label: "NYC · 104th", state: "NY" },
-    { label: "Chicago · 012", state: "IL" },
-    { label: "Austin · 045", state: "TX" },
-  ];
 
   return (
     <section className="w-full">
@@ -38,7 +52,7 @@ export function BentoGrid({ onSelectPrecinct }: { onSelectPrecinct?: (precinct: 
                 <span>Jurisdiction Activity Radar</span>
               </div>
               <Link
-                href="/pricing"
+                href="#feed"
                 className="inline-flex items-center gap-0.5 text-[11px] font-mono text-text-muted hover:text-accent transition-colors"
               >
                 <span>View All</span>
@@ -48,8 +62,7 @@ export function BentoGrid({ onSelectPrecinct }: { onSelectPrecinct?: (precinct: 
 
             <div className="flex justify-end mb-2">
               <div className="inline-flex items-center gap-1 rounded bg-bg-subtle px-2 py-0.5 text-[10px] font-mono text-text-muted border border-border-default/50">
-                <span>Last 30 Days</span>
-                <ChevronDown className="h-3 w-3" />
+                <span>{fmt(stats?.last30Days)} in last 30 days</span>
               </div>
             </div>
 
@@ -73,16 +86,16 @@ export function BentoGrid({ onSelectPrecinct }: { onSelectPrecinct?: (precinct: 
 
           <div className="mt-3 pt-3 border-t border-border-default/60 grid grid-cols-3 gap-1 text-center">
             <div>
-              <div className="font-mono text-body-sm font-bold text-text-primary">2,431</div>
+              <div className="font-mono text-body-sm font-bold text-text-primary">{fmt(stats?.totalRecords)}</div>
               <div className="text-[10px] text-text-muted">Inquiries</div>
             </div>
             <div>
-              <div className="font-mono text-body-sm font-bold text-info">312</div>
-              <div className="text-[10px] text-text-muted">In Progress</div>
+              <div className="font-mono text-body-sm font-bold text-info">{fmt(stats?.awaitingPoliceStatement)}</div>
+              <div className="text-[10px] text-text-muted">Awaiting Statement</div>
             </div>
             <div>
-              <div className="font-mono text-body-sm font-bold text-success">1,802</div>
-              <div className="text-[10px] text-text-muted">Resolved</div>
+              <div className="font-mono text-body-sm font-bold text-success">{fmt(stats?.communityTrace)}</div>
+              <div className="text-[10px] text-text-muted">Community Trace</div>
             </div>
           </div>
         </div>
@@ -104,28 +117,34 @@ export function BentoGrid({ onSelectPrecinct }: { onSelectPrecinct?: (precinct: 
               </Link>
             </div>
 
-            {/* Attorney List Items */}
+            {/* Attorney List Items — real, admin-approved attorneys */}
             <div className="space-y-1.5 mt-2">
-              {[
-                { name: "Amanda Harrison", spec: "Civil Rights", initials: "AH" },
-                { name: "Daniel Rivera", spec: "Police Misconduct", initials: "DR" },
-                { name: "Jessica Marten", spec: "Environmental Law", initials: "JM" },
-                { name: "Robert Chen", spec: "Constitutional Law", initials: "RC" },
-              ].map((attorney, idx) => (
+              {attorneysLoading &&
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-9 rounded-lg bg-bg-subtle/60 animate-pulse" />
+                ))}
+              {!attorneysLoading && (attorneys?.length ?? 0) === 0 && (
+                <p className="py-4 text-center text-[11px] text-text-muted">
+                  No verified attorneys listed yet.
+                </p>
+              )}
+              {attorneys?.map((attorney) => (
                 <Link
-                  key={idx}
+                  key={attorney.id}
                   href="/pricing"
                   className="flex items-center justify-between p-1.5 rounded-lg bg-bg-subtle/60 hover:bg-bg-subtle transition-colors border border-border-default/40 group/item"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <div className="h-6 w-6 rounded-full bg-accent/15 border border-accent/30 text-accent font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
-                      {attorney.initials}
+                      {attorneyInitials(attorney)}
                     </div>
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold text-text-primary truncate group-hover/item:text-accent transition-colors">
-                        {attorney.name}
+                        {attorneyDisplayName(attorney)}
                       </div>
-                      <div className="text-[9px] text-text-muted truncate">{attorney.spec}</div>
+                      <div className="text-[9px] text-text-muted truncate">
+                        {attorney.barJurisdiction ? `Licensed in ${attorney.barJurisdiction}` : "Licensed attorney"}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5 text-[9px] font-medium text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-1 py-0.5 rounded shrink-0">
@@ -225,27 +244,36 @@ export function BentoGrid({ onSelectPrecinct }: { onSelectPrecinct?: (precinct: 
                 <span>Precinct Finder</span>
               </div>
               <span className="text-[10px] font-mono text-text-muted bg-bg-subtle px-1.5 py-0.5 rounded border border-border-default/40">
-                Radar
+                {fmt(stats?.totalStates)} states
               </span>
             </div>
 
             {/* Search input */}
-            <div className="relative my-2">
+            <form
+              className="relative my-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const q = precinctQuery.trim();
+                setDraft(null);
+                if (q) onSelectPrecinct?.(q);
+              }}
+            >
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-text-muted" />
               <input
                 type="text"
                 value={precinctQuery}
-                onChange={(e) => setPrecinctQuery(e.target.value)}
-                placeholder="Enter city, state or ZIP..."
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Search city or precinct…"
+                aria-label="Search by city or precinct"
                 className="w-full rounded-md border border-border-default bg-bg-subtle/80 pl-7 pr-2 py-1.5 text-[11px] text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
-            </div>
+            </form>
 
             {/* Map view with Pin & Controls */}
             <div className="relative w-full h-[115px] rounded-lg overflow-hidden border border-border-default/60 my-1 bg-bg-subtle">
               <Image
                 src="/images/radar-heatmap.jpg"
-                alt="Mapbox Precinct View"
+                alt="Precinct activity map"
                 fill
                 className="object-cover object-center"
                 sizes="(max-width: 768px) 100vw, 320px"
@@ -254,36 +282,27 @@ export function BentoGrid({ onSelectPrecinct }: { onSelectPrecinct?: (precinct: 
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
                 <MapPin className="h-5 w-5 text-accent animate-bounce mb-0.5" />
                 <span className="text-[10px] font-mono font-medium text-text-primary bg-bg-elevated/95 px-2 py-0.5 rounded border border-border-default/40 shadow">
-                  {precinctQuery ? precinctQuery : "Active Precinct Grid"}
+                  {precinctQuery || activeRegion || "Active Precinct Grid"}
                 </span>
-              </div>
-              {/* Mapbox watermark & zoom controls */}
-              <div className="absolute bottom-1 left-1.5 text-[8px] font-mono text-text-muted/80">
-                mapbox
-              </div>
-              <div className="absolute right-1.5 top-1.5 flex flex-col gap-0.5 bg-bg-elevated/90 rounded border border-border-default/50 p-0.5">
-                <button type="button" className="h-4 w-4 text-[10px] text-text-secondary hover:text-accent font-mono flex items-center justify-center">+</button>
-                <div className="h-px bg-border-default/40" />
-                <button type="button" className="h-4 w-4 text-[10px] text-text-secondary hover:text-accent font-mono flex items-center justify-center">-</button>
               </div>
             </div>
           </div>
 
-          {/* Quick select tags */}
+          {/* Quick select — states with the most real inquiries */}
           <div className="mt-2 pt-2 border-t border-border-default/60 flex items-center justify-between gap-1">
-            <span className="text-[9px] font-mono text-text-muted">Quick:</span>
-            <div className="flex gap-1">
-              {popularPrecincts.map((p, idx) => (
+            <span className="text-[9px] font-mono text-text-muted">Top:</span>
+            <div className="flex gap-1 flex-wrap justify-end">
+              {(stats?.topStates ?? []).slice(0, 3).map((t) => (
                 <button
-                  key={idx}
+                  key={t.state}
                   type="button"
                   onClick={() => {
-                    setPrecinctQuery(p.label);
-                    onSelectPrecinct?.(p.label);
+                    setDraft(null);
+                    onSelectRegion?.(t.state);
                   }}
                   className="rounded bg-bg-subtle px-1.5 py-0.5 text-[9px] font-mono text-text-secondary hover:bg-accent/15 hover:text-accent border border-border-default/40 transition-colors"
                 >
-                  {p.label}
+                  {t.state} · {t.count.toLocaleString()}
                 </button>
               ))}
             </div>

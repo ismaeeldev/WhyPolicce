@@ -141,6 +141,10 @@ export type InquiryStats = {
   totalRecords: number;
   totalStates: number;
   verifiedAttorneys: number;
+  communityTrace: number;
+  awaitingPoliceStatement: number;
+  last30Days: number;
+  topStates: { state: string; count: number }[];
 };
 
 /**
