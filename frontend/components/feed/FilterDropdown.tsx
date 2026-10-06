@@ -67,8 +67,12 @@ export function FilterDropdown({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
+        side="bottom"
         sideOffset={6}
-        className="wp-filter-dropdown-panel w-max min-w-40 max-w-[min(90vw,320px)] max-h-[350px] overflow-y-auto"
+        // Always open directly below the trigger (never flip over it): the list
+        // shrinks to the space available and scrolls instead.
+        collisionAvoidance={{ side: "none", align: "shift" }}
+        className="wp-filter-dropdown-panel w-max min-w-40 max-w-[min(90vw,320px)] max-h-[min(350px,var(--available-height))] overflow-y-auto"
       >
         <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
           {options.map((option) => (

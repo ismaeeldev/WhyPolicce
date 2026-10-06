@@ -7,6 +7,7 @@ import { MotionConfig } from "framer-motion";
 import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 
+import { ApiError } from "@/lib/api-client";
 import { RouteProgressBar } from "@/components/layout/RouteProgressBar";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { ToastViewport } from "@/components/shared/Toast";
@@ -26,6 +27,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 30_000,
             refetchOnWindowFocus: true,
+            // A 4xx (not found, forbidden, unauthorized) never succeeds on retry;
+            // retrying it just leaves pages stuck on their skeleton for ~7s.
+            retry: (failureCount, error) => {
+              if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
+              return failureCount < 2;
+            },
           },
         },
       }),

@@ -11,6 +11,7 @@ import { MyRequestsList } from "@/components/attorneys/MyRequestsList";
 import { RequestConsultationButton } from "@/components/attorneys/RequestConsultationButton";
 import { InquiryCard } from "@/components/feed/InquiryCard";
 import { FeedEmptyStateNoInquiries } from "@/components/feed/FeedEmptyState";
+import { ListPageSkeleton } from "@/components/shared/ListPageSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAttorneySubscriptionCheckout } from "@/hooks/useForumBilling";
 import { useInquiries, type Inquiry } from "@/hooks/useInquiries";
@@ -52,14 +53,7 @@ export default function AttorneyDashboardPage() {
     window.history.replaceState({}, "", "/attorneys/dashboard");
   }, [searchParams, refetch, showToast]);
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto w-full max-w-[720px] px-5 sm:px-6 py-16 sm:py-20">
-        <Skeleton className="h-9 w-64 mb-8" />
-        <Skeleton className="h-24 w-full rounded-md" />
-      </div>
-    );
-  }
+  if (isLoading) return <ListPageSkeleton />;
 
   if (meError) {
     // Real bug found during a state-handling audit: isError was never

@@ -14,7 +14,7 @@ import { ReportButton } from "@/components/inquiries/ReportButton";
 import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
 import { NotFoundContent } from "@/components/shared/NotFoundContent";
 import { StatusPill } from "@/components/feed/StatusPill";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ThreadSkeleton } from "@/components/inquiries/ThreadSkeleton";
 import { ApiError } from "@/lib/api-client";
 import { useFollowInquiry, useUnfollowInquiry } from "@/hooks/useFollowInquiry";
 import { useInquiryUpgradeCheckout } from "@/hooks/useForumBilling";
@@ -113,28 +113,8 @@ export default function ThreadPage() {
   const createComment = useCreateComment(inquiryId);
   const updateComment = useUpdateComment(inquiryId);
 
-  if (inquiryLoading || threadLoading) {
-    // Real gap found during a UI audit: this used to be one small
-    // block (title+description only), then the full page — comments,
-    // evidence, buttons — popped in beneath it all at once once loaded,
-    // a real layout shift from ~150px to 1000px+ on a real thread. Sized
-    // closer to the eventual layout, including a few comment-row
-    // placeholders, so the swap doesn't jump the page around.
-    return (
-      <div className="mx-auto w-full max-w-[760px] px-5 sm:px-6 py-12 sm:py-16">
-        <div className="rounded-md border border-border-default bg-bg-elevated p-4 sm:p-6">
-          <Skeleton className="h-5 w-32 rounded-full" />
-          <Skeleton className="mt-4 h-8 w-3/4" />
-          <Skeleton className="mt-6 h-24 w-full" />
-        </div>
-        <div className="mt-8 flex flex-col gap-3">
-          <Skeleton className="h-4 w-24" />
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
-        </div>
-      </div>
-    );
+  if (inquiryLoading || (threadLoading && !inquiryError)) {
+    return <ThreadSkeleton />;
   }
 
   if (inquiryError || !inquiry) {
