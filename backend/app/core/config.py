@@ -1,10 +1,30 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalize_database_url(url: str) -> str:
+    """The image ships psycopg2 only. Providers hand out URLs in other
+    spellings (`postgres://` from Heroku/Render, `postgresql+psycopg://`
+    for psycopg3) that SQLAlchemy resolves to a driver we don't install,
+    crashing startup with "No module named 'psycopg'". Map them all to the
+    plain `postgresql://` form, which uses psycopg2."""
+    url = url.strip().strip('"').strip("'")
+    for prefix in ("postgres://", "postgresql+psycopg://", "postgresql+psycopg2://"):
+        if url.startswith(prefix):
+            return "postgresql://" + url[len(prefix):]
+    return url
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     DATABASE_URL: str = ""
+
+    @field_validator("DATABASE_URL", "DATABASE_URL_DIRECT", mode="after")
+    @classmethod
+    def _normalize_db_url(cls, v: str) -> str:
+        return normalize_database_url(v)
+
     # Real production-reliability bug found and fixed during a data-accuracy
     # audit (plan.md "Data-accuracy audit"): the weekly scheduled sync
     # (app/services/scheduler.py) coordinates against overlapping runs with
