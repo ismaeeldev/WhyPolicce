@@ -1,173 +1,171 @@
 "use client";
 
 import { useUser } from "@auth0/nextjs-auth0";
-import { Check } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { useState } from "react";
 
 import { BecomeAttorneyDialog } from "@/components/account/BecomeAttorneyDialog";
 
-const EASE = [0.22, 1, 0.36, 1] as const;
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, ease: EASE, delay: i * 0.08 },
-  }),
-};
-
 /**
- * Citizen vs. attorney pricing — forum rebuild. Replaces the old
- * RAG-search product's Free/Pro subscription-tier comparison (retired
- * per the scope PDF's "What We Are No Longer Building On" section)
- * with the forum's own two, genuinely separate billing shapes: a
- * one-time $2.99 citizen inquiry upgrade (M2.3/M3.2) and a recurring
- * $149/month attorney subscription (M2.4/M3.2) — not a tiered
- * account-wide plan, since these apply to different things (a single
- * post vs. an attorney's whole account) for different audiences.
+ * Pricing — two genuinely separate billing shapes, not a tiered account plan:
+ * a one-time $2.99 upgrade for a single citizen post, and a recurring
+ * $149/month verified-attorney subscription. An audience toggle (like
+ * claude.com/pricing's Individual / Team switch) keeps each view to the
+ * plans that actually apply to the visitor.
  */
 
+type Audience = "citizens" | "attorneys";
+
 type Plan = {
-  id?: "become-attorney";
-  audience: string;
+  id: string;
   name: string;
   price: string;
   cadence: string;
-  description: string;
+  blurb: string;
   cta: string;
-  href: string;
+  href?: string;
+  action?: "become-attorney";
   featured?: boolean;
-  // Real UX bug found during a UI audit: the "Upgrade a post" card's CTA
-  // never starts the $2.99 upgrade directly (there's no inquiry_id to
-  // upgrade until one exists) — it just links to the new-inquiry form,
-  // same as "Post for free". Styling it as the solid-fill primary button
-  // purely because the card is `featured` made the most misleading CTA
-  // on the page look like the most actionable one. This flag decouples
-  // "is the highlighted card" from "is this CTA a direct purchase action".
-  ctaIsDirectAction?: boolean;
-  features: string[];
+  includes: string[];
 };
 
-const PLANS: Plan[] = [
-  {
-    audience: "For citizens",
-    name: "Post an inquiry",
-    price: "$0",
-    cadence: "to start",
-    description: "Share what happened and ask your community for help — free, no time limit.",
-    cta: "Post for free",
-    href: "/inquiries/new",
-    ctaIsDirectAction: true,
-    features: [
-      "Publish inquiries up to 250 characters",
-      "Edit or delete your inquiries at any time",
-      "Follow active inquiries and receive updates",
-      "Attach 1 photo or document (up to 5MB)",
-    ],
-  },
-  {
-    audience: "For citizens",
-    name: "Upgrade a post",
-    price: "$2.99",
-    cadence: "one-time, per inquiry",
-    description: "Need more room to explain, or more evidence attached? Unlock it for that one post.",
-    cta: "Available from your inquiry",
-    href: "/inquiries/new",
-    featured: true,
-    features: [
-      "Remove the 250-character limit for comprehensive detail",
-      "Attach up to 5 files (maximum 50MB total)",
-      "One-time fee applied exclusively to the selected inquiry",
-      "Non-recurring; pay only as needed",
-    ],
-  },
-  {
-    id: "become-attorney",
-    audience: "For attorneys",
-    name: "Attorney subscription",
-    price: "$149",
-    cadence: "/month",
-    description: "Full access to the case feed and the ability to reach out directly to citizens who need help.",
-    cta: "Apply as an attorney",
-    href: "/account",
-    ctaIsDirectAction: true,
-    features: [
-      "Full access to the comprehensive case ledger",
-      "Submit formal consultation requests for active inquiries",
-      "Centralized tracking for all active client requests",
-      "Subject to active bar number and jurisdiction verification.",
-    ],
-  },
+const PLANS: Record<Audience, Plan[]> = {
+  citizens: [
+    {
+      id: "free",
+      name: "Free",
+      price: "$0",
+      cadence: "no time limit",
+      blurb: "Share what happened and ask your community for help.",
+      cta: "Post an inquiry",
+      href: "/inquiries/new",
+      includes: [
+        "Posts up to 250 characters",
+        "1 photo or document, up to 5 MB",
+        "Edit or delete your inquiry any time",
+        "Follow inquiries and get updates",
+        "Post anonymously if you prefer",
+      ],
+    },
+    {
+      id: "upgrade",
+      name: "Full post",
+      price: "$2.99",
+      cadence: "one-time, per inquiry",
+      blurb: "More room to explain and more evidence, for that one post.",
+      cta: "Start an inquiry",
+      href: "/inquiries/new",
+      featured: true,
+      includes: [
+        "Everything in Free",
+        "No 250-character limit",
+        "Up to 5 files, 50 MB in total",
+        "Pay only for the posts that need it",
+        "Upgrade from the post itself, any time",
+      ],
+    },
+  ],
+  attorneys: [
+    {
+      id: "attorney",
+      name: "Verified attorney",
+      price: "$149",
+      cadence: "per month",
+      blurb: "Full access to the case feed and direct outreach to citizens who need help.",
+      cta: "Apply as an attorney",
+      action: "become-attorney",
+      featured: true,
+      includes: [
+        "Full access to the comprehensive case ledger",
+        "Send formal consultation requests on active inquiries",
+        "Track all your client requests in one place",
+        "Verified badge on the platform",
+        "Subject to bar number and jurisdiction review",
+      ],
+    },
+  ],
+};
+
+const COMPARISON: { feature: string; free: string | boolean; full: string | boolean }[] = [
+  { feature: "Post length", free: "250 characters", full: "Unlimited" },
+  { feature: "Files per post", free: "1", full: "Up to 5" },
+  { feature: "File size", free: "5 MB", full: "50 MB total" },
+  { feature: "Anonymous posting", free: true, full: true },
+  { feature: "Edit or delete any time", free: true, full: true },
+  { feature: "Follow inquiries", free: true, full: true },
 ];
+
+function Cell({ value }: { value: string | boolean }) {
+  if (value === true) return <Check className="mx-auto h-4 w-4 text-accent" aria-label="Included" />;
+  if (value === false) return <Minus className="mx-auto h-4 w-4 text-text-muted" aria-label="Not included" />;
+  return <span className="text-text-primary">{value}</span>;
+}
 
 export function PricingCards() {
   const { user, isLoading } = useUser();
+  const [audience, setAudience] = useState<Audience>("citizens");
   const [attorneyDialogOpen, setAttorneyDialogOpen] = useState(false);
   const router = useRouter();
+  const plans = PLANS[audience];
+
+  const ctaClass = (featured?: boolean) =>
+    `mt-6 block w-full rounded-lg px-4 py-3 text-center text-body-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+      featured
+        ? "bg-accent text-accent-foreground hover:bg-accent-hover"
+        : "border border-border-strong text-text-primary hover:bg-bg-subtle"
+    }`;
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-[1100px] mx-auto">
-      {PLANS.map((plan, i) => (
-        <motion.div
-          key={plan.name}
-          custom={i}
-          initial="hidden"
-          // Real bug found by a live UI audit: whileInView + a real
-          // paying tier (Attorney subscription, $149/month, the third
-          // card) staying invisible on some real scroll patterns is an
-          // unacceptable risk on a pricing page, whatever the exact
-          // automation-vs-real-browser cause turns out to be — a visitor
-          // who can't see a plan can't buy it. animate="show" always
-          // renders every card immediately on mount instead of
-          // conditionally on scroll visibility; the same entrance
-          // motion still plays via the initial->show variant transition,
-          // just not gated behind an IntersectionObserver trigger that
-          // has no real product upside here (this page is short enough
-          // that "reveal on scroll" isn't hiding anything meaningfully
-          // below an unreachable fold in the first place).
-          animate="show"
-          variants={cardVariants}
-          className={`wp-surface-card wp-plan-card relative rounded-2xl bg-bg-elevated/90 backdrop-blur-sm p-6 sm:p-8 text-left transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-card-lg flex flex-col justify-between ${
-            plan.featured
-              ? "border-2 border-accent/60 shadow-card ring-1 ring-accent/20"
-              : "border border-border-default/80 hover:border-border-strong"
-          }`}
+    <div className="mx-auto w-full max-w-[1000px]">
+      <div className="flex justify-center">
+        <div
+          role="tablist"
+          aria-label="Who is this for?"
+          className="inline-flex rounded-full border border-border-default bg-bg-subtle p-1"
         >
-          {!plan.featured && (
-            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-              <div
-                aria-hidden="true"
-                className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.06]"
-                style={{ background: "radial-gradient(circle, var(--wp-text-primary) 0%, transparent 70%)" }}
-              />
-            </div>
-          )}
+          {(["citizens", "attorneys"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={audience === key}
+              onClick={() => setAudience(key)}
+              className={`rounded-full px-5 py-2 text-body-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-accent outline-none ${
+                audience === key
+                  ? "bg-bg-elevated text-text-primary shadow-card"
+                  : "text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              {key === "citizens" ? "For citizens" : "For attorneys"}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          {plan.featured && (
-            <div className="absolute -top-3.5 left-6 rounded-full bg-gradient-to-r from-accent to-accent-hover px-3 py-0.5 text-caption font-semibold text-accent-foreground shadow-sm">
-              ★ Most popular
-            </div>
-          )}
+      <div
+        role="tabpanel"
+        className={`mt-10 grid gap-6 ${plans.length > 1 ? "md:grid-cols-2" : "max-w-[480px] mx-auto"}`}
+      >
+        {plans.map((plan) => (
+          <div
+            key={plan.id}
+            className={`flex flex-col rounded-2xl bg-bg-elevated p-7 sm:p-8 ${
+              plan.featured ? "border-2 border-accent/60 shadow-card-lg" : "border border-border-default shadow-card"
+            }`}
+          >
+            <h2 className="font-display text-h2 text-text-primary">{plan.name}</h2>
+            <p className="mt-1.5 min-h-[2.75rem] text-body-sm text-text-secondary leading-relaxed">{plan.blurb}</p>
 
-          <div>
-            <p className="text-caption font-semibold uppercase tracking-wider text-accent-bright">
-              {plan.audience}
-            </p>
-            <h2 className="mt-1.5 text-h2 font-serif font-semibold text-text-primary">{plan.name}</h2>
-            <p className="mt-1 text-body-sm text-text-secondary leading-relaxed">{plan.description}</p>
-
-            <div className="mt-6 flex items-baseline gap-2">
-              <span className="font-display text-display-lg text-text-primary tracking-tight">{plan.price}</span>
+            <div className="mt-5 flex items-baseline gap-2">
+              <span className="font-display text-display-lg text-text-primary tracking-tight tabular-nums">
+                {plan.price}
+              </span>
               <span className="text-body-sm text-text-muted">{plan.cadence}</span>
             </div>
-          </div>
 
-          <div>
-            {plan.id === "become-attorney" ? (
+            {plan.action === "become-attorney" ? (
               <button
                 type="button"
                 disabled={isLoading}
@@ -178,34 +176,66 @@ export function PricingCards() {
                   }
                   setAttorneyDialogOpen(true);
                 }}
-                className="mt-6 block w-full rounded-xl bg-accent px-4 py-3 text-center text-body-sm font-semibold text-accent-foreground transition-all duration-200 hover:bg-accent-hover hover:shadow-md active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className={ctaClass(plan.featured)}
               >
                 {plan.cta}
               </button>
             ) : (
-              <Link
-                href={plan.href}
-                className={`mt-6 block rounded-xl px-4 py-3 text-center text-body-sm font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none ${
-                  plan.ctaIsDirectAction
-                    ? "bg-accent text-accent-foreground hover:bg-accent-hover hover:shadow-md"
-                    : "border border-border-strong text-text-primary hover:bg-bg-subtle hover:border-accent/40"
-                }`}
-              >
+              <Link href={plan.href ?? "/inquiries/new"} className={ctaClass(plan.featured)}>
                 {plan.cta}
               </Link>
             )}
 
-            <ul className="mt-7 flex flex-col gap-3.5 border-t border-border-default/70 pt-6">
-              {plan.features.map((label) => (
+            <ul className="mt-7 flex flex-col gap-3 border-t border-border-default pt-6">
+              {plan.includes.map((label) => (
                 <li key={label} className="flex items-start gap-2.5 text-body-sm">
-                  <Check className="h-4 w-4 shrink-0 mt-0.5 text-accent-bright" />
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
                   <span className="text-text-primary leading-normal">{label}</span>
                 </li>
               ))}
             </ul>
           </div>
-        </motion.div>
-      ))}
+        ))}
+      </div>
+
+      {audience === "citizens" && (
+        <div className="mt-16">
+          <h2 className="font-display text-h2 text-text-primary text-center">Compare citizen plans</h2>
+          <div className="mt-6 overflow-x-auto rounded-xl border border-border-default bg-bg-elevated">
+            <table className="w-full min-w-[460px] border-collapse text-left text-body-sm">
+              <thead>
+                <tr className="border-b border-border-default bg-bg-subtle">
+                  <th scope="col" className="px-5 py-3 font-medium text-text-secondary">
+                    Feature
+                  </th>
+                  <th scope="col" className="px-5 py-3 text-center font-medium text-text-secondary">
+                    Free
+                  </th>
+                  <th scope="col" className="px-5 py-3 text-center font-medium text-text-secondary">
+                    Full post
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON.map((row) => (
+                  <tr key={row.feature} className="border-b border-border-default last:border-0">
+                    <th scope="row" className="px-5 py-3 font-normal text-text-primary">
+                      {row.feature}
+                    </th>
+                    <td className="px-5 py-3 text-center">
+                      <Cell value={row.free} />
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <Cell value={row.full} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <BecomeAttorneyDialog open={attorneyDialogOpen} onOpenChange={setAttorneyDialogOpen} />
     </div>
   );

@@ -7,12 +7,13 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function PricingLoading() {
   return (
-    <div className="px-6 py-20 sm:py-28">
+    <div className="px-5 py-14 sm:px-6 sm:py-20">
       <div className="mx-auto max-w-[680px] text-center mb-14 space-y-3">
         <Skeleton className="h-10 w-3/4 mx-auto" />
         <Skeleton className="h-5 w-1/2 mx-auto" />
       </div>
-      <div className="grid gap-6 sm:grid-cols-2 max-w-[880px] mx-auto">
+      <div className="mx-auto mb-10 h-11 w-64 animate-pulse rounded-full bg-bg-subtle" />
+      <div className="grid gap-6 md:grid-cols-2 max-w-[1000px] mx-auto">
         {[0, 1].map((i) => (
           <div
             key={i}

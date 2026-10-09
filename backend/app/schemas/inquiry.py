@@ -33,7 +33,9 @@ class InquiryCreate(BaseModel):
     state: str = Field(min_length=2, max_length=2)
     city: str = Field(min_length=1, max_length=200)
     precinct: str | None = Field(default=None, max_length=200)
-    status_tag: StatusTag
+    # Optional: normally omitted — the server infers it from the post's text
+    # (app/services/status_inference.py). Posters never choose a status.
+    status_tag: StatusTag | None = None
     # Accepted here but NOT itself sufficient to unlock the 250-char cap —
     # see the router's own real enforcement logic. A client claiming
     # tier="expanded" without a real, webhook-confirmed upgrade on file is

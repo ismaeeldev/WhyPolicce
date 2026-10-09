@@ -5,11 +5,9 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { StatusTagSelector } from "@/components/inquiries/StatusTagSelector";
 import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { StatusTag } from "@/components/feed/StatusPill";
 import { ApiError } from "@/lib/api-client";
 import { findPrecinctsByNeighborhood, type PrecinctEntry } from "@/lib/nyc-precincts";
 import { US_STATES } from "@/lib/us-states";
@@ -32,7 +30,6 @@ type FieldErrors = {
   state?: string;
   city?: string;
   precinct?: string;
-  statusTag?: string;
 };
 
 // Scope Revision 1 §3.2 (AgentGuide/newscoperev1.md) — "deferred sign-up":
@@ -50,7 +47,6 @@ type DraftInquiry = {
   state: string;
   city: string;
   precinct: string;
-  statusTag: StatusTag | null;
   isAnonymous: boolean;
   savedAt: number;
 };
@@ -118,7 +114,6 @@ export default function NewInquiryPage() {
   const [state, setState] = useState(() => initialDraft?.state ?? "");
   const [city, setCity] = useState(() => initialDraft?.city ?? "");
   const [precinct, setPrecinct] = useState(() => initialDraft?.precinct ?? "");
-  const [statusTag, setStatusTag] = useState<StatusTag | null>(() => initialDraft?.statusTag ?? null);
   // Scope Revision 1 §4.3 — "Post Anonymously to Public Feed" checkbox.
   const [isAnonymous, setIsAnonymous] = useState(() => initialDraft?.isAnonymous ?? false);
   // Scope Revision 1 §4.2 — minimal NYC-only precinct helper. Client's own
@@ -159,12 +154,10 @@ export default function NewInquiryPage() {
     if (!city.trim()) errors.city = "City is required.";
     else if (city.length > CITY_MAX_LENGTH) errors.city = `City must be ${CITY_MAX_LENGTH} characters or fewer.`;
     if (precinct.length > PRECINCT_MAX_LENGTH) errors.precinct = `Precinct must be ${PRECINCT_MAX_LENGTH} characters or fewer.`;
-    if (!statusTag) errors.statusTag = "Please select a status.";
     return errors;
   };
 
   const submitInquiry = () => {
-    if (!statusTag) return;
     createInquiry.mutate(
       {
         title: title.trim(),
@@ -172,7 +165,6 @@ export default function NewInquiryPage() {
         state,
         city: city.trim(),
         precinct: precinct.trim() || undefined,
-        statusTag,
         isAnonymous,
       },
       {
@@ -244,7 +236,7 @@ export default function NewInquiryPage() {
       // existing /login?returnTo= pattern already used everywhere else in
       // this app (proxy.ts generates this exact URL shape for every other
       // protected route) rather than inventing a new auth-entry scheme.
-      saveDraft({ title, description, state, city, precinct, statusTag, isAnonymous, savedAt: Date.now() });
+      saveDraft({ title, description, state, city, precinct, isAnonymous, savedAt: Date.now() });
       router.push(`/login?returnTo=${encodeURIComponent("/inquiries/new")}`);
       return;
     }
@@ -272,8 +264,6 @@ export default function NewInquiryPage() {
     const errors = validate();
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
-    if (!statusTag) return;
-
     setSubmitError(null);
     createInquiry.mutate(
       {
@@ -282,7 +272,6 @@ export default function NewInquiryPage() {
         state,
         city: city.trim(),
         precinct: precinct.trim() || undefined,
-        statusTag,
         isAnonymous,
         acceptPendingPayment: true,
       },
@@ -476,11 +465,6 @@ export default function NewInquiryPage() {
               )}
             </div>
           )}
-        </div>
-
-        <div>
-          <StatusTagSelector value={statusTag} onChange={setStatusTag} />
-          <p className="mt-1 min-h-[1.25rem] text-caption text-danger">{fieldErrors.statusTag}</p>
         </div>
 
         <label className="flex items-center gap-2.5 text-body-sm text-text-secondary">

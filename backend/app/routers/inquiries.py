@@ -33,6 +33,7 @@ from app.schemas.inquiry import (
     ThreadCommentUpdate,
 )
 from app.services import email_service
+from app.services.status_inference import infer_status_tag
 from app.services.rate_limit import RateLimitExceeded, check_rate_limit
 
 router = APIRouter(prefix="/api/v1")
@@ -657,7 +658,7 @@ def create_inquiry(
         state=body.state,
         city=body.city,
         precinct=body.precinct,
-        status_tag=body.status_tag,
+        status_tag=body.status_tag or infer_status_tag(body.title, body.description),
         tier=InquiryTier.pending_payment if is_over_limit else InquiryTier.free,
         is_anonymous=body.is_anonymous,
     )
@@ -744,6 +745,9 @@ def update_inquiry(
         inquiry.precinct = body.precinct
     if body.status_tag is not None:
         inquiry.status_tag = body.status_tag
+    elif body.title is not None or body.description is not None:
+        # Text changed and no explicit status: keep the auto-assigned status in sync.
+        inquiry.status_tag = infer_status_tag(inquiry.title, inquiry.description)
     inquiry.updated_at = datetime.now(timezone.utc)
     session.add(inquiry)
     session.commit()

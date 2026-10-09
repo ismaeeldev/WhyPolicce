@@ -2,9 +2,7 @@
 
 import { useRef, useState } from "react";
 
-import { StatusTagSelector } from "@/components/inquiries/StatusTagSelector";
 import { UpgradeModal } from "@/components/inquiries/UpgradeModal";
-import type { StatusTag } from "@/components/feed/StatusPill";
 import { ApiError } from "@/lib/api-client";
 import { US_STATES } from "@/lib/us-states";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -21,7 +19,7 @@ const PRECINCT_MAX_LENGTH = 200;
 /**
  * Inquiry edit form — forum rebuild, Milestone 2 Step M2.4
  * (WhyPoliceForum_MasterGuide.md). Reuses M2.3's form fields/pattern
- * where practical (state dropdown, StatusTagSelector) rather than
+ * where practical (state dropdown) rather than
  * duplicating a second form implementation, per this step's own
  * explicit requirement. Pre-filled with the inquiry's current content.
  *
@@ -56,7 +54,6 @@ export function InquiryEditForm({
   const [state, setState] = useState(inquiry.state);
   const [city, setCity] = useState(inquiry.city);
   const [precinct, setPrecinct] = useState(inquiry.precinct ?? "");
-  const [statusTag, setStatusTag] = useState<StatusTag>(inquiry.statusTag);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
@@ -88,7 +85,6 @@ export function InquiryEditForm({
         state,
         city: city.trim(),
         precinct: precinct.trim(),
-        statusTag,
       },
       {
         onSuccess: onSaved,
@@ -179,8 +175,6 @@ export function InquiryEditForm({
           }`}
         />
       </div>
-
-      <StatusTagSelector value={statusTag} onChange={setStatusTag} />
 
       {saveError && (
         <div className="rounded-md border border-danger bg-danger-subtle p-3">

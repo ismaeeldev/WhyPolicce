@@ -169,7 +169,8 @@ export type InquiryCreatePayload = {
   state: string;
   city: string;
   precinct?: string;
-  statusTag: StatusTag;
+  // Never sent by the UI — the server assigns it from the post text.
+  statusTag?: StatusTag;
   isAnonymous?: boolean;
   // Scope Revision 2 §4.1 Option A — set ONLY when the citizen has
   // clicked "Pay $2.99 to Publish Full Post" in the pre-publish modal;
