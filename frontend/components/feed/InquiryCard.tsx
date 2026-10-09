@@ -167,9 +167,9 @@ export function InquiryCard({
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-border-default pt-3.5">
         <Link
           href={`/inquiries/${inquiry.id}`}
-          className="text-body-sm font-medium text-accent hover:text-accent-hover transition-colors rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
+          className="whitespace-nowrap text-body-sm font-medium text-accent hover:text-accent-hover transition-colors rounded-sm focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none"
         >
-          View Thread &amp; Timeline &rarr;
+          View Thread<span className="hidden min-[400px]:inline"> &amp; Timeline</span> &rarr;
         </Link>
 
         <div className="flex items-center gap-2">

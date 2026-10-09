@@ -85,13 +85,24 @@ const PLANS: Plan[] = [
     },
 ];
 
-const COMPARISON: { feature: string; free: string | boolean; full: string | boolean }[] = [
-  { feature: "Post length", free: "250 characters", full: "Unlimited" },
-  { feature: "Files per post", free: "1", full: "Up to 5" },
-  { feature: "File size", free: "5 MB", full: "50 MB total" },
-  { feature: "Anonymous posting", free: true, full: true },
-  { feature: "Edit or delete any time", free: true, full: true },
-  { feature: "Follow inquiries", free: true, full: true },
+type Row = { feature: string; free: string | boolean; full: string | boolean };
+const COMPARISON: { group: string; rows: Row[] }[] = [
+  {
+    group: "Posting",
+    rows: [
+      { feature: "Post length", free: "250 characters", full: "Unlimited" },
+      { feature: "Files per post", free: "1", full: "Up to 5" },
+      { feature: "File size", free: "5 MB", full: "50 MB total" },
+    ],
+  },
+  {
+    group: "Your account",
+    rows: [
+      { feature: "Anonymous posting", free: true, full: true },
+      { feature: "Edit or delete any time", free: true, full: true },
+      { feature: "Follow inquiries", free: true, full: true },
+    ],
+  },
 ];
 
 function Cell({ value }: { value: string | boolean }) {
@@ -167,43 +178,64 @@ export function PricingCards() {
         ))}
       </div>
 
-      {(
-        <div className="mx-auto mt-16 max-w-[1000px]">
-          <h2 className="font-display text-h2 text-text-primary text-center">Compare citizen plans</h2>
-          <div className="mt-6 overflow-x-auto rounded-xl border border-border-default bg-bg-elevated">
-            <table className="w-full min-w-[460px] border-collapse text-left text-body-sm">
-              <thead>
-                <tr className="border-b border-border-default bg-bg-subtle">
-                  <th scope="col" className="px-5 py-3 font-medium text-text-secondary">
-                    Feature
+      <div className="mx-auto mt-16 max-w-[1000px]">
+        <h2 className="font-display text-h2 text-text-primary text-center">Compare citizen plans</h2>
+        <div className="mt-6 overflow-hidden rounded-xl border border-border-default bg-bg-elevated">
+          <table className="w-full table-fixed border-collapse text-left text-caption sm:text-body-sm">
+            <thead>
+              <tr className="border-b border-border-default bg-bg-subtle">
+                <th scope="col" className="w-[34%] px-3 py-3 font-medium text-text-secondary sm:px-5">
+                  <span className="sr-only">Feature</span>
+                </th>
+                {[
+                  { name: "Free", cta: "Post", featured: false },
+                  { name: "Full post", cta: "Start", featured: true },
+                ].map((c) => (
+                  <th key={c.name} scope="col" className="px-2 py-3 text-center font-medium text-text-primary sm:px-5">
+                    <span className="block">{c.name}</span>
+                    <Link
+                      href="/inquiries/new"
+                      className={`mt-2 inline-block rounded-md px-3 py-1 text-caption font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-accent outline-none ${
+                        c.featured
+                          ? "bg-accent text-accent-foreground hover:bg-accent-hover"
+                          : "border border-border-strong text-text-primary hover:bg-bg-subtle"
+                      }`}
+                    >
+                      {c.cta}
+                    </Link>
                   </th>
-                  <th scope="col" className="px-5 py-3 text-center font-medium text-text-secondary">
-                    Free
-                  </th>
-                  <th scope="col" className="px-5 py-3 text-center font-medium text-text-secondary">
-                    Full post
+                ))}
+              </tr>
+            </thead>
+            {COMPARISON.map((section) => (
+              <tbody key={section.group}>
+                <tr className="bg-bg-subtle/60">
+                  <th
+                    colSpan={3}
+                    scope="colgroup"
+                    className="px-3 py-2 text-left font-mono text-[11px] font-medium uppercase tracking-wider text-text-muted sm:px-5"
+                  >
+                    {section.group}
                   </th>
                 </tr>
-              </thead>
-              <tbody>
-                {COMPARISON.map((row) => (
-                  <tr key={row.feature} className="border-b border-border-default last:border-0">
-                    <th scope="row" className="px-5 py-3 font-normal text-text-primary">
+                {section.rows.map((row) => (
+                  <tr key={row.feature} className="border-t border-border-default">
+                    <th scope="row" className="px-3 py-3 font-normal text-text-primary sm:px-5">
                       {row.feature}
                     </th>
-                    <td className="px-5 py-3 text-center">
+                    <td className="px-2 py-3 text-center sm:px-5">
                       <Cell value={row.free} />
                     </td>
-                    <td className="px-5 py-3 text-center">
+                    <td className="px-2 py-3 text-center sm:px-5">
                       <Cell value={row.full} />
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            ))}
+          </table>
         </div>
-      )}
+      </div>
 
       <BecomeAttorneyDialog open={attorneyDialogOpen} onOpenChange={setAttorneyDialogOpen} />
     </div>
