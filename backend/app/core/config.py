@@ -3,15 +3,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def normalize_database_url(url: str) -> str:
-    """The image ships psycopg2 only. Providers hand out URLs in other
-    spellings (`postgres://` from Heroku/Render, `postgresql+psycopg://`
-    for psycopg3) that SQLAlchemy resolves to a driver we don't install,
-    crashing startup with "No module named 'psycopg'". Map them all to the
-    plain `postgresql://` form, which uses psycopg2."""
+    """Always connect through psycopg2, the one Postgres driver the image installs.
+
+    A bare `postgresql://` URL does NOT pin a driver: SQLAlchemy 2.0 defaults it
+    to psycopg2, but SQLAlchemy 2.1 (what an unpinned fresh install resolves to)
+    defaults it to psycopg v3, which isn't installed — startup then dies with
+    "No module named 'psycopg'". `postgres://` (Heroku/Render style) and
+    `postgresql+psycopg://` fail the same way. Rewrite every spelling to the
+    explicit `postgresql+psycopg2://` so it works on both SQLAlchemy versions."""
     url = url.strip().strip('"').strip("'")
-    for prefix in ("postgres://", "postgresql+psycopg://", "postgresql+psycopg2://"):
+    for prefix in ("postgres://", "postgresql://", "postgresql+psycopg://"):
         if url.startswith(prefix):
-            return "postgresql://" + url[len(prefix):]
+            return "postgresql+psycopg2://" + url[len(prefix):]
     return url
 
 

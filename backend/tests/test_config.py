@@ -14,7 +14,7 @@ from app.core.config import normalize_database_url
     ],
 )
 def test_postgres_urls_use_psycopg2_driver(raw):
-    assert normalize_database_url(raw) == "postgresql://u:p@host/db"
+    assert normalize_database_url(raw) == "postgresql+psycopg2://u:p@host/db"
 
 
 def test_other_urls_untouched():
