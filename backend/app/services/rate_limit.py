@@ -71,3 +71,21 @@ def check_rate_limit(user_id: str) -> None:
     if _calls_since_sweep >= _SWEEP_INTERVAL_CALLS:
         _calls_since_sweep = 0
         _sweep_stale_entries(now)
+
+
+def rate_limit_or_429(action: str, user_id) -> None:
+    """Per-action, per-user limit that raises the standard 429 response. Used by
+    write endpoints outside the inquiries router (which has its own wrapper)."""
+    from fastapi import HTTPException
+
+    try:
+        check_rate_limit(f"{action}:{user_id}")
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "rate_limited",
+                "message": "You're doing that faster than we can keep up — try again shortly.",
+                "retryAfterSeconds": exc.retry_after_seconds,
+            },
+        ) from exc

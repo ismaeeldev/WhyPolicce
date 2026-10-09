@@ -28,6 +28,7 @@ from app.core.security import AuthenticatedUser, get_current_user
 from app.models.inquiry import Inquiry, InquiryTier
 from app.models.processed_stripe_event import ProcessedStripeEvent
 from app.models.user import Role, User, VerificationStatus
+from app.services.rate_limit import rate_limit_or_429
 
 router = APIRouter(prefix="/api/v1/billing")
 logger = logging.getLogger("whypolice.forum_billing")
@@ -236,6 +237,7 @@ def create_inquiry_upgrade_checkout(
 ) -> dict:
     """One-time $2.99 citizen inquiry-upgrade checkout. body: {inquiry_id}."""
     user = _get_or_create_user(session, current)
+    rate_limit_or_429("checkout", user.id)
 
     inquiry_id_raw = body.get("inquiry_id")
     not_found = HTTPException(
@@ -317,6 +319,7 @@ def create_inquiry_publish_checkout(
     different-shaped assumptions than this flow's own caller expects.
     """
     user = _get_or_create_user(session, current)
+    rate_limit_or_429("checkout", user.id)
 
     inquiry_id_raw = body.get("inquiry_id")
     not_found = HTTPException(
@@ -384,6 +387,7 @@ def create_attorney_subscription_checkout(
     requirement: "attempt to trigger the attorney-subscription checkout
     as a still-pending attorney by calling the endpoint directly")."""
     user = _get_or_create_user(session, current)
+    rate_limit_or_429("checkout", user.id)
 
     if user.role != Role.attorney or user.verification_status != VerificationStatus.approved:
         raise HTTPException(

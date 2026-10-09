@@ -271,7 +271,9 @@ export function useDeleteInquiry(id: string) {
 export type ThreadComment = {
   id: string;
   inquiryId: string;
-  authorId: string;
+  // Per-viewer flag; the raw author id is never sent (it would link an
+  // anonymous poster to their comments).
+  isAuthor: boolean;
   body: string;
   createdAt: string;
 };

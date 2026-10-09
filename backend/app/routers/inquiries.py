@@ -23,7 +23,7 @@ from app.models.attorney_request import AttorneyRequest, AttorneyRequestStatus
 from app.models.evidence_attachment import EvidenceAttachment
 from app.models.inquiry import Inquiry, InquiryTier, StatusTag, ThreadComment
 from app.models.inquiry_follow import InquiryFollow
-from app.models.report import Report, ReportTargetType
+from app.models.report import Report, ReportStatus, ReportTargetType
 from app.models.user import Role, User, VerificationStatus
 from app.schemas.inquiry import (
     ConsultationDecision,
@@ -231,11 +231,20 @@ def _inquiry_out(inquiry: Inquiry, *, comment_count: int, has_attachments: bool,
     }
 
 
-def _comment_out(comment: ThreadComment) -> dict:
+def _hide_unpaid_draft(inquiry: Inquiry, user: User | None, not_found: HTTPException) -> None:
+    """An unpaid (pending_payment) draft doesn't exist for anyone but its author,
+    for every action, not just reads."""
+    if inquiry.tier == InquiryTier.pending_payment and (user is None or inquiry.author_id != user.id):
+        raise not_found
+
+
+def _comment_out(comment: ThreadComment, viewer_id: uuid.UUID | None = None) -> dict:
+    # The raw author id is never exposed (it would link an anonymous poster to
+    # their comments); the viewer only learns whether a comment is their own.
     return {
         "id": str(comment.id),
         "inquiryId": str(comment.inquiry_id),
-        "authorId": str(comment.author_id),
+        "isAuthor": viewer_id is not None and comment.author_id == viewer_id,
         "body": comment.body,
         "createdAt": to_utc_iso(comment.created_at),
     }
@@ -693,6 +702,7 @@ def update_inquiry(
     uses a flat 404 for both cases — the forum's own new endpoints follow
     the more precise, newer convention this guide specifies)."""
     user = _get_or_create_user(session, current)
+    _rate_limit_or_429("edits", user.id)
     not_found = HTTPException(
         status_code=404, detail={"error": "not_found", "message": "Inquiry not found."}
     )
@@ -790,6 +800,7 @@ def delete_inquiry(
     session: Session = Depends(get_session),
 ) -> dict:
     user = _get_or_create_user(session, current)
+    _rate_limit_or_429("edits", user.id)
     not_found = HTTPException(
         status_code=404, detail={"error": "not_found", "message": "Inquiry not found."}
     )
@@ -856,7 +867,7 @@ def get_thread(
         .limit(limit)
     ).all()
     return {
-        "items": [_comment_out(c) for c in comments],
+        "items": [_comment_out(c, viewer.id if viewer else None) for c in comments],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -935,6 +946,7 @@ def create_comment(
     if inquiry is None:
         raise not_found
 
+    _hide_unpaid_draft(inquiry, user, not_found)
     comment = ThreadComment(inquiry_id=inquiry.id, author_id=user.id, body=body.body)
     session.add(comment)
     session.commit()
@@ -945,7 +957,7 @@ def create_comment(
     # promptly regardless of email-provider latency/errors.
     background_tasks.add_task(_notify_followers_of_new_comment, session, inquiry.id, user.id)
 
-    return _comment_out(comment)
+    return _comment_out(comment, user.id)
 
 
 @router.patch("/inquiries/{inquiry_id}/thread/{comment_id}")
@@ -960,6 +972,7 @@ def update_comment(
     draft of this guide left inconsistent (a test scenario assumed this
     endpoint existed before it was ever specified)."""
     user = _get_or_create_user(session, current)
+    _rate_limit_or_429("edits", user.id)
     not_found = HTTPException(
         status_code=404, detail={"error": "not_found", "message": "Comment not found."}
     )
@@ -975,7 +988,7 @@ def update_comment(
     session.add(comment)
     session.commit()
     session.refresh(comment)
-    return _comment_out(comment)
+    return _comment_out(comment, user.id)
 
 
 @router.delete("/inquiries/{inquiry_id}/thread/{comment_id}")
@@ -986,6 +999,7 @@ def delete_comment(
     session: Session = Depends(get_session),
 ) -> dict:
     user = _get_or_create_user(session, current)
+    _rate_limit_or_429("edits", user.id)
     not_found = HTTPException(
         status_code=404, detail={"error": "not_found", "message": "Comment not found."}
     )
@@ -1023,6 +1037,7 @@ def follow_inquiry(
     if inquiry is None:
         raise not_found
 
+    _hide_unpaid_draft(inquiry, user, not_found)
     existing = session.exec(
         select(InquiryFollow).where(
             InquiryFollow.inquiry_id == inquiry.id, InquiryFollow.user_id == user.id
@@ -1179,6 +1194,7 @@ def request_consultation(
     if inquiry is None:
         raise not_found
 
+    _hide_unpaid_draft(inquiry, user, not_found)
     existing = session.exec(
         select(AttorneyRequest).where(
             AttorneyRequest.attorney_id == user.id, AttorneyRequest.inquiry_id == inquiry.id
@@ -1364,11 +1380,32 @@ def create_report(
     target_type = ReportTargetType(body.target_type)
 
     if target_type == ReportTargetType.inquiry:
-        target_exists = session.get(Inquiry, target_id) is not None
+        target_inquiry = session.get(Inquiry, target_id)
     else:
-        target_exists = session.get(ThreadComment, target_id) is not None
-    if not target_exists:
+        target_comment = session.get(ThreadComment, target_id)
+        target_inquiry = session.get(Inquiry, target_comment.inquiry_id) if target_comment else None
+    if target_inquiry is None:
         raise not_found
+    _hide_unpaid_draft(target_inquiry, user, not_found)
+
+    # One open report per reporter per target: repeating it just returns the existing one.
+    duplicate = session.exec(
+        select(Report).where(
+            Report.reporter_id == user.id,
+            Report.target_type == target_type,
+            Report.target_id == target_id,
+            Report.status == ReportStatus.open,
+        )
+    ).first()
+    if duplicate is not None:
+        return {
+            "id": str(duplicate.id),
+            "targetType": duplicate.target_type.value,
+            "targetId": str(duplicate.target_id),
+            "reason": duplicate.reason,
+            "status": duplicate.status.value,
+            "createdAt": to_utc_iso(duplicate.created_at),
+        }
 
     report = Report(
         target_type=target_type,

@@ -21,6 +21,21 @@ from app.models.inquiry import Inquiry, InquiryTier
 from app.models.user import User
 from app.schemas.media import AttachmentCreate, UploadUrlRequest
 from app.services import media_service
+from app.services.rate_limit import rate_limit_or_429
+
+_ALLOWED_CONTENT_TYPES = (
+    "image/",
+    "video/",
+    "application/pdf",
+    "text/plain",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.",
+)
+
+
+def _content_type_allowed(content_type: str) -> bool:
+    ct = content_type.strip().lower()
+    return any(ct.startswith(prefix) for prefix in _ALLOWED_CONTENT_TYPES)
 
 router = APIRouter(prefix="/api/v1")
 
@@ -99,6 +114,12 @@ def create_upload_url(
         raise _NOT_CONFIGURED
 
     user = _get_or_create_user(session, current)
+    rate_limit_or_429("uploads", user.id)
+    if not _content_type_allowed(body.content_type):
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_content_type", "message": "This file type isn't supported."},
+        )
     inquiry = _load_owned_inquiry(session, body.inquiry_id, user)
 
     limits = _TIER_LIMITS[inquiry.tier]

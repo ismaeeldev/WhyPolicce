@@ -920,7 +920,7 @@ class TestReports:
         )
         assert res.status_code == 404
 
-    def test_reporting_same_content_twice_is_allowed(self, client: TestClient):
+    def test_reporting_same_content_twice_does_not_duplicate(self, client: TestClient):
         created = _create_inquiry(client).json()
         first = client.post(
             "/api/v1/reports",
@@ -932,7 +932,8 @@ class TestReports:
         )
         assert first.status_code == 201, first.text
         assert second.status_code == 201, second.text
-        assert first.json()["id"] != second.json()["id"]
+        # Same reporter + same target while still open: the existing report is returned, not duplicated.
+        assert first.json()["id"] == second.json()["id"]
 
 
 class TestPaginationAndSearch:

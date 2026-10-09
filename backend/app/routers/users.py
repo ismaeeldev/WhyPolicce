@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 from app.core.db import get_session
 from app.core.security import AuthenticatedUser, get_current_user
 from app.core.urlutil import normalize_website
+from app.services.rate_limit import rate_limit_or_429
 from app.models.user import Role, User, VerificationStatus
 
 router = APIRouter()
@@ -160,6 +161,7 @@ def become_attorney(
     be wrong.
     """
     user = _get_or_create_user(session, current)
+    rate_limit_or_429("become-attorney", user.id)
 
     if user.role == Role.attorney and user.verification_status == VerificationStatus.approved:
         raise HTTPException(

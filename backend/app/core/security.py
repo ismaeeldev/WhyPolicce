@@ -114,14 +114,20 @@ def verify_token(token: str) -> AuthenticatedUser:
     if rsa_key is None:
         raise AuthError("Signing key not found for this token")
 
+    if not settings.AUTH0_AUDIENCE:
+        # Without an audience any RS256 token from the same Auth0 tenant (issued
+        # for another app/API) would be accepted. Fail closed instead.
+        logging.getLogger(__name__).error("AUTH0_AUDIENCE is not configured; rejecting all tokens")
+        raise AuthError("Authentication is not configured on this server.")
+
     try:
         payload = jwt.decode(
             token,
             rsa_key,
             algorithms=["RS256"],
-            audience=settings.AUTH0_AUDIENCE or None,
+            audience=settings.AUTH0_AUDIENCE,
             issuer=f"https://{settings.AUTH0_DOMAIN}/",
-            options={"verify_aud": bool(settings.AUTH0_AUDIENCE)},
+            options={"verify_aud": True},
         )
     except JOSEError as exc:
         logging.getLogger(__name__).info("token verification failed: %s", exc)
