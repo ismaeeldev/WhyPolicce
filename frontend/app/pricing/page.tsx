@@ -20,12 +20,10 @@ export default function PricingPage() {
   return (
     <div className="px-5 py-14 sm:px-6 sm:py-20">
       <div className="wp-page-intro mx-auto mb-12 max-w-[680px] text-center">
-        <h1 className="font-display text-h1 sm:text-display-lg leading-[1.1] tracking-tight text-text-primary">
-          Plans that work for everyone seeking accountability
-        </h1>
+        <h1 className="font-display text-display-lg leading-[1.05] tracking-tight text-text-primary">Pricing</h1>
         <p className="mx-auto mt-4 max-w-[560px] text-body-lg leading-relaxed text-text-secondary">
-          Citizens post for free and upgrade a single post only when needed. Verified attorneys
-          subscribe to reach active inquiries.
+          Free to post. Upgrade a single inquiry only when it needs more room, or subscribe as a
+          verified attorney to reach active inquiries.
         </p>
       </div>
       <PricingCards />

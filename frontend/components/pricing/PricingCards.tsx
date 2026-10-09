@@ -22,6 +22,7 @@ type Plan = {
   price: string;
   cadence: string;
   blurb: string;
+  badge?: string;
   cta: string;
   href?: string;
   action?: "become-attorney";
@@ -56,9 +57,10 @@ const PLANS: Plan[] = [
       blurb: "More room to explain and more evidence, for that one post.",
       cta: "Start an inquiry",
       href: "/inquiries/new",
+      badge: "Most popular",
       featured: true,
       includes: [
-        "Everything in Free",
+        "Everything in Free, plus:",
         "No 250-character limit",
         "Up to 5 files, 50 MB in total",
         "Pay only for the posts that need it",
@@ -74,6 +76,7 @@ const PLANS: Plan[] = [
       blurb: "Full access to the case feed and direct outreach to citizens who need help.",
       cta: "Apply as an attorney",
       action: "become-attorney",
+      badge: "Verification required",
       
       includes: [
         "Full access to the comprehensive case ledger",
@@ -131,10 +134,17 @@ export function PricingCards() {
           <div
             key={plan.id}
             className={`flex flex-col rounded-2xl bg-bg-elevated p-7 sm:p-8 ${
-              plan.featured ? "border-2 border-accent/60 shadow-card-lg" : "border border-border-default shadow-card"
+              plan.featured ? "border-2 border-accent/60 shadow-card-lg" : "border-2 border-border-default shadow-card"
             }`}
           >
-            <p className="text-caption font-semibold uppercase tracking-wider text-accent">{plan.audience}</p>
+            <div className="flex h-6 items-center justify-between gap-2">
+              <p className="text-caption font-semibold uppercase tracking-wider text-accent">{plan.audience}</p>
+              {plan.badge && (
+                <span className="rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-[11px] font-medium text-accent">
+                  {plan.badge}
+                </span>
+              )}
+            </div>
             <h2 className="mt-1.5 font-display text-h2 text-text-primary">{plan.name}</h2>
             <p className="mt-1.5 min-h-[2.75rem] text-body-sm text-text-secondary leading-relaxed">{plan.blurb}</p>
 
@@ -177,6 +187,11 @@ export function PricingCards() {
           </div>
         ))}
       </div>
+
+      <p className="mx-auto mt-6 max-w-[760px] text-center text-caption text-text-muted">
+        Prices are in US dollars. The $2.99 fee is charged once per inquiry; the attorney subscription is billed
+        monthly after your application is approved.
+      </p>
 
       <div className="mx-auto mt-16 max-w-[1000px]">
         <h2 className="font-display text-h2 text-text-primary text-center">Compare citizen plans</h2>
