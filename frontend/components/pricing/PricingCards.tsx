@@ -11,15 +11,13 @@ import { BecomeAttorneyDialog } from "@/components/account/BecomeAttorneyDialog"
 /**
  * Pricing — two genuinely separate billing shapes, not a tiered account plan:
  * a one-time $2.99 upgrade for a single citizen post, and a recurring
- * $149/month verified-attorney subscription. An audience toggle (like
- * claude.com/pricing's Individual / Team switch) keeps each view to the
+ * $149/month verified-attorney subscription. Shown side by side (like
  * plans that actually apply to the visitor.
  */
 
-type Audience = "citizens" | "attorneys";
-
 type Plan = {
   id: string;
+  audience: string;
   name: string;
   price: string;
   cadence: string;
@@ -31,10 +29,10 @@ type Plan = {
   includes: string[];
 };
 
-const PLANS: Record<Audience, Plan[]> = {
-  citizens: [
+const PLANS: Plan[] = [
     {
       id: "free",
+      audience: "For citizens",
       name: "Free",
       price: "$0",
       cadence: "no time limit",
@@ -51,6 +49,7 @@ const PLANS: Record<Audience, Plan[]> = {
     },
     {
       id: "upgrade",
+      audience: "For citizens",
       name: "Full post",
       price: "$2.99",
       cadence: "one-time, per inquiry",
@@ -66,17 +65,16 @@ const PLANS: Record<Audience, Plan[]> = {
         "Upgrade from the post itself, any time",
       ],
     },
-  ],
-  attorneys: [
     {
       id: "attorney",
+      audience: "For attorneys",
       name: "Verified attorney",
       price: "$149",
       cadence: "per month",
       blurb: "Full access to the case feed and direct outreach to citizens who need help.",
       cta: "Apply as an attorney",
       action: "become-attorney",
-      featured: true,
+      
       includes: [
         "Full access to the comprehensive case ledger",
         "Send formal consultation requests on active inquiries",
@@ -85,8 +83,7 @@ const PLANS: Record<Audience, Plan[]> = {
         "Subject to bar number and jurisdiction review",
       ],
     },
-  ],
-};
+];
 
 const COMPARISON: { feature: string; free: string | boolean; full: string | boolean }[] = [
   { feature: "Post length", free: "250 characters", full: "Unlimited" },
@@ -105,10 +102,9 @@ function Cell({ value }: { value: string | boolean }) {
 
 export function PricingCards() {
   const { user, isLoading } = useUser();
-  const [audience, setAudience] = useState<Audience>("citizens");
   const [attorneyDialogOpen, setAttorneyDialogOpen] = useState(false);
   const router = useRouter();
-  const plans = PLANS[audience];
+  const plans = PLANS;
 
   const ctaClass = (featured?: boolean) =>
     `mt-6 block w-full rounded-lg px-4 py-3 text-center text-body-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -118,36 +114,8 @@ export function PricingCards() {
     }`;
 
   return (
-    <div className="mx-auto w-full max-w-[1000px]">
-      <div className="flex justify-center">
-        <div
-          role="tablist"
-          aria-label="Who is this for?"
-          className="inline-flex rounded-full border border-border-default bg-bg-subtle p-1"
-        >
-          {(["citizens", "attorneys"] as const).map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={audience === key}
-              onClick={() => setAudience(key)}
-              className={`rounded-full px-5 py-2 text-body-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-accent outline-none ${
-                audience === key
-                  ? "bg-bg-elevated text-text-primary shadow-card"
-                  : "text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              {key === "citizens" ? "For citizens" : "For attorneys"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div
-        role="tabpanel"
-        className={`mt-10 grid gap-6 ${plans.length > 1 ? "md:grid-cols-2" : "max-w-[480px] mx-auto"}`}
-      >
+    <div className="mx-auto w-full max-w-[1120px]">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => (
           <div
             key={plan.id}
@@ -155,7 +123,8 @@ export function PricingCards() {
               plan.featured ? "border-2 border-accent/60 shadow-card-lg" : "border border-border-default shadow-card"
             }`}
           >
-            <h2 className="font-display text-h2 text-text-primary">{plan.name}</h2>
+            <p className="text-caption font-semibold uppercase tracking-wider text-accent">{plan.audience}</p>
+            <h2 className="mt-1.5 font-display text-h2 text-text-primary">{plan.name}</h2>
             <p className="mt-1.5 min-h-[2.75rem] text-body-sm text-text-secondary leading-relaxed">{plan.blurb}</p>
 
             <div className="mt-5 flex items-baseline gap-2">
@@ -198,8 +167,8 @@ export function PricingCards() {
         ))}
       </div>
 
-      {audience === "citizens" && (
-        <div className="mt-16">
+      {(
+        <div className="mx-auto mt-16 max-w-[1000px]">
           <h2 className="font-display text-h2 text-text-primary text-center">Compare citizen plans</h2>
           <div className="mt-6 overflow-x-auto rounded-xl border border-border-default bg-bg-elevated">
             <table className="w-full min-w-[460px] border-collapse text-left text-body-sm">

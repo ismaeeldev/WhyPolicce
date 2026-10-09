@@ -12,9 +12,8 @@ export default function PricingLoading() {
         <Skeleton className="h-10 w-3/4 mx-auto" />
         <Skeleton className="h-5 w-1/2 mx-auto" />
       </div>
-      <div className="mx-auto mb-10 h-11 w-64 animate-pulse rounded-full bg-bg-subtle" />
-      <div className="grid gap-6 md:grid-cols-2 max-w-[1000px] mx-auto">
-        {[0, 1].map((i) => (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-[1120px] mx-auto">
+        {[0, 1, 2].map((i) => (
           <div
             key={i}
             className="rounded-lg border border-border-default bg-bg-elevated p-6 sm:p-8"
