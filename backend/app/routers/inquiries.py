@@ -18,6 +18,7 @@ from app.core.config import settings
 from app.core.db import get_session
 from app.core.security import AuthenticatedUser, get_current_user, get_optional_user
 from app.core.timeutil import to_utc_iso
+from app.core.urlutil import normalize_website
 from app.models.attorney_request import AttorneyRequest, AttorneyRequestStatus
 from app.models.evidence_attachment import EvidenceAttachment
 from app.models.inquiry import Inquiry, InquiryTier, StatusTag, ThreadComment
@@ -332,7 +333,7 @@ def list_verified_attorneys(
                 "firstName": u.legal_first_name or "",
                 "lastName": u.legal_last_name or "",
                 "barJurisdiction": u.bar_jurisdiction,
-                "firmWebsite": u.firm_website,
+                "firmWebsite": normalize_website(u.firm_website),
             }
             for u in rows
         ]
@@ -398,12 +399,15 @@ def list_inquiries(
     if status:
         statement = statement.where(Inquiry.status_tag == status)
     if q:
-        like = f"%{q.strip()}%"
+        # Escape LIKE metacharacters so user input is matched literally (a bare
+        # "%" or "_" would otherwise turn every search into a full scan/match-all).
+        escaped = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        like = f"%{escaped}%"
         statement = statement.where(
-            (Inquiry.title.ilike(like))
-            | (Inquiry.description.ilike(like))
-            | (Inquiry.city.ilike(like))
-            | (Inquiry.precinct.ilike(like))
+            (Inquiry.title.ilike(like, escape="\\"))
+            | (Inquiry.description.ilike(like, escape="\\"))
+            | (Inquiry.city.ilike(like, escape="\\"))
+            | (Inquiry.precinct.ilike(like, escape="\\"))
         )
 
     # id as a stable secondary sort on both branches — without it, ties
@@ -825,13 +829,18 @@ def get_thread(
     docstring) — comments are part of the same "citizen incident record"
     an inquiry's own detail exposes, so a pending/rejected attorney is
     blocked from this exactly like get_inquiry()."""
+    viewer = None
     if current:
-        _block_if_unverified_attorney(_get_or_create_user(session, current))
+        viewer = _get_or_create_user(session, current)
+        _block_if_unverified_attorney(viewer)
     not_found = HTTPException(
         status_code=404, detail={"error": "not_found", "message": "Inquiry not found."}
     )
     inquiry = session.get(Inquiry, _parse_uuid(inquiry_id, not_found))
     if inquiry is None:
+        raise not_found
+    # Same rule as get_inquiry: an unpaid draft doesn't exist for anyone but its author.
+    if inquiry.tier == InquiryTier.pending_payment and (viewer is None or inquiry.author_id != viewer.id):
         raise not_found
 
     total = session.exec(

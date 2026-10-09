@@ -58,7 +58,12 @@ export default function SearchPage() {
     // effect is for — same pattern as SignupContent.tsx's sessionStorage
     // read (Step 8's actual real fix for the hydration mismatch, see
     // this state's own docstring above).
-    const stored = localStorage.getItem(SELECTED_STATE_KEY);
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(SELECTED_STATE_KEY);
+    } catch {
+      // storage blocked (private mode) — fall back to no saved state
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored) setSelectedStateRaw(stored);
   }, []);

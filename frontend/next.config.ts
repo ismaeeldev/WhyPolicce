@@ -1,6 +1,23 @@
 import type { NextConfig } from "next";
 
+// Baseline security headers for every route. A Content-Security-Policy is
+// deliberately not set here: Auth0, Stripe and signed cloud-storage uploads
+// need a per-environment allow-list that should be tuned against the real
+// deployment rather than guessed.
+const SECURITY_HEADERS = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+  },
+
   // Standalone output — AgentGuide/00_SCOPE.md §3 point 11 / Step 9. Produces
   // a minimal self-contained server (.next/standalone/server.js) with only
   // the deps actually used, which is what frontend/Dockerfile's runner stage

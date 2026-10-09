@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+
+import { safeReturnTo } from "@/lib/safe-url";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -7,6 +9,7 @@ import { AuthPageShell } from "@/components/auth/AuthPageShell";
 export const metadata: Metadata = {
   title: "Log in — WhyPolice",
   description: "Log in to WhyPolice to post, follow, and reply on the forum.",
+  robots: { index: false, follow: true },
   openGraph: {
     title: "Log in — WhyPolice",
     description: "Log in to WhyPolice to post, follow, and reply on the forum.",
@@ -24,8 +27,9 @@ export const metadata: Metadata = {
  * rest of the app has, instead of a static, empty-feeling card.
  */
 function LoginContent({ returnTo }: { returnTo?: string }) {
-  const loginHref = returnTo
-    ? `/auth/login?returnTo=${encodeURIComponent(returnTo)}`
+  const safeTarget = safeReturnTo(returnTo);
+  const loginHref = safeTarget
+    ? `/auth/login?returnTo=${encodeURIComponent(safeTarget)}`
     : "/auth/login";
 
   return (

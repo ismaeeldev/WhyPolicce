@@ -253,6 +253,11 @@ def create_inquiry_upgrade_checkout(
             status_code=403,
             detail={"error": "forbidden", "message": "You can only upgrade your own inquiries."},
         )
+    if inquiry.tier == InquiryTier.expanded:
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "already_upgraded", "message": "This inquiry is already upgraded."},
+        )
 
     if not settings.FORUM_STRIPE_SECRET_KEY or not settings.FORUM_STRIPE_INQUIRY_UPGRADE_PRICE_ID:
         raise _NOT_CONFIGURED

@@ -120,7 +120,11 @@ export function SearchBar({
 
     if (!user) {
       trackEvent("search_submitted_logged_out", { queryLength: query.length });
-      sessionStorage.setItem(PENDING_QUERY_KEY, query);
+      try {
+        sessionStorage.setItem(PENDING_QUERY_KEY, query);
+      } catch {
+        // storage blocked (private mode / quota) — the redirect must still happen
+      }
       router.push("/signup");
       return;
     }
@@ -133,7 +137,11 @@ export function SearchBar({
     // Logged-in on the public landing page — preserve query and route to
     // /search, same pattern as the logged-out → /signup handoff.
     trackEvent("search_submitted_logged_in_redirect", { queryLength: query.length });
-    sessionStorage.setItem(PENDING_QUERY_KEY, query);
+    try {
+      sessionStorage.setItem(PENDING_QUERY_KEY, query);
+    } catch {
+      // storage blocked — continue without the preserved query
+    }
     router.push("/search");
   };
 

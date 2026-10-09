@@ -41,7 +41,12 @@ export function HeroContent() {
   // on the /search page for this identical case).
   const [selectedState, setSelectedStateRaw] = useState<string | null>(null);
   useEffect(() => {
-    const stored = localStorage.getItem(SELECTED_STATE_KEY);
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(SELECTED_STATE_KEY);
+    } catch {
+      // storage blocked (private mode) — fall back to no saved state
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored) setSelectedStateRaw(stored);
   }, []);

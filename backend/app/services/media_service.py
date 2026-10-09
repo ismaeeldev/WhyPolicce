@@ -73,6 +73,15 @@ def generate_upload_url(*, inquiry_id: uuid.UUID, file_type: str, content_type: 
     return signed_url, public_url
 
 
+def url_belongs_to_inquiry(file_url: str, file_type: str, inquiry_id) -> bool:
+    """True only for URLs that create_upload_url minted for THIS inquiry and
+    file type (evidence/{file_type}/{inquiry_id}/{uuid}). Without this, a user
+    could register another inquiry's public file URL as their own attachment and
+    later delete it, destroying the original owner's evidence."""
+    prefix = f"https://storage.googleapis.com/{settings.GCS_BUCKET_NAME}/evidence/{file_type}/{inquiry_id}/"
+    return file_url.startswith(prefix)
+
+
 def blob_exists_for_bucket(file_url: str) -> bool:
     """A real GCS existence check, not a client-side promise — the
     attachments-registration endpoint calls this to confirm the file was

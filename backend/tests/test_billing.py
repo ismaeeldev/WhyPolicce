@@ -78,13 +78,15 @@ class TestCreateCheckoutSession:
 
 
 class TestStripeWebhook:
-    def test_accepts_payload_without_webhook_secret(self, client: TestClient):
+    def test_rejects_unsigned_payload_when_webhook_secret_not_configured(self, client: TestClient):
+        """Fail closed: with no signing secret, an unsigned event must NOT be
+        processed (it would let anyone grant themselves a paid tier)."""
         res = client.post(
             "/api/billing/webhook",
-            json={"type": "checkout.session.completed", "data": {"object": {}}},
+            json={"type": "checkout.session.completed", "data": {"object": {"client_reference_id": "x"}}},
         )
-        assert res.status_code == 200
-        assert res.json() == {"received": True}
+        assert res.status_code == 501
+        assert res.json()["error"] == "not_configured"
 
     def test_rejects_invalid_signature_when_secret_configured(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -134,8 +136,8 @@ class TestStripeWebhook:
             content=b"not-json",
             headers={"content-type": "application/json"},
         )
-        assert res.status_code == 400
-        assert res.json()["error"] == "invalid_payload"
+        assert res.status_code == 501
+        assert res.json()["error"] == "not_configured"
 
 
 class TestBillingAuthBoundary:
@@ -146,7 +148,8 @@ class TestBillingAuthBoundary:
                 "/api/billing/webhook",
                 json={"type": "ping"},
             )
-        assert res.status_code == 200
+        # Reaches the handler without a Bearer token (not 401); refuses because no secret is set.
+        assert res.status_code == 501
 
     def test_checkout_requires_jwt_even_when_stripe_configured(
         self, monkeypatch: pytest.MonkeyPatch
@@ -159,8 +162,21 @@ class TestBillingAuthBoundary:
         assert res.status_code == 401
 
 
+
+@pytest.fixture
+def signed_webhook(monkeypatch: pytest.MonkeyPatch):
+    """Makes the webhook treat any posted JSON body as a signature-verified event."""
+    import json as _json
+
+    monkeypatch.setattr("app.routers.billing.settings.STRIPE_WEBHOOK_SECRET", "whsec_test")
+    monkeypatch.setattr(
+        "app.routers.billing.stripe.Webhook.construct_event",
+        lambda payload, sig, secret: _json.loads(payload),
+    )
+
+
 class TestStripeWebhookTierUpdates:
-    def test_checkout_completed_upgrades_user(self, client: TestClient, session):
+    def test_checkout_completed_upgrades_user(self, client: TestClient, session, signed_webhook):
         user = User(auth0_sub="auth0|stripe-upgrade", email="stripe@test.example", tier=Tier.free)
         session.add(user)
         session.commit()
@@ -182,7 +198,7 @@ class TestStripeWebhookTierUpdates:
         assert user.tier == Tier.pro
         assert user.stripe_customer_id == "cus_test_123"
 
-    def test_subscription_deleted_downgrades_user(self, client: TestClient, session):
+    def test_subscription_deleted_downgrades_user(self, client: TestClient, session, signed_webhook):
         user = User(
             auth0_sub="auth0|stripe-downgrade",
             email="downgrade@test.example",

@@ -83,3 +83,7 @@ def pro_user(session):
     session.commit()
     session.refresh(user)
     return user
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "real_binding: exercise the real attachment-URL binding check")

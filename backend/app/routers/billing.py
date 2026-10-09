@@ -195,16 +195,13 @@ async def stripe_webhook(
                 detail={"error": "invalid_signature", "message": "Invalid webhook signature."},
             ) from exc
     else:
-        # No signing secret configured yet — accept unverified in dev only,
-        # loudly logged so this is never silently insecure in production.
-        logger.warning("Stripe webhook received with no STRIPE_WEBHOOK_SECRET configured — signature NOT verified.")
-        try:
-            event = json.loads(payload)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=400,
-                detail={"error": "invalid_payload", "message": "Malformed webhook payload."},
-            ) from exc
+        # Fail closed: an unsigned event would let anyone POST a fake
+        # checkout.session.completed and grant themselves a paid tier.
+        logger.warning("Stripe webhook rejected: STRIPE_WEBHOOK_SECRET is not configured.")
+        raise HTTPException(
+            status_code=501,
+            detail={"error": "not_configured", "message": "Billing webhooks are not configured."},
+        )
 
     event_type = _event_type(event)
 

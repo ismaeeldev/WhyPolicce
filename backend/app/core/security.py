@@ -1,3 +1,4 @@
+import logging
 """Auth0 JWT verification — AgentGuide/03_MasterPromptGuide.md Step 4.
 
 Verifies the signature (against Auth0's published JWKS for AUTH0_DOMAIN),
@@ -123,7 +124,8 @@ def verify_token(token: str) -> AuthenticatedUser:
             options={"verify_aud": bool(settings.AUTH0_AUDIENCE)},
         )
     except JOSEError as exc:
-        raise AuthError(f"Token verification failed: {exc}") from exc
+        logging.getLogger(__name__).info("token verification failed: %s", exc)
+        raise AuthError("Token verification failed.") from exc
 
     sub = payload.get("sub")
     if not sub:

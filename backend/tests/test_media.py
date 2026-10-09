@@ -13,6 +13,8 @@ every real code path that doesn't depend on a live bucket.
 import uuid
 from unittest.mock import patch
 
+import pytest
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -427,3 +429,37 @@ class TestDeleteAttachment:
         res = client.delete(f"/api/v1/inquiries/{created['id']}/attachments/{uuid.uuid4()}")
         assert res.status_code == 501
         assert res.json()["error"] == "not_implemented"
+
+
+@pytest.fixture(autouse=True)
+def _bind_check_off_unless_requested(request, monkeypatch):
+    """Most tests here register made-up URLs; they test other rules. Tests marked
+    `real_binding` exercise the real url_belongs_to_inquiry check."""
+    if request.node.get_closest_marker("real_binding") is None:
+        monkeypatch.setattr("app.routers.media.media_service.url_belongs_to_inquiry", lambda *a, **k: True)
+
+
+class TestAttachmentUrlBinding:
+    @pytest.mark.real_binding
+    def test_helper_accepts_only_urls_for_this_inquiry_and_type(self, monkeypatch):
+        from app.services import media_service
+
+        monkeypatch.setattr("app.services.media_service.settings.GCS_BUCKET_NAME", "bkt")
+        iid = uuid.uuid4()
+        good = f"https://storage.googleapis.com/bkt/evidence/image/{iid}/abc"
+        assert media_service.url_belongs_to_inquiry(good, "image", iid)
+        assert not media_service.url_belongs_to_inquiry(good, "video", iid)
+        assert not media_service.url_belongs_to_inquiry(good, "image", uuid.uuid4())
+        assert not media_service.url_belongs_to_inquiry("https://evil.example/x", "image", iid)
+
+    @pytest.mark.real_binding
+    def test_registering_another_inquirys_file_is_rejected(self, client: TestClient, monkeypatch):
+        monkeypatch.setattr("app.services.media_service.settings.GCS_BUCKET_NAME", "bkt")
+        created = _create_inquiry(client).json()
+        other = uuid.uuid4()
+        with patch("app.routers.media.media_service.is_configured", return_value=True):
+            res = client.post(
+                f"/api/v1/inquiries/{created['id']}/attachments",
+                json={"file_url": f"https://storage.googleapis.com/bkt/evidence/image/{other}/stolen", "file_type": "image", "size_bytes": 10},
+            )
+        assert res.status_code == 422 and res.json()["error"] == "invalid_file_url"

@@ -6,6 +6,7 @@ import { SignupContent } from "@/components/auth/SignupContent";
 export const metadata: Metadata = {
   title: "Sign up — WhyPolice",
   description: "Create a free WhyPolice account to post, follow, and reply on the forum.",
+  robots: { index: false, follow: true },
   openGraph: {
     title: "Sign up — WhyPolice",
     description: "Create a free WhyPolice account to post, follow, and reply on the forum.",

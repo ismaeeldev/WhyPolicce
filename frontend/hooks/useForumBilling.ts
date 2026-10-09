@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRef } from "react";
 
 import { ApiError, apiFetch } from "@/lib/api-client";
+import { isHttpsUrl } from "@/lib/safe-url";
 import { useToastStore } from "@/stores/useToastStore";
 
 /**
@@ -46,6 +47,7 @@ export function useInquiryUpgradeCheckout() {
         body: JSON.stringify({ inquiry_id: inquiryId }),
       }),
     onSuccess: ({ checkoutUrl }) => {
+      if (!isHttpsUrl(checkoutUrl)) throw new Error("Unexpected checkout URL");
       window.location.href = checkoutUrl;
     },
     onError: (error) => {
@@ -87,6 +89,7 @@ export function useInquiryPublishCheckout() {
         body: JSON.stringify({ inquiry_id: inquiryId }),
       }),
     onSuccess: ({ checkoutUrl }) => {
+      if (!isHttpsUrl(checkoutUrl)) throw new Error("Unexpected checkout URL");
       window.location.href = checkoutUrl;
     },
     onError: (error) => {
@@ -117,6 +120,7 @@ export function useAttorneySubscriptionCheckout() {
         method: "POST",
       }),
     onSuccess: ({ checkoutUrl }) => {
+      if (!isHttpsUrl(checkoutUrl)) throw new Error("Unexpected checkout URL");
       window.location.href = checkoutUrl;
     },
     onError: (error) => {

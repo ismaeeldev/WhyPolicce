@@ -147,6 +147,20 @@ def register_attachment(
     # face value. A fabricated URL that was never actually issued a
     # signed PUT for this bucket has no real blob behind it and is
     # rejected here, not silently registered as a real attachment.
+    if not media_service.url_belongs_to_inquiry(body.file_url, body.file_type.value, inquiry.id):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "invalid_file_url",
+                "message": "This file wasn't uploaded for this inquiry.",
+            },
+        )
+    if session.exec(select(EvidenceAttachment.id).where(EvidenceAttachment.file_url == body.file_url)).first():
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "already_registered", "message": "This file is already attached."},
+        )
+
     if not media_service.blob_exists_for_bucket(body.file_url):
         raise HTTPException(
             status_code=422,

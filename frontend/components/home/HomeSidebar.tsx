@@ -4,12 +4,14 @@ import { CheckCircle2, Globe, MapPin, Shield, Star } from "lucide-react";
 import Link from "next/link";
 
 import { useInquiryStats } from "@/hooks/useInquiries";
+import { displayHost, safeExternalUrl } from "@/lib/safe-url";
 import { attorneyDisplayName, attorneyInitials, useVerifiedAttorneys } from "@/hooks/useVerifiedAttorneys";
 
 export function HomeSidebar() {
   const { data: stats } = useInquiryStats();
   const { data: attorneys, isLoading } = useVerifiedAttorneys(1);
   const spotlight = attorneys?.[0];
+  const website = safeExternalUrl(spotlight?.firmWebsite);
 
   const total = stats?.totalRecords ?? 0;
   const pct = (n: number | undefined) => (total > 0 && n !== undefined ? Math.round((n / total) * 100) : 0);
@@ -68,16 +70,16 @@ export function HomeSidebar() {
                   <span className="font-mono text-text-primary">Licensed in {spotlight.barJurisdiction}</span>
                 </div>
               )}
-              {spotlight.firmWebsite && (
+              {website && (
                 <div className="flex items-center gap-2 min-w-0">
                   <Globe className="h-3 w-3 shrink-0 text-text-muted" />
                   <a
-                    href={spotlight.firmWebsite}
+                    href={website}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
                     className="font-mono text-text-muted hover:text-accent truncate transition-colors"
                   >
-                    {spotlight.firmWebsite.replace(/^https?:\/\/(www\.)?/, "")}
+                    {displayHost(website)}
                   </a>
                 </div>
               )}

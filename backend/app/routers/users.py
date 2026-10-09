@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 
 from app.core.db import get_session
 from app.core.security import AuthenticatedUser, get_current_user
+from app.core.urlutil import normalize_website
 from app.models.user import Role, User, VerificationStatus
 
 router = APIRouter()
@@ -207,7 +208,15 @@ def become_attorney(
     # real firm can legitimately use a different domain for email vs.
     # website (e.g. a vanity marketing domain), so rejecting outright
     # would block legitimate applicants over a non-fatal inconsistency.
-    firm_website = body.firm_website.strip() if body.firm_website else None
+    firm_website = normalize_website(body.firm_website)
+    if body.firm_website and body.firm_website.strip() and firm_website is None:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_website",
+                "message": "Enter a valid website address, like yourfirm.com.",
+            },
+        )
     domain_mismatch_warning: str | None = None
     if firm_website:
         website_domain = urlparse(

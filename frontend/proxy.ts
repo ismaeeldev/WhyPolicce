@@ -46,6 +46,12 @@ const PROTECTED_PREFIXES = [
 ];
 
 export async function proxy(request: NextRequest) {
+  // Internal QA fixtures (app/dev/*) must not exist in production: answer with
+  // a real 404 rather than the empty shell the route layout would render.
+  if (process.env.NODE_ENV === "production" && request.nextUrl.pathname.startsWith("/dev")) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
   const authResponse = await auth0.middleware(request);
 
   // Let the SDK's own /auth/* routes (login, logout, callback, profile) through untouched.
@@ -53,15 +59,17 @@ export async function proxy(request: NextRequest) {
     return authResponse;
   }
 
-  const isProtected = PROTECTED_PREFIXES.some((prefix) =>
-    request.nextUrl.pathname.startsWith(prefix),
+  // Match on a path-segment boundary so "/searchfoo" is not treated as "/search".
+  const isProtected = PROTECTED_PREFIXES.some(
+    (prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`),
   );
 
   if (isProtected) {
     const session = await auth0.getSession(request);
     if (!session) {
       const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("returnTo", request.nextUrl.pathname);
+      // Keep the query string so deep links survive the login round-trip.
+      loginUrl.searchParams.set("returnTo", request.nextUrl.pathname + request.nextUrl.search);
       return NextResponse.redirect(loginUrl);
     }
   }
