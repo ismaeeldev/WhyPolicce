@@ -259,12 +259,35 @@ export default function NewInquiryPage() {
   // the id the backend just returned; on any failure here the pending
   // row still exists (visible only to its author via My Inquiries) so
   // nothing is lost, they can just retry from the modal again.
+  // A pending_payment draft that was already created for this exact form
+  // content; a retry (failed checkout, double-click) reuses it instead of
+  // creating a second unpaid row.
+  const payLockRef = useRef(false);
+  const pendingDraftRef = useRef<{ id: string; signature: string } | null>(null);
+
   const handlePayToPublish = () => {
-    if (!user) return;
+    if (payLockRef.current) return;
+    if (!user) {
+      // Same deferred sign-up path as the normal Publish click: cache the
+      // draft and send them to log in, never a silent no-op.
+      saveDraft({ title, description, state, city, precinct, isAnonymous, savedAt: Date.now() });
+      router.push(`/login?returnTo=${encodeURIComponent("/inquiries/new")}`);
+      return;
+    }
     const errors = validate();
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
     setSubmitError(null);
+
+    const signature = JSON.stringify([title.trim(), description.trim(), state, city.trim(), precinct.trim(), isAnonymous]);
+    payLockRef.current = true;
+    const existing = pendingDraftRef.current;
+    if (existing && existing.signature === signature) {
+      clearDraft();
+      publishCheckout.mutate(existing.id);
+      payLockRef.current = false;
+      return;
+    }
     createInquiry.mutate(
       {
         title: title.trim(),
@@ -277,10 +300,13 @@ export default function NewInquiryPage() {
       },
       {
         onSuccess: (created) => {
+          pendingDraftRef.current = { id: created.id, signature };
           clearDraft();
           publishCheckout.mutate(created.id);
+          payLockRef.current = false;
         },
         onError: (err) => {
+          payLockRef.current = false;
           setSubmitError(
             err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
           );

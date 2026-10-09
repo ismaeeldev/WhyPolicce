@@ -20,6 +20,7 @@ from sqlmodel import Session, select
 from app.core.db import sync_engine
 from app.models.evidence_attachment import EvidenceAttachment
 from app.services import media_service
+from app.services.pending_cleanup import purge_abandoned_pending_inquiries
 from app.services.ingestion.nyc_socrata import sync_all_nyc
 from app.services.ingestion.phase1_cities import sync_all_phase1_cities
 from app.services.ingestion.phase2_cities import sync_all_phase2_cities
@@ -94,6 +95,8 @@ SYNC_INTERVAL_HOURS = 24 * 7
 # or interfere with the other.
 _ORPHAN_CLEANUP_LOCK_ID = 728194636
 ORPHAN_CLEANUP_INTERVAL_HOURS = 24
+_PENDING_CLEANUP_LOCK_ID = 728194637
+PENDING_CLEANUP_INTERVAL_HOURS = 1
 # A blob must be older than this before it's even considered for
 # deletion — the real, load-bearing safety margin against deleting a
 # file that's genuinely mid-upload-flow (GCS PUT succeeded, register-
@@ -495,6 +498,25 @@ async def _run_orphan_evidence_cleanup() -> None:
             session.exec(text(f"SELECT pg_advisory_unlock({_ORPHAN_CLEANUP_LOCK_ID})"))
 
 
+async def _run_pending_draft_cleanup() -> None:
+    """Hourly: remove unpaid pay-to-publish drafts past their expiry
+    (see app/services/pending_cleanup.py). Advisory-locked so only one
+    worker runs it at a time."""
+    if sync_engine is None:
+        return
+    with sync_engine.connect() as connection, Session(bind=connection) as session:
+        lock_row = session.exec(text(f"SELECT pg_try_advisory_lock({_PENDING_CLEANUP_LOCK_ID})")).first()
+        if not (lock_row and lock_row[0]):
+            return
+        try:
+            purge_abandoned_pending_inquiries(session)
+        except Exception:
+            session.rollback()
+            logger.exception("scheduler: pending draft cleanup failed")
+        finally:
+            session.exec(text(f"SELECT pg_advisory_unlock({_PENDING_CLEANUP_LOCK_ID})"))
+
+
 def start_scheduler() -> AsyncIOScheduler | None:
     """Starts the background scheduler. Returns None (and logs, doesn't
     raise) if DATABASE_URL isn't configured — matches this project's
@@ -533,6 +555,13 @@ def start_scheduler() -> AsyncIOScheduler | None:
         hours=ORPHAN_CLEANUP_INTERVAL_HOURS,
         id="orphan_evidence_cleanup",
         next_run_time=orphan_cleanup_start_time,
+    )
+    scheduler.add_job(
+        _run_pending_draft_cleanup,
+        "interval",
+        hours=PENDING_CLEANUP_INTERVAL_HOURS,
+        id="pending_draft_cleanup",
+        next_run_time=datetime.now() + timedelta(hours=PENDING_CLEANUP_INTERVAL_HOURS),
     )
     scheduler.start()
     _scheduler = scheduler
