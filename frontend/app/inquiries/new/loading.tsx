@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Route-level fallback so /inquiries/new doesn't inherit the home-page
-// skeleton from app/loading.tsx.
+// skeleton from app/(feed)/loading.tsx.
 export default function NewInquiryLoading() {
   return (
     <div className="mx-auto w-full max-w-[760px] px-5 sm:px-6 py-12 sm:py-16 space-y-5">

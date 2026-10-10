@@ -4,7 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
  * Inquiry thread skeleton. Shared by app/inquiries/[id]/loading.tsx (route
  * level) and the page's own data-loading state so both stages render the
  * exact same placeholder — otherwise Next falls back to the root
- * app/loading.tsx (the home-page skeleton) first, then this one swaps in.
+ * the root loading fallback first, then this one swaps in. (The home skeleton now
+ * lives in app/(feed)/loading.tsx, so it can never appear on another route.)
  * Sized close to the real layout, including comment-row placeholders, so
  * the final swap doesn't shift the page.
  */
