@@ -254,6 +254,7 @@ export function Navbar() {
                 <ThemeToggle />
               </div>
               <SheetClose
+                nativeButton={false}
                 render={
                   <Link
                     href="/inquiries/new"
@@ -274,6 +275,7 @@ export function Navbar() {
                 const isActive = !hrefIsAmbiguous && pathname === link.href;
                 return (
                   <SheetClose
+                    nativeButton={false}
                     key={link.key}
                     render={
                       <Link
@@ -300,6 +302,7 @@ export function Navbar() {
                       desktop dropdown's own M2.0 change — see that comment
                       above for why. */}
                   <SheetClose
+                    nativeButton={false}
                     render={
                       <Link
                         href="/account"
@@ -312,6 +315,7 @@ export function Navbar() {
                     </span>
                   </SheetClose>
                   <SheetClose
+                    nativeButton={false}
                     render={
                       <Link
                         href="/account/my-inquiries"
@@ -325,6 +329,7 @@ export function Navbar() {
                   </SheetClose>
                   {isApprovedAttorney && (
                     <SheetClose
+                      nativeButton={false}
                       render={
                         <Link
                           href="/attorneys/dashboard"
@@ -339,6 +344,7 @@ export function Navbar() {
                   )}
                   {adminMe?.isAdmin && (
                     <SheetClose
+                      nativeButton={false}
                       render={
                         <Link
                           href="/admin"
@@ -352,6 +358,7 @@ export function Navbar() {
                     </SheetClose>
                   )}
                   <SheetClose
+                    nativeButton={false}
                     render={
                       <a
                         href="/auth/logout"
@@ -367,6 +374,7 @@ export function Navbar() {
               ) : (
                 <div className="mt-2 flex flex-col gap-2">
                   <SheetClose
+                    nativeButton={false}
                     render={
                       <Link
                         href="/login"
@@ -379,6 +387,7 @@ export function Navbar() {
                     </span>
                   </SheetClose>
                   <SheetClose
+                    nativeButton={false}
                     render={
                       <Link
                         href="/signup"
